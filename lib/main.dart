@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 
 import 'login/login_page.dart';
+import 'login/pet_owner_auth_api.dart';
+import 'pet_owner/pet_owner_home_page.dart';
 
 void main() {
   runApp(const NwayLoveVetClinicApp());
 }
 
 class NwayLoveVetClinicApp extends StatelessWidget {
-  const NwayLoveVetClinicApp({super.key});
+  const NwayLoveVetClinicApp({
+    this.authApi = const PetOwnerAuthApi(),
+    super.key,
+  });
+
+  final PetOwnerAuthApi authApi;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +31,11 @@ class NwayLoveVetClinicApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: const LoginPage(),
+      initialRoute: LoginPage.routeName,
+      routes: {
+        LoginPage.routeName: (context) => LoginPage(authApi: authApi),
+        PetOwnerHomePage.routeName: (context) => const PetOwnerHomePage(),
+      },
     );
   }
 }

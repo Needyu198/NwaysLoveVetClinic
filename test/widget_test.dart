@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:senior_project/login/pet_owner_auth_api.dart';
 import 'package:senior_project/main.dart';
 
 void main() {
@@ -43,6 +44,30 @@ void main() {
     expect(find.text('Enter your Email or Username'), findsOneWidget);
   });
 
+  testWidgets('sign in opens pet owner home', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const NwayLoveVetClinicApp(authApi: _SuccessfulPetOwnerAuthApi()),
+    );
+
+    await tester.tap(find.text('Log in'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-field')),
+      'Lynn198',
+    );
+    await tester.enterText(find.byType(TextField).last, '123456');
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('My Pets'), findsWidgets);
+    expect(find.text('Reminders'), findsOneWidget);
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -450));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Appointments'), findsOneWidget);
+  });
+
   testWidgets('login screen fits common phone sizes', (
     WidgetTester tester,
   ) async {
@@ -69,4 +94,16 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
+}
+
+class _SuccessfulPetOwnerAuthApi extends PetOwnerAuthApi {
+  const _SuccessfulPetOwnerAuthApi();
+
+  @override
+  Future<PetOwnerLoginResult> login({
+    required String username,
+    required String password,
+  }) async {
+    return const PetOwnerLoginResult.success();
+  }
 }

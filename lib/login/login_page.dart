@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
 
+import '../pet_owner/pet_owner_home_page.dart';
+import 'pet_owner_auth_api.dart';
+
 class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
+  const LoginPage({this.authApi = const PetOwnerAuthApi(), super.key});
+
+  final PetOwnerAuthApi authApi;
+
+  static const String routeName = '/login';
 
   static const Color backgroundColor = Color(0xFFF6F8F7);
   static const Color accentColor = Color(0xFFA1FDD8);
   static const Color textColor = Color(0xFF000000);
 
   static const String logoAsset =
-      "assets/photos/logoandphoto/Nway'sLoveLogo.png";
-  static const String dogAsset = "assets/photos/logoandphoto/login_dog.png";
-  static const String petsAsset = "assets/photos/logoandphoto/Nwaysphoto04.png";
+      "assets/photos/logoandphoto/nways_love_logo.png";
+  static const String dogAsset = "assets/photos/logoandphoto/nways_photo.png";
+  static const String dogFallbackAsset =
+      "assets/photos/logoandphoto/nways_photo.png";
+  static const String petsAsset = "assets/photos/logoandphoto/nways_pets.png";
 
   static const double designWidth = 440;
   static const double designHeight = 956;
@@ -38,18 +47,27 @@ class LoginPage extends StatelessWidget {
                   child: Image.asset(logoAsset, fit: BoxFit.contain),
                 ),
                 Positioned(
-                  left: 18 * scaleX,
-                  top: 286 * scaleY,
-                  width: 460 * scaleX,
-                  height: 902 * scaleY,
-                  child: Image.asset(dogAsset, fit: BoxFit.contain),
+                  left: 34 * scaleX,
+                  top: 294 * scaleY,
+                  width: 458 * scaleX,
+                  height: 898 * scaleY,
+                  child: Image.asset(
+                    dogAsset,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Image.asset(
+                      dogFallbackAsset,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const SizedBox.shrink(),
+                    ),
+                  ),
                 ),
                 Positioned(
                   left: 37 * scaleX,
                   right: 37 * scaleX,
                   bottom: 92 * scaleY,
                   height: 58 * scaleY,
-                  child: const LoginActionButton(),
+                  child: LoginActionButton(authApi: authApi),
                 ),
               ],
             ),
@@ -61,35 +79,40 @@ class LoginPage extends StatelessWidget {
 }
 
 class LoginActionButton extends StatelessWidget {
-  const LoginActionButton({super.key});
+  const LoginActionButton({required this.authApi, super.key});
+
+  final PetOwnerAuthApi authApi;
+
+  void _showSignInPanel(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.28),
+      builder: (context) => SignInPanel(authApi: authApi),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () => showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.black.withValues(alpha: 0.28),
-        builder: (context) => const SignInPanel(),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: LoginPage.accentColor.withValues(alpha: 0.82),
-        foregroundColor: LoginPage.textColor,
-        elevation: 0,
-        shadowColor: Colors.transparent,
-        shape: const StadiumBorder(),
-        padding: EdgeInsets.zero,
-      ),
-      child: const FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          'Log in',
-          style: TextStyle(
-            color: LoginPage.textColor,
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0,
+    return Material(
+      color: LoginPage.accentColor.withValues(alpha: 0.82),
+      shape: const StadiumBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _showSignInPanel(context),
+        child: const Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              'Log in',
+              style: TextStyle(
+                color: LoginPage.textColor,
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
+            ),
           ),
         ),
       ),
@@ -98,7 +121,9 @@ class LoginActionButton extends StatelessWidget {
 }
 
 class SignInPanel extends StatelessWidget {
-  const SignInPanel({super.key});
+  const SignInPanel({required this.authApi, super.key});
+
+  final PetOwnerAuthApi authApi;
 
   static const Color panelColor = Color(0xB2A1FDD8);
   static const Color buttonColor = Color(0xFF2E2E2E);
@@ -137,6 +162,8 @@ class SignInPanel extends StatelessWidget {
                         LoginPage.petsAsset,
                         fit: BoxFit.contain,
                         alignment: Alignment.bottomCenter,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox.shrink(),
                       ),
                     ),
                     SingleChildScrollView(
@@ -147,7 +174,7 @@ class SignInPanel extends StatelessWidget {
                         79 * scaleX,
                         158 * scaleY,
                       ),
-                      child: const SignInForm(),
+                      child: SignInForm(authApi: authApi),
                     ),
                   ],
                 ),
@@ -161,14 +188,68 @@ class SignInPanel extends StatelessWidget {
 }
 
 class SignInForm extends StatefulWidget {
-  const SignInForm({super.key});
+  const SignInForm({this.authApi = const PetOwnerAuthApi(), super.key});
+
+  final PetOwnerAuthApi authApi;
 
   @override
   State<SignInForm> createState() => _SignInFormState();
 }
 
 class _SignInFormState extends State<SignInForm> {
+  final TextEditingController _contactController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   bool _usePhoneNumber = false;
+  bool _isSigningIn = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _contactController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _signIn() async {
+    final username = _contactController.text.trim();
+    final password = _passwordController.text;
+
+    if (username.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorMessage = 'Enter your username and password.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSigningIn = true;
+      _errorMessage = null;
+    });
+
+    final result = await widget.authApi.login(
+      username: username,
+      password: password,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSigningIn = false;
+    });
+
+    if (!result.isSuccess) {
+      setState(() {
+        _errorMessage = result.message;
+      });
+      return;
+    }
+
+    final navigator = Navigator.of(context, rootNavigator: true);
+    Navigator.of(context).pop();
+    navigator.pushReplacementNamed(PetOwnerHomePage.routeName);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -185,10 +266,12 @@ class _SignInFormState extends State<SignInForm> {
         const SizedBox(height: 10),
         SignInTextField(
           key: const ValueKey('contact-field'),
+          controller: _contactController,
           hintText: contactHint,
           keyboardType: _usePhoneNumber
               ? TextInputType.phone
               : TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
           suffixIcon: _usePhoneNumber
               ? Icons.mail_outline_rounded
               : Icons.phone_iphone_rounded,
@@ -204,15 +287,33 @@ class _SignInFormState extends State<SignInForm> {
         const SizedBox(height: 24),
         const SignInLabel('Password'),
         const SizedBox(height: 10),
-        const SignInTextField(
+        SignInTextField(
+          controller: _passwordController,
           hintText: 'Enter your password',
           obscureText: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            if (!_isSigningIn) {
+              _signIn();
+            }
+          },
         ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            _errorMessage!,
+            style: const TextStyle(
+              color: Color(0xFFB3261E),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
         const SizedBox(height: 26),
         SizedBox(
           height: 48,
           child: ElevatedButton(
-            onPressed: () {},
             style: ElevatedButton.styleFrom(
               backgroundColor: SignInPanel.buttonColor,
               foregroundColor: Colors.white,
@@ -221,14 +322,23 @@ class _SignInFormState extends State<SignInForm> {
               shape: const StadiumBorder(),
               padding: EdgeInsets.zero,
             ),
-            child: const Text(
-              'Sign In',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w400,
-                letterSpacing: 0,
-              ),
-            ),
+            onPressed: _isSigningIn ? null : _signIn,
+            child: _isSigningIn
+                ? const SizedBox.square(
+                    dimension: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text(
+                    'Sign In',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: 0,
+                    ),
+                  ),
           ),
         ),
         const SizedBox(height: 24),
@@ -280,28 +390,37 @@ class SignInLabel extends StatelessWidget {
 class SignInTextField extends StatelessWidget {
   const SignInTextField({
     required this.hintText,
+    this.controller,
     this.obscureText = false,
     this.keyboardType,
+    this.textInputAction,
     this.suffixIcon,
     this.suffixTooltip,
     this.onSuffixPressed,
+    this.onSubmitted,
     super.key,
   });
 
   final String hintText;
+  final TextEditingController? controller;
   final bool obscureText;
   final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
   final IconData? suffixIcon;
   final String? suffixTooltip;
   final VoidCallback? onSuffixPressed;
+  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 46,
       child: TextField(
+        controller: controller,
         obscureText: obscureText,
         keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        onSubmitted: onSubmitted,
         style: const TextStyle(
           color: LoginPage.textColor,
           fontSize: 16,
@@ -321,11 +440,7 @@ class SignInTextField extends StatelessWidget {
               : IconButton(
                   tooltip: suffixTooltip,
                   onPressed: onSuffixPressed,
-                  icon: Icon(
-                    suffixIcon,
-                    color: LoginPage.textColor,
-                    size: 24,
-                  ),
+                  icon: Icon(suffixIcon, color: LoginPage.textColor, size: 24),
                 ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 22,
