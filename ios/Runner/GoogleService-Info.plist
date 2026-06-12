@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>664771128258-300jlv0e22nr0qe5cki3nvj55ud3cbop.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.664771128258-300jlv0e22nr0qe5cki3nvj55ud3cbop</string>
+	<key>API_KEY</key>
+	<string>AIzaSyBZ9abrO-hBBqTu6FjVsDI8p5IfWZiEBUY</string>
+	<key>GCM_SENDER_ID</key>
+	<string>664771128258</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.seniorProject</string>
+	<key>PROJECT_ID</key>
+	<string>nwayslovevetclinic</string>
+	<key>STORAGE_BUCKET</key>
+	<string>nwayslovevetclinic.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:664771128258:ios:2af0ef617d9c68efb8445b</string>
+</dict>
+</plist>

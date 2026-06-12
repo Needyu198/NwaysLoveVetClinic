@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "664771128258",
+    "project_id": "nwayslovevetclinic",
+    "storage_bucket": "nwayslovevetclinic.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:664771128258:android:3d219a049c5a7438b8445b",
+        "android_client_info": {
+          "package_name": "com.example.senior_project"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "664771128258-2j34kpkqa767tivh6gb38unb3u5h8i47.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAokUamj6DVxc41JS1GoC6RphI5HBJ3eM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "664771128258-2j34kpkqa767tivh6gb38unb3u5h8i47.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
