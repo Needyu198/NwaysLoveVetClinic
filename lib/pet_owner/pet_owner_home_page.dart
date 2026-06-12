@@ -238,23 +238,20 @@ class _PetCarousel extends StatelessWidget {
       children: const [
         _PetCard(
           name: 'Max',
-          label: 'Medicine at 8:00',
-          imageAsset: PetOwnerHomePage.petsAsset,
-          alignment: Alignment(-0.23, 0),
+          imageAsset: PetOwnerHomePage.dogAsset,
+          alignment: Alignment.center,
         ),
         SizedBox(width: 16),
         _PetCard(
           name: 'Bella',
-          label: 'Checkup Friday',
           imageAsset: PetOwnerHomePage.dogAsset,
           alignment: Alignment.center,
         ),
         SizedBox(width: 16),
         _PetCard(
           name: 'Luna',
-          label: 'All caught up',
-          imageAsset: PetOwnerHomePage.petsAsset,
-          alignment: Alignment(0.98, 0),
+          imageAsset: PetOwnerHomePage.dogAsset,
+          alignment: Alignment.center,
         ),
       ],
     );
@@ -264,13 +261,11 @@ class _PetCarousel extends StatelessWidget {
 class _PetCard extends StatelessWidget {
   const _PetCard({
     required this.name,
-    required this.label,
     required this.imageAsset,
     required this.alignment,
   });
 
   final String name;
-  final String label;
   final String imageAsset;
   final Alignment alignment;
 
@@ -312,45 +307,16 @@ class _PetCard extends StatelessWidget {
             left: 13,
             right: 13,
             bottom: 13,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: PetOwnerHomePage.softMintColor.withValues(
-                      alpha: 0.9,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: PetOwnerHomePage.inkColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ),
-              ],
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
             ),
           ),
         ],
