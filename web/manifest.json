@@ -1,11 +1,11 @@
 {
-    "name": "senior_project",
-    "short_name": "senior_project",
+    "name": "Nway's Love Vet Clinic",
+    "short_name": "Nway's Love",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Nway's Love Vet Clinic pet care app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

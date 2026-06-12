@@ -8,6 +8,10 @@ class PetOwnerHomePage extends StatelessWidget {
   static const String routeName = '/pet-owner-home';
 
   static const Color mintColor = Color(0xFFA1FDD8);
+  static const Color softMintColor = Color(0xFFD7FCEB);
+  static const Color pageColor = Color(0xFFF7FAF8);
+  static const Color inkColor = Color(0xFF17211E);
+  static const Color mutedTextColor = Color(0xFF60756E);
   static const Color textColor = Color(0xFF000000);
   static const String logoAsset =
       'assets/photos/logoandphoto/nways_love_logo.png';
@@ -17,14 +21,11 @@ class PetOwnerHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: pageColor,
       body: Stack(
         children: [
           _HomeContent(),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: PetOwnerNavBar(),
-          ),
+          Align(alignment: Alignment.bottomCenter, child: PetOwnerNavBar()),
         ],
       ),
     );
@@ -34,15 +35,42 @@ class PetOwnerHomePage extends StatelessWidget {
 class _HomeContent extends StatelessWidget {
   const _HomeContent();
 
-  static const _reminders = [
-    '“Time to give Max his medication at 8:00 AM. Don’t forget his morning dose to keep him healthy and active.”',
-    '“Max’s vaccination is due this week. Schedule a visit to keep him protected.”',
-    '“Feeding time for Max! Give him his meal at 6:00 PM.”',
+  static const _reminders = <_HomeMessage>[
+    _HomeMessage(
+      title: 'Morning medicine',
+      detail:
+          'Time to give Max his medication. Don’t forget his morning dose to keep him healthy and active.',
+      meta: '8:00 AM',
+      icon: Icons.medication_liquid_rounded,
+    ),
+    _HomeMessage(
+      title: 'Vaccination due',
+      detail: 'Max’s vaccination is due this week. Schedule a visit soon.',
+      meta: 'This week',
+      icon: Icons.vaccines_rounded,
+    ),
+    _HomeMessage(
+      title: 'Dinner time',
+      detail: 'Feeding time for Max. Give him his evening meal.',
+      meta: '6:00 PM',
+      icon: Icons.restaurant_rounded,
+    ),
   ];
 
-  static const _appointments = [
-    '“Max has a grooming appointment tomorrow at 10:00 AM. Please arrive 10 minutes early.”',
-    '“Bella’s annual checkup is scheduled for Friday at 2:30 PM.”',
+  static const _appointments = <_HomeMessage>[
+    _HomeMessage(
+      title: 'Grooming',
+      detail:
+          'Max has a grooming appointment tomorrow. Please arrive 10 minutes early.',
+      meta: 'Tomorrow, 10:00 AM',
+      icon: Icons.content_cut_rounded,
+    ),
+    _HomeMessage(
+      title: 'Annual checkup',
+      detail: 'Bella’s annual checkup is scheduled with the clinic team.',
+      meta: 'Friday, 2:30 PM',
+      icon: Icons.event_available_rounded,
+    ),
   ];
 
   @override
@@ -52,20 +80,27 @@ class _HomeContent extends StatelessWidget {
       slivers: [
         const SliverToBoxAdapter(child: _HeroPetSection()),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(32, 18, 32, 118),
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 124),
           sliver: SliverList.list(
             children: [
-              const _SectionTitle('Reminders'),
-              const SizedBox(height: 22),
+              const _SectionTitle(
+                title: 'Reminders',
+                subtitle: 'Care tasks today',
+              ),
+              const SizedBox(height: 14),
               for (final reminder in _reminders) ...[
-                _MintMessage(text: reminder),
-                const SizedBox(height: 20),
+                _HomeMessageCard(message: reminder),
+                const SizedBox(height: 14),
               ],
-              const _SectionTitle('Appointments'),
-              const SizedBox(height: 22),
+              const SizedBox(height: 10),
+              const _SectionTitle(
+                title: 'Appointments',
+                subtitle: 'Upcoming clinic visits',
+              ),
+              const SizedBox(height: 14),
               for (final appointment in _appointments) ...[
-                _MintMessage(text: appointment),
-                const SizedBox(height: 20),
+                _HomeMessageCard(message: appointment),
+                const SizedBox(height: 14),
               ],
             ],
           ),
@@ -81,10 +116,21 @@ class _HeroPetSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 492,
+      height: 520,
       decoration: const BoxDecoration(
-        color: PetOwnerHomePage.mintColor,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFA1FDD8), Color(0xFFC9F7E4), Color(0xFFE8FFF4)],
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(34)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x240B2F25),
+            blurRadius: 24,
+            offset: Offset(0, 12),
+          ),
+        ],
       ),
       child: SafeArea(
         bottom: false,
@@ -92,38 +138,59 @@ class _HeroPetSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(46, 12, 40, 0),
+              padding: const EdgeInsets.fromLTRB(28, 14, 28, 0),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Image(
-                    image: AssetImage(PetOwnerHomePage.logoAsset),
-                    width: 118,
-                    height: 118,
-                    fit: BoxFit.contain,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.46),
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(7),
+                      child: Image(
+                        image: AssetImage(PetOwnerHomePage.logoAsset),
+                        width: 94,
+                        height: 94,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
-                  Spacer(),
-                  _ProfilePhoto(),
+                  const Spacer(),
+                  const _ProfilePhoto(),
                 ],
               ),
             ),
             const Padding(
-              padding: EdgeInsets.only(left: 47, top: 14),
-              child: Text(
-                'My Pets',
-                style: TextStyle(
-                  color: PetOwnerHomePage.textColor,
-                  fontSize: 34,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                ),
+              padding: EdgeInsets.fromLTRB(28, 20, 28, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'My Pets',
+                    style: TextStyle(
+                      color: PetOwnerHomePage.inkColor,
+                      fontSize: 36,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'Healthy days start here',
+                    style: TextStyle(
+                      color: PetOwnerHomePage.mutedTextColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 25),
-            const SizedBox(
-              height: 205,
-              child: _PetCarousel(),
-            ),
+            const SizedBox(height: 22),
+            const SizedBox(height: 224, child: _PetCarousel()),
           ],
         ),
       ),
@@ -137,16 +204,23 @@ class _ProfilePhoto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 92,
-      height: 92,
+      width: 88,
+      height: 88,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFF1718A8), width: 1.5),
+        color: Colors.white.withValues(alpha: 0.9),
+        border: Border.all(color: Colors.white, width: 4),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x260B2F25),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: const Icon(
         Icons.person_rounded,
-        size: 62,
+        size: 54,
         color: Color(0xFF637A74),
       ),
     );
@@ -160,22 +234,25 @@ class _PetCarousel extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.only(left: 37, right: 28),
+      padding: const EdgeInsets.only(left: 28, right: 28, bottom: 10),
       children: const [
         _PetCard(
           name: 'Max',
+          label: 'Medicine at 8:00',
           imageAsset: PetOwnerHomePage.petsAsset,
           alignment: Alignment(-0.23, 0),
         ),
-        SizedBox(width: 24),
+        SizedBox(width: 16),
         _PetCard(
           name: 'Bella',
+          label: 'Checkup Friday',
           imageAsset: PetOwnerHomePage.dogAsset,
           alignment: Alignment.center,
         ),
-        SizedBox(width: 24),
+        SizedBox(width: 16),
         _PetCard(
           name: 'Luna',
+          label: 'All caught up',
           imageAsset: PetOwnerHomePage.petsAsset,
           alignment: Alignment(0.98, 0),
         ),
@@ -187,104 +264,250 @@ class _PetCarousel extends StatelessWidget {
 class _PetCard extends StatelessWidget {
   const _PetCard({
     required this.name,
+    required this.label,
     required this.imageAsset,
     required this.alignment,
   });
 
   final String name;
+  final String label;
   final String imageAsset;
   final Alignment alignment;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 168,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.asset(
-              imageAsset,
-              fit: BoxFit.cover,
-              alignment: alignment,
+    return Container(
+      width: 174,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x220B2F25),
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(imageAsset, fit: BoxFit.cover, alignment: alignment),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x00000000),
+                  Color(0x33000000),
+                  Color(0xA6000000),
+                ],
+                stops: [0.42, 0.7, 1],
+              ),
             ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                width: 142,
-                height: 46,
-                margin: const EdgeInsets.only(bottom: 0),
-                decoration: BoxDecoration(
-                  color: PetOwnerHomePage.mintColor.withValues(alpha: 0.82),
-                  borderRadius: BorderRadius.circular(24),
+          ),
+          Positioned(
+            left: 13,
+            right: 13,
+            bottom: 13,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
                 ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    child: Text(
-                      name,
-                      style: const TextStyle(
-                        color: PetOwnerHomePage.textColor,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0,
-                      ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: PetOwnerHomePage.softMintColor.withValues(
+                      alpha: 0.9,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: PetOwnerHomePage.inkColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _HomeMessage {
+  const _HomeMessage({
+    required this.title,
+    required this.detail,
+    required this.meta,
+    required this.icon,
+  });
+
+  final String title;
+  final String detail;
+  final String meta;
+  final IconData icon;
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
+  const _SectionTitle({required this.title, required this.subtitle});
 
-  final String text;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: PetOwnerHomePage.textColor,
-        fontSize: 34,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 0,
-      ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: PetOwnerHomePage.inkColor,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: PetOwnerHomePage.mutedTextColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          width: 38,
+          height: 38,
+          decoration: const BoxDecoration(
+            color: PetOwnerHomePage.softMintColor,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.arrow_forward_rounded,
+            color: Color(0xFF5F8177),
+            size: 22,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _MintMessage extends StatelessWidget {
-  const _MintMessage({required this.text});
+class _HomeMessageCard extends StatelessWidget {
+  const _HomeMessageCard({required this.message});
 
-  final String text;
+  final _HomeMessage message;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(17, 17, 17, 19),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: PetOwnerHomePage.mintColor.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(28),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2F4EC)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x120B2F25),
+            blurRadius: 14,
+            offset: Offset(0, 7),
+          ),
+        ],
       ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: PetOwnerHomePage.textColor,
-          fontSize: 23,
-          height: 1.18,
-          fontWeight: FontWeight.w400,
-          letterSpacing: 0,
-        ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: const BoxDecoration(
+              color: PetOwnerHomePage.softMintColor,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(message.icon, color: const Color(0xFF5F8177), size: 24),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        message.title,
+                        style: const TextStyle(
+                          color: PetOwnerHomePage.inkColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      message.meta,
+                      style: const TextStyle(
+                        color: Color(0xFFEF5B4E),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message.detail,
+                  style: const TextStyle(
+                    color: PetOwnerHomePage.mutedTextColor,
+                    fontSize: 15,
+                    height: 1.25,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -19,7 +19,7 @@ class NwayLoveVetClinicApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Nway Love Vet Clinic',
+      title: "Nway's Love Vet Clinic",
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: const ColorScheme.light(

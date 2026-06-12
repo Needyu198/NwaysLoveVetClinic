@@ -4,7 +4,10 @@ class PetOwnerNavBar extends StatelessWidget {
   const PetOwnerNavBar({super.key});
 
   static const Color _barColor = Color(0xFF2F2F2F);
-  static const Color _iconColor = Color(0xFF8DB7AA);
+  static const String pawIconAsset = 'assets/photos/icon/NwayIcon01.png';
+  static const String medicalIconAsset = 'assets/photos/icon/NwayIcon02.png';
+  static const String basketIconAsset = 'assets/photos/icon/NwayIcon03.png';
+  static const String profileIconAsset = 'assets/photos/icon/NwayIcon04.png';
 
   @override
   Widget build(BuildContext context) {
@@ -23,9 +26,21 @@ class PetOwnerNavBar extends StatelessWidget {
             child: Row(
               children: const [
                 Expanded(child: _SelectedPetTab()),
-                _NavIconButton(icon: Icons.medical_services_rounded),
-                _NavIconButton(icon: Icons.shopping_basket_outlined),
-                _NavIconButton(icon: Icons.account_circle_outlined),
+                _NavIconButton(
+                  assetPath: PetOwnerNavBar.medicalIconAsset,
+                  tooltip: 'Appointments',
+                  size: 44,
+                ),
+                _NavIconButton(
+                  assetPath: PetOwnerNavBar.basketIconAsset,
+                  tooltip: 'Shop',
+                  size: 36,
+                ),
+                _NavIconButton(
+                  assetPath: PetOwnerNavBar.profileIconAsset,
+                  tooltip: 'Profile',
+                  size: 46,
+                ),
               ],
             ),
           ),
@@ -53,7 +68,12 @@ class _SelectedPetTab extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.pets_rounded, color: PetOwnerNavBar._iconColor),
+              Image(
+                image: AssetImage(PetOwnerNavBar.pawIconAsset),
+                width: 34,
+                height: 34,
+                fit: BoxFit.contain,
+              ),
               SizedBox(width: 10),
               Text(
                 'My Pets',
@@ -73,36 +93,29 @@ class _SelectedPetTab extends StatelessWidget {
 }
 
 class _NavIconButton extends StatelessWidget {
-  const _NavIconButton({required this.icon});
+  const _NavIconButton({
+    required this.assetPath,
+    required this.tooltip,
+    required this.size,
+  });
 
-  final IconData icon;
+  final String assetPath;
+  final String tooltip;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: IconButton(
         onPressed: () {},
-        icon: Icon(icon, size: 36),
-        color: _iconTint(icon),
-        tooltip: _tooltip(icon),
+        icon: Image.asset(
+          assetPath,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+        ),
+        tooltip: tooltip,
       ),
     );
-  }
-
-  static Color _iconTint(IconData icon) {
-    if (icon == Icons.medical_services_rounded) {
-      return const Color(0xFFE64332);
-    }
-    return PetOwnerNavBar._iconColor;
-  }
-
-  static String _tooltip(IconData icon) {
-    if (icon == Icons.medical_services_rounded) {
-      return 'Appointments';
-    }
-    if (icon == Icons.shopping_basket_outlined) {
-      return 'Shop';
-    }
-    return 'Profile';
   }
 }
