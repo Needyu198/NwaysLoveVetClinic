@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'pet_owner_nav_bar.dart';
+import 'pet_profile_page.dart';
 
 class PetOwnerHomePage extends StatelessWidget {
   const PetOwnerHomePage({super.key});
@@ -230,96 +231,124 @@ class _ProfilePhoto extends StatelessWidget {
 class _PetCarousel extends StatelessWidget {
   const _PetCarousel();
 
+  static const _pets = <PetProfile>[
+    PetProfile(
+      name: 'Max',
+      species: 'Dog',
+      breed: 'Golden Retriever',
+      sex: 'Male',
+      weight: '18 kg',
+      imageAsset: PetOwnerHomePage.dogAsset,
+      imageAlignment: Alignment.center,
+    ),
+    PetProfile(
+      name: 'Bella',
+      species: 'Dog',
+      breed: 'Shih Tzu',
+      sex: 'Female',
+      weight: '6 kg',
+      imageAsset: PetOwnerHomePage.dogAsset,
+      imageAlignment: Alignment.center,
+    ),
+    PetProfile(
+      name: 'Luna',
+      species: 'Dog',
+      breed: 'Mixed breed',
+      sex: 'Female',
+      weight: '10 kg',
+      imageAsset: PetOwnerHomePage.dogAsset,
+      imageAlignment: Alignment.center,
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return ListView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.only(left: 28, right: 28, bottom: 10),
-      children: const [
-        _PetCard(
-          name: 'Max',
-          imageAsset: PetOwnerHomePage.dogAsset,
-          alignment: Alignment.center,
-        ),
-        SizedBox(width: 16),
-        _PetCard(
-          name: 'Bella',
-          imageAsset: PetOwnerHomePage.dogAsset,
-          alignment: Alignment.center,
-        ),
-        SizedBox(width: 16),
-        _PetCard(
-          name: 'Luna',
-          imageAsset: PetOwnerHomePage.dogAsset,
-          alignment: Alignment.center,
-        ),
+      children: [
+        for (final pet in _pets) ...[
+          _PetCard(profile: pet),
+          if (pet != _pets.last) const SizedBox(width: 16),
+        ],
       ],
     );
   }
 }
 
 class _PetCard extends StatelessWidget {
-  const _PetCard({
-    required this.name,
-    required this.imageAsset,
-    required this.alignment,
-  });
+  const _PetCard({required this.profile});
 
-  final String name;
-  final String imageAsset;
-  final Alignment alignment;
+  final PetProfile profile;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 174,
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.of(
+            context,
+          ).pushNamed(PetProfilePage.routeName, arguments: profile);
+        },
         borderRadius: BorderRadius.circular(28),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x220B2F25),
-            blurRadius: 18,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(imageAsset, fit: BoxFit.cover, alignment: alignment),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0x00000000),
-                  Color(0x33000000),
-                  Color(0xA6000000),
-                ],
-                stops: [0.42, 0.7, 1],
+        child: Ink(
+          width: 174,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x220B2F25),
+                blurRadius: 18,
+                offset: Offset(0, 10),
               ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  profile.imageAsset,
+                  fit: BoxFit.cover,
+                  alignment: profile.imageAlignment,
+                ),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x00000000),
+                        Color(0x33000000),
+                        Color(0xA6000000),
+                      ],
+                      stops: [0.42, 0.7, 1],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 13,
+                  right: 13,
+                  bottom: 13,
+                  child: Text(
+                    profile.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          Positioned(
-            left: 13,
-            right: 13,
-            bottom: 13,
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
