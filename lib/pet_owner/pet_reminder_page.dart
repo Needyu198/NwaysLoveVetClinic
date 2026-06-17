@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'pet_add_reminder_page.dart';
+import 'pet_reminder_styles.dart';
 
 class PetReminderPage extends StatelessWidget {
   const PetReminderPage({super.key});
@@ -89,11 +90,11 @@ class _ReminderHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Reminder', style: _ReminderStyles.pageTitle),
+                Text('Reminder', style: ReminderStyles.pageTitle),
                 SizedBox(height: 2),
                 Text(
                   'Pet care tasks and visits',
-                  style: _ReminderStyles.pageSubtitle,
+                  style: ReminderStyles.pageSubtitle,
                 ),
               ],
             ),
@@ -194,9 +195,9 @@ class _SummaryTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: _ReminderStyles.summaryLabel),
+                  Text(label, style: ReminderStyles.summaryLabel),
                   const SizedBox(height: 2),
-                  Text(value, style: _ReminderStyles.summaryValue),
+                  Text(value, style: ReminderStyles.summaryValue),
                 ],
               ),
             ),
@@ -214,7 +215,7 @@ class _ReminderSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(title, style: _ReminderStyles.sectionLabel);
+    return Text(title, style: ReminderStyles.sectionLabel);
   }
 }
 
@@ -296,7 +297,7 @@ class _ReminderCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             title,
-                            style: _ReminderStyles.cardTitle.copyWith(
+                            style: ReminderStyles.cardTitle.copyWith(
                               color: foreground,
                               decoration: isCompleted
                                   ? TextDecoration.lineThrough
@@ -368,7 +369,7 @@ class _MetaPill extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: _ReminderStyles.meta,
+              style: ReminderStyles.meta,
             ),
           ),
         ],
@@ -402,7 +403,7 @@ class _CategoryPill extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 17),
           const SizedBox(width: 7),
-          Text(label, style: _ReminderStyles.category.copyWith(color: color)),
+          Text(label, style: ReminderStyles.category.copyWith(color: color)),
         ],
       ),
     );
@@ -436,7 +437,7 @@ class _NoteBox extends StatelessWidget {
             size: 22,
           ),
           const SizedBox(width: 8),
-          Expanded(child: Text(note, style: _ReminderStyles.note)),
+          Expanded(child: Text(note, style: ReminderStyles.note)),
         ],
       ),
     );
@@ -511,80 +512,7 @@ class _DoneBadge extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: const Text('Done', style: _ReminderStyles.done),
+      child: const Text('Done', style: ReminderStyles.done),
     );
   }
-}
-
-class _ReminderStyles {
-  static const pageTitle = TextStyle(
-    color: Colors.black,
-    fontSize: 32,
-    fontWeight: FontWeight.w900,
-    letterSpacing: 0,
-  );
-
-  static const pageSubtitle = TextStyle(
-    color: Color(0xFF66756F),
-    fontSize: 14,
-    fontWeight: FontWeight.w700,
-    letterSpacing: 0,
-  );
-
-  static const sectionLabel = TextStyle(
-    color: Colors.black,
-    fontSize: 22,
-    fontWeight: FontWeight.w900,
-    letterSpacing: 0,
-  );
-
-  static const summaryLabel = TextStyle(
-    color: Color(0xFF66756F),
-    fontSize: 12,
-    fontWeight: FontWeight.w800,
-    letterSpacing: 0,
-  );
-
-  static const summaryValue = TextStyle(
-    color: Colors.black,
-    fontSize: 22,
-    fontWeight: FontWeight.w900,
-    letterSpacing: 0,
-  );
-
-  static const cardTitle = TextStyle(
-    color: Color(0xFF1D2736),
-    fontSize: 20,
-    fontWeight: FontWeight.w900,
-    letterSpacing: 0,
-    height: 1.16,
-  );
-
-  static const meta = TextStyle(
-    color: Color(0xFF475467),
-    fontSize: 15,
-    fontWeight: FontWeight.w800,
-    letterSpacing: 0,
-  );
-
-  static const category = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w900,
-    letterSpacing: 0,
-  );
-
-  static const note = TextStyle(
-    color: Color(0xFF344054),
-    fontSize: 15,
-    fontWeight: FontWeight.w700,
-    height: 1.35,
-    letterSpacing: 0,
-  );
-
-  static const done = TextStyle(
-    color: Color(0xFF667B75),
-    fontSize: 12,
-    fontWeight: FontWeight.w900,
-    letterSpacing: 0,
-  );
 }
