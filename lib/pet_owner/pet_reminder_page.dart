@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'pet_add_reminder_page.dart';
+
 class PetReminderPage extends StatelessWidget {
   const PetReminderPage({super.key});
 
@@ -97,7 +99,9 @@ class _ReminderHeader extends StatelessWidget {
             ),
           ),
           FilledButton.icon(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.of(context).pushNamed(PetAddReminderPage.routeName);
+            },
             icon: const Icon(Icons.add_rounded, size: 22),
             label: const Text('Add'),
             style: FilledButton.styleFrom(
