@@ -615,7 +615,7 @@ class _EmergencyButton extends StatelessWidget {
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.emergency_share_rounded, size: 34),
+            _EmergencySirenIcon(size: 38),
             SizedBox(width: 12),
             Text(
               'Emergency',
@@ -630,6 +630,84 @@ class _EmergencyButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _EmergencySirenIcon extends StatelessWidget {
+  const _EmergencySirenIcon({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(painter: _EmergencySirenPainter()),
+    );
+  }
+}
+
+class _EmergencySirenPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.075
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final fillPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final baseTop = size.height * 0.66;
+    final baseBottom = size.height * 0.78;
+    final bodyRect = Rect.fromLTWH(
+      size.width * 0.24,
+      size.height * 0.34,
+      size.width * 0.52,
+      size.height * 0.38,
+    );
+
+    canvas.drawArc(bodyRect, 3.14, -3.14, false, paint);
+    canvas.drawLine(
+      Offset(size.width * 0.24, baseTop),
+      Offset(size.width * 0.76, baseTop),
+      paint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          size.width * 0.18,
+          baseBottom,
+          size.width * 0.64,
+          size.height * 0.08,
+        ),
+        Radius.circular(size.width * 0.04),
+      ),
+      fillPaint,
+    );
+
+    canvas.drawLine(
+      Offset(size.width * 0.5, size.height * 0.12),
+      Offset(size.width * 0.5, size.height * 0.22),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.25, size.height * 0.2),
+      Offset(size.width * 0.32, size.height * 0.28),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.75, size.height * 0.2),
+      Offset(size.width * 0.68, size.height * 0.28),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _SectionPanel extends StatelessWidget {
