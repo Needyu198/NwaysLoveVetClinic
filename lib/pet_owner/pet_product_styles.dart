@@ -12,51 +12,58 @@ class ProductStyles {
 
   static const pageTitle = TextStyle(
     color: ink,
-    fontSize: 34,
-    fontWeight: FontWeight.w800,
+    fontSize: 30,
+    fontWeight: FontWeight.w900,
     letterSpacing: 0,
   );
 
   static const productName = TextStyle(
     color: ink,
-    fontSize: 20,
-    fontWeight: FontWeight.w800,
+    fontSize: 17,
+    fontWeight: FontWeight.w900,
     letterSpacing: 0,
   );
 
   static const price = TextStyle(
     color: Colors.red,
-    fontSize: 18,
-    fontWeight: FontWeight.w700,
+    fontSize: 16,
+    fontWeight: FontWeight.w800,
     letterSpacing: 0,
   );
 
   static const detailTitle = TextStyle(
     color: ink,
-    fontSize: 36,
-    fontWeight: FontWeight.w700,
+    fontSize: 31,
+    fontWeight: FontWeight.w900,
     letterSpacing: 0,
   );
 
   static const sectionTitle = TextStyle(
     color: ink,
-    fontSize: 28,
-    fontWeight: FontWeight.w800,
+    fontSize: 22,
+    fontWeight: FontWeight.w900,
     letterSpacing: 0,
   );
 
   static const body = TextStyle(
     color: ink,
-    fontSize: 20,
-    fontWeight: FontWeight.w500,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
     height: 1.25,
     letterSpacing: 0,
   );
 
   static const rowTitle = TextStyle(
     color: ink,
-    fontSize: 26,
-    fontWeight: FontWeight.w800,
+    fontSize: 21,
+    fontWeight: FontWeight.w900,
+    letterSpacing: 0,
+  );
+
+  static const caption = TextStyle(
+    color: muted,
+    fontSize: 13,
+    fontWeight: FontWeight.w700,
     letterSpacing: 0,
   );
 }

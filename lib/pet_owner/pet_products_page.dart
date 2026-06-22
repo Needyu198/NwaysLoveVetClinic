@@ -65,7 +65,7 @@ class _PetProductsPageState extends State<PetProductsPage> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(26, 18, 26, 16),
+                  padding: const EdgeInsets.fromLTRB(22, 12, 22, 12),
                   child: _SearchBar(
                     onChanged: (value) => setState(() => _query = value),
                     onFilterTap: _openFilterSheet,
@@ -77,14 +77,14 @@ class _PetProductsPageState extends State<PetProductsPage> {
                 ),
                 Expanded(
                   child: GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(26, 16, 26, 118),
+                    padding: const EdgeInsets.fromLTRB(22, 16, 22, 118),
                     physics: const BouncingScrollPhysics(),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 0.76,
-                          mainAxisSpacing: 22,
-                          crossAxisSpacing: 26,
+                          childAspectRatio: 0.68,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 14,
                         ),
                     itemCount: _visibleProducts.length,
                     itemBuilder: (context, index) {
@@ -111,10 +111,14 @@ class _PetProductsPageState extends State<PetProductsPage> {
                   child: Align(
                     alignment: Alignment.centerRight,
                     child: _QuickProductMenu(
-                      onOrdersTap: () =>
-                          Navigator.of(context).pushNamed(OrdersPage.routeName),
-                      onCartTap: () =>
-                          Navigator.of(context).pushNamed(CartPage.routeName),
+                      onOrdersTap: () {
+                        setState(() => _showQuickMenu = false);
+                        Navigator.of(context).pushNamed(OrdersPage.routeName);
+                      },
+                      onCartTap: () {
+                        setState(() => _showQuickMenu = false);
+                        Navigator.of(context).pushNamed(CartPage.routeName);
+                      },
                     ),
                   ),
                 ),
@@ -123,19 +127,19 @@ class _PetProductsPageState extends State<PetProductsPage> {
           Positioned(
             right: 28,
             bottom: 128,
-            child: FloatingActionButton(
+            child: FloatingActionButton.small(
               heroTag: 'product-menu',
               onPressed: () => setState(() => _showQuickMenu = true),
               backgroundColor: Colors.white,
               foregroundColor: Colors.black,
-              child: const Icon(Icons.menu_rounded, size: 42),
+              child: const Icon(Icons.shopping_cart_checkout_rounded, size: 28),
             ),
           ),
           Align(
             alignment: Alignment.bottomCenter,
             child: PetOwnerNavBar(
               selectedItem: PetOwnerNavItem.shop,
-              onProfileTap: () {},
+              onProfileTap: () => Navigator.of(context).pop(),
             ),
           ),
         ],
@@ -154,8 +158,10 @@ class _PetProductsPageState extends State<PetProductsPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Sort Products', style: ProductStyles.sectionTitle),
+              const Text('Sort & Filter', style: ProductStyles.sectionTitle),
               const SizedBox(height: 14),
+              const Text('Sort by', style: ProductStyles.caption),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -174,10 +180,17 @@ class _PetProductsPageState extends State<PetProductsPage> {
                         .toList(),
               ),
               const SizedBox(height: 20),
-              const Text('Filters', style: ProductStyles.sectionTitle),
+              const Text('Quick filters', style: ProductStyles.caption),
               const SizedBox(height: 8),
-              const Text(
-                'Pet type, brand, category, and price filters can be connected to backend data later.',
+              const Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  Chip(label: Text('Dog')),
+                  Chip(label: Text('Cat')),
+                  Chip(label: Text('In stock')),
+                  Chip(label: Text('Under 5,000 MMK')),
+                ],
               ),
             ],
           ),
@@ -242,8 +255,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 18,
+                        horizontal: 22,
+                        vertical: 14,
                       ),
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
@@ -254,18 +267,40 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                         children: [
                           Expanded(
                             child: Text(
-                              '${product.price}MMK',
+                              '${product.price} MMK',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 36,
-                                fontWeight: FontWeight.w800,
+                                fontSize: 30,
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
                           ),
-                          const Icon(
-                            Icons.pets_rounded,
-                            color: Color(0xFF91AAA2),
-                            size: 42,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  color: Colors.amber,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${product.rating}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -275,29 +310,46 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(product.name, style: ProductStyles.detailTitle),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  product.name,
+                                  style: ProductStyles.detailTitle,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () {},
+                                icon: const Icon(Icons.favorite_border_rounded),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: const Color(0xFFF3F4F6),
+                                ),
+                                tooltip: 'Wishlist',
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '${product.brand} • ${product.petType} • ${product.weight}',
+                            style: ProductStyles.caption,
+                          ),
                           const SizedBox(height: 12),
+                          _StockPill(stock: product.stock),
+                          const SizedBox(height: 16),
                           Text(product.description, style: ProductStyles.body),
                           const Divider(height: 34),
-                          Text(
-                            'DELIVERY',
-                            style: ProductStyles.detailTitle.copyWith(
-                              fontSize: 34,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'Standard delivery available. Usually arrives within 2-3 days.',
-                            style: ProductStyles.body,
+                          const _InfoCard(
+                            icon: Icons.local_shipping_rounded,
+                            title: 'Delivery',
+                            detail:
+                                'Standard delivery available. Usually arrives within 2-3 days.',
                           ),
                           const Divider(height: 34),
                           Row(
                             children: [
-                              Text(
+                              const Text(
                                 'Quantity',
-                                style: ProductStyles.detailTitle.copyWith(
-                                  fontSize: 34,
-                                ),
+                                style: ProductStyles.sectionTitle,
                               ),
                               const Spacer(),
                               _QuantitySelector(
@@ -313,6 +365,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                           ),
                           const Divider(height: 34),
                           _DetailInfo(product: product),
+                          const SizedBox(height: 16),
+                          const _ReviewsPreview(),
                           const SizedBox(height: 100),
                         ],
                       ),
@@ -331,19 +385,20 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                           Navigator.of(context).pushNamed(CartPage.routeName),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.black,
+                        minimumSize: const Size.fromHeight(52),
                       ),
                       child: const Text('Add to Cart'),
                     ),
                   ),
-                  const SizedBox(width: 20),
+                  const SizedBox(width: 12),
                   Expanded(
-                    flex: 2,
                     child: FilledButton(
                       onPressed: () => Navigator.of(
                         context,
                       ).pushNamed(CheckoutPage.routeName),
                       style: FilledButton.styleFrom(
                         backgroundColor: ProductStyles.green,
+                        minimumSize: const Size.fromHeight(52),
                       ),
                       child: const Text('Buy Now'),
                     ),
@@ -367,19 +422,35 @@ class CartPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CartLikePage(
       title: 'Cart',
-      bottom: Row(
+      bottom: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.radio_button_unchecked_rounded, size: 32),
-          const SizedBox(width: 8),
-          const Text('All', style: ProductStyles.body),
-          const Spacer(),
-          const Text('8,000 MMK', style: ProductStyles.rowTitle),
-          const SizedBox(width: 18),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(context).pushNamed(CheckoutPage.routeName),
-            style: FilledButton.styleFrom(backgroundColor: ProductStyles.green),
-            child: const Text('Check Out'),
+          const Row(
+            children: [
+              Icon(Icons.radio_button_unchecked_rounded, size: 28),
+              SizedBox(width: 8),
+              Text('Select all', style: ProductStyles.body),
+              Spacer(),
+              Text('Subtotal', style: ProductStyles.caption),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Text('8,000 MMK', style: ProductStyles.rowTitle),
+              const SizedBox(width: 18),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(CheckoutPage.routeName),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: ProductStyles.green,
+                    minimumSize: const Size.fromHeight(54),
+                  ),
+                  child: const Text('Check Out'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -807,7 +878,7 @@ class _ProductHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
       child: Row(
         children: [
           IconButton(
@@ -817,7 +888,7 @@ class _ProductHeader extends StatelessWidget {
                   ? Icons.close_rounded
                   : Icons.arrow_back_ios_new_rounded,
             ),
-            iconSize: 30,
+            iconSize: 25,
           ),
           Expanded(
             child: Text(
@@ -839,28 +910,42 @@ class _SearchBar extends StatelessWidget {
   final VoidCallback onFilterTap;
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        prefixIcon: const Icon(Icons.search_rounded),
-        hintText: 'Type to search',
-        suffixIcon: Padding(
-          padding: const EdgeInsets.all(8),
-          child: FilledButton(
-            onPressed: onFilterTap,
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFD8D8D8),
-              foregroundColor: Colors.black,
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            onChanged: onChanged,
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search_rounded),
+              hintText: 'Search food, toys, medicine...',
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(22),
+                borderSide: const BorderSide(color: Color(0xFFDADDE3)),
+              ),
             ),
-            child: const Text('Search'),
           ),
         ),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
-          borderSide: const BorderSide(color: Color(0xFFD1D1D1)),
+        const SizedBox(width: 10),
+        SizedBox(
+          height: 52,
+          width: 52,
+          child: IconButton.filled(
+            onPressed: onFilterTap,
+            icon: const Icon(Icons.tune_rounded),
+            style: IconButton.styleFrom(
+              backgroundColor: ProductStyles.mint,
+              foregroundColor: Colors.black,
+            ),
+            tooltip: 'Filter and sort',
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -872,34 +957,32 @@ class _CategoryStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 98,
+      height: 78,
       color: ProductStyles.mint,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
           final category = categories[index];
           final isSelected = selected == category;
-          return SizedBox(
-            width: 190,
-            child: FilledButton(
-              onPressed: () => onChanged(category),
-              style: FilledButton.styleFrom(
-                backgroundColor: isSelected ? ProductStyles.red : Colors.white,
-                foregroundColor: Colors.black,
-                shape: const StadiumBorder(),
-              ),
-              child: Text(
-                category,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                ),
+          return ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 94),
+            child: ChoiceChip(
+              showCheckmark: false,
+              selected: isSelected,
+              label: Text(category),
+              onSelected: (_) => onChanged(category),
+              selectedColor: ProductStyles.red,
+              backgroundColor: Colors.white,
+              labelStyle: const TextStyle(
+                color: Colors.black,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
               ),
             ),
           );
         },
-        separatorBuilder: (_, _) => const SizedBox(width: 20),
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemCount: categories.length,
       ),
     );
@@ -914,9 +997,20 @@ class _ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
-        color: Colors.white,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE6E8EC)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F0B2F25),
+              blurRadius: 12,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -932,7 +1026,29 @@ class _ProductCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 3),
-            Text('${product.price} MMK', style: ProductStyles.price),
+            Text(product.brand, style: ProductStyles.caption),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${product.price} MMK',
+                    style: ProductStyles.price,
+                  ),
+                ),
+                Icon(
+                  Icons.star_rounded,
+                  color: Colors.amber.shade700,
+                  size: 18,
+                ),
+                Text(
+                  product.rating.toStringAsFixed(1),
+                  style: ProductStyles.caption,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            _StockPill(stock: product.stock),
           ],
         ),
       ),
@@ -946,8 +1062,8 @@ class ProductArt extends StatelessWidget {
   final bool large;
   @override
   Widget build(BuildContext context) {
-    final width = large ? double.infinity : 130.0;
-    final height = large ? 380.0 : 135.0;
+    final width = large ? double.infinity : 116.0;
+    final height = large ? 320.0 : 104.0;
     return Container(
       width: width,
       height: height,
@@ -993,6 +1109,33 @@ class ProductArt extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StockPill extends StatelessWidget {
+  const _StockPill({required this.stock});
+
+  final int stock;
+
+  @override
+  Widget build(BuildContext context) {
+    final inStock = stock > 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: inStock ? const Color(0xFFE8FFF5) : const Color(0xFFFFE9E5),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        inStock ? 'In stock: $stock' : 'Out of stock',
+        style: TextStyle(
+          color: inStock ? const Color(0xFF16785B) : const Color(0xFFCE3D2E),
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0,
+        ),
       ),
     );
   }
@@ -1083,6 +1226,70 @@ class _DetailInfo extends StatelessWidget {
   }
 }
 
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({
+    required this.icon,
+    required this.title,
+    required this.detail,
+  });
+
+  final IconData icon;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAF8),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE3F3ED)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8FFF5),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: const Color(0xFF16785B), size: 23),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: ProductStyles.productName),
+                const SizedBox(height: 4),
+                Text(detail, style: ProductStyles.caption),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewsPreview extends StatelessWidget {
+  const _ReviewsPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _InfoCard(
+      icon: Icons.rate_review_rounded,
+      title: 'Reviews',
+      detail:
+          '4.8 average rating from happy pet owners. Review list can be connected to customer feedback data.',
+    );
+  }
+}
+
 class _QuickProductMenu extends StatelessWidget {
   const _QuickProductMenu({required this.onOrdersTap, required this.onCartTap});
   final VoidCallback onOrdersTap;
@@ -1091,34 +1298,37 @@ class _QuickProductMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 210,
-      height: 340,
+      margin: const EdgeInsets.only(right: 18),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: Colors.grey),
-      ),
-      child: ClipOval(
-        child: Container(
-          color: const Color(0xFFE5E5E5),
-          child: Column(
-            children: [
-              Expanded(
-                child: _QuickMenuItem(
-                  icon: Icons.receipt_long_rounded,
-                  label: 'Orders',
-                  onTap: onOrdersTap,
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: _QuickMenuItem(
-                  icon: Icons.shopping_cart_rounded,
-                  label: 'Cart',
-                  onTap: onCartTap,
-                ),
-              ),
-            ],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x26000000),
+            blurRadius: 18,
+            offset: Offset(0, 10),
           ),
-        ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Quick Actions', style: ProductStyles.productName),
+          const SizedBox(height: 10),
+          _QuickMenuItem(
+            icon: Icons.shopping_cart_rounded,
+            label: 'Cart',
+            onTap: onCartTap,
+          ),
+          const SizedBox(height: 8),
+          _QuickMenuItem(
+            icon: Icons.receipt_long_rounded,
+            label: 'Orders',
+            onTap: onOrdersTap,
+          ),
+        ],
       ),
     );
   }
@@ -1134,14 +1344,32 @@ class _QuickMenuItem extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: Color(0xFF7DA199), size: 42),
-        Text(label, style: TextStyle(color: Color(0xFF7DA199), fontSize: 22)),
-      ],
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xFFEFFFF8),
+    borderRadius: BorderRadius.circular(18),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF16785B), size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: Color(0xFF7DA199)),
+          ],
+        ),
+      ),
     ),
   );
 }
