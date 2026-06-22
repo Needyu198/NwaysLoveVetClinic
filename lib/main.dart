@@ -5,6 +5,7 @@ import 'login/pet_owner_auth_api.dart';
 import 'pet_owner/pet_owner_home_page.dart';
 import 'pet_owner/pet_owner_profile_page.dart';
 import 'pet_owner/pet_profile_page.dart';
+import 'pet_owner/pet_products_page.dart';
 import 'pet_owner/pet_add_reminder_page.dart';
 import 'pet_owner/pet_reminder_page.dart';
 
@@ -41,6 +42,12 @@ class NwayLoveVetClinicApp extends StatelessWidget {
         PetOwnerHomePage.routeName: (context) => const PetOwnerHomePage(),
         PetOwnerProfilePage.routeName: (context) => const PetOwnerProfilePage(),
         PetProfilePage.routeName: (context) => const PetProfilePage(),
+        PetProductsPage.routeName: (context) => const PetProductsPage(),
+        ProductDetailsPage.routeName: (context) => const ProductDetailsPage(),
+        CartPage.routeName: (context) => const CartPage(),
+        CheckoutPage.routeName: (context) => const CheckoutPage(),
+        PaymentQrPage.routeName: (context) => const PaymentQrPage(),
+        OrdersPage.routeName: (context) => const OrdersPage(),
         PetAddReminderPage.routeName: (context) => const PetAddReminderPage(),
         PetReminderPage.routeName: (context) => const PetReminderPage(),
       },

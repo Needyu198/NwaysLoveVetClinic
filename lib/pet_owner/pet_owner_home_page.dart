@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'pet_owner_nav_bar.dart';
 import 'pet_owner_profile_page.dart';
 import 'pet_profile_page.dart';
+import 'pet_products_page.dart';
 
 class PetOwnerHomePage extends StatelessWidget {
   const PetOwnerHomePage({super.key});
@@ -32,6 +33,9 @@ class PetOwnerHomePage extends StatelessWidget {
             child: PetOwnerNavBar(
               onProfileTap: () {
                 Navigator.of(context).pushNamed(PetOwnerProfilePage.routeName);
+              },
+              onShopTap: () {
+                Navigator.of(context).pushNamed(PetProductsPage.routeName);
               },
             ),
           ),

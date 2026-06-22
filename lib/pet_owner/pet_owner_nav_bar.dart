@@ -54,12 +54,14 @@ class PetOwnerNavBar extends StatelessWidget {
                   selected: selectedItem == PetOwnerNavItem.appointments,
                   onTap: onAppointmentsTap,
                 ),
-                _NavIconButton(
-                  assetPath: basketIconAsset,
-                  tooltip: 'Shop',
-                  size: 36,
-                  selected: selectedItem == PetOwnerNavItem.shop,
-                  onTap: onShopTap,
+                Expanded(
+                  child: _NavTabButton(
+                    assetPath: basketIconAsset,
+                    label: 'Products',
+                    selected: selectedItem == PetOwnerNavItem.shop,
+                    onTap: onShopTap,
+                    iconSize: 32,
+                  ),
                 ),
                 Expanded(
                   child: _NavTabButton(
