@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'pet_owner_nav_bar.dart';
+import 'pet_owner_profile_page.dart';
 import 'pet_profile_page.dart';
 
 class PetOwnerHomePage extends StatelessWidget {
@@ -21,12 +22,19 @@ class PetOwnerHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: pageColor,
       body: Stack(
         children: [
-          _HomeContent(),
-          Align(alignment: Alignment.bottomCenter, child: PetOwnerNavBar()),
+          const _HomeContent(),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: PetOwnerNavBar(
+              onProfileTap: () {
+                Navigator.of(context).pushNamed(PetOwnerProfilePage.routeName);
+              },
+            ),
+          ),
         ],
       ),
     );
