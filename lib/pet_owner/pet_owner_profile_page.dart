@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'pet_owner_clinic_page.dart';
 import 'pet_owner_home_page.dart';
 import 'pet_owner_nav_bar.dart';
 import 'pet_owner_profile_styles.dart';
@@ -154,6 +155,11 @@ class PetOwnerProfilePage extends StatelessWidget {
                 Navigator.of(
                   context,
                 ).pushReplacementNamed(PetProductsPage.routeName);
+              },
+              onAppointmentsTap: () {
+                Navigator.of(
+                  context,
+                ).pushReplacementNamed(PetOwnerClinicPage.routeName);
               },
             ),
           ),

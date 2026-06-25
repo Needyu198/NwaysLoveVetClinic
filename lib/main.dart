@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'login/login_page.dart';
 import 'login/pet_owner_auth_api.dart';
+import 'pet_owner/pet_owner_clinic_page.dart';
 import 'pet_owner/pet_owner_home_page.dart';
 import 'pet_owner/pet_owner_profile_page.dart';
 import 'pet_owner/pet_profile_page.dart';
@@ -39,6 +40,7 @@ class NwayLoveVetClinicApp extends StatelessWidget {
       initialRoute: LoginPage.routeName,
       routes: {
         LoginPage.routeName: (context) => LoginPage(authApi: authApi),
+        PetOwnerClinicPage.routeName: (context) => const PetOwnerClinicPage(),
         PetOwnerHomePage.routeName: (context) => const PetOwnerHomePage(),
         PetOwnerProfilePage.routeName: (context) => const PetOwnerProfilePage(),
         PetProfilePage.routeName: (context) => const PetProfilePage(),

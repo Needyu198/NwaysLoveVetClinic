@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'pet_owner_clinic_page.dart';
 import 'pet_owner_nav_bar.dart';
 import 'pet_owner_profile_page.dart';
 import 'pet_profile_page.dart';
@@ -31,6 +32,9 @@ class PetOwnerHomePage extends StatelessWidget {
           Align(
             alignment: Alignment.bottomCenter,
             child: PetOwnerNavBar(
+              onAppointmentsTap: () {
+                Navigator.of(context).pushNamed(PetOwnerClinicPage.routeName);
+              },
               onProfileTap: () {
                 Navigator.of(context).pushNamed(PetOwnerProfilePage.routeName);
               },

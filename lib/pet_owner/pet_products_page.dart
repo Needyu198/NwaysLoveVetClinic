@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'pet_owner_clinic_page.dart';
+import 'pet_owner_home_page.dart';
 import 'pet_owner_nav_bar.dart';
+import 'pet_owner_profile_page.dart';
 import 'pet_product_styles.dart';
 
 class PetProductsPage extends StatefulWidget {
@@ -139,7 +142,21 @@ class _PetProductsPageState extends State<PetProductsPage> {
             alignment: Alignment.bottomCenter,
             child: PetOwnerNavBar(
               selectedItem: PetOwnerNavItem.shop,
-              onProfileTap: () => Navigator.of(context).pop(),
+              onPetsTap: () {
+                Navigator.of(
+                  context,
+                ).pushReplacementNamed(PetOwnerHomePage.routeName);
+              },
+              onAppointmentsTap: () {
+                Navigator.of(
+                  context,
+                ).pushReplacementNamed(PetOwnerClinicPage.routeName);
+              },
+              onProfileTap: () {
+                Navigator.of(
+                  context,
+                ).pushReplacementNamed(PetOwnerProfilePage.routeName);
+              },
             ),
           ),
         ],

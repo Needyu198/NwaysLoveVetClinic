@@ -49,7 +49,7 @@ class PetOwnerNavBar extends StatelessWidget {
                 ),
                 _NavIconButton(
                   assetPath: medicalIconAsset,
-                  tooltip: 'Appointments',
+                  label: 'Clinic',
                   size: 44,
                   selected: selectedItem == PetOwnerNavItem.appointments,
                   onTap: onAppointmentsTap,
@@ -157,20 +157,64 @@ class _NavTabButton extends StatelessWidget {
 class _NavIconButton extends StatelessWidget {
   const _NavIconButton({
     required this.assetPath,
-    required this.tooltip,
+    required this.label,
     required this.size,
     required this.selected,
     this.onTap,
   });
 
   final String assetPath;
-  final String tooltip;
+  final String label;
   final double size;
   final bool selected;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    if (selected) {
+      return Expanded(
+        flex: 2,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(28),
+          child: Container(
+            height: 56,
+            decoration: const ShapeDecoration(
+              color: Colors.white,
+              shape: StadiumBorder(),
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image(
+                      image: AssetImage(assetPath),
+                      width: size,
+                      height: size,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Expanded(
       child: IconButton(
         onPressed: onTap,
@@ -179,9 +223,8 @@ class _NavIconButton extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.contain,
-          opacity: selected ? const AlwaysStoppedAnimation(1) : null,
         ),
-        tooltip: tooltip,
+        tooltip: label,
       ),
     );
   }
