@@ -4,11 +4,12 @@ const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 
-const { pool } = require("./db");
+const { getDatabaseConfigError, pool } = require("./db");
 const { ensureDatabaseSchema } = require("./schema");
 
 const app = express();
 const port = Number(process.env.PORT || 5000);
+const host = process.env.HOST || "127.0.0.1";
 
 app.use(cors());
 app.use(express.json());
@@ -42,6 +43,11 @@ app.post("/auth/pet-owner/login", async (req, res) => {
     return res.status(400).json({ message: "Username and password required" });
   }
 
+  const configError = getDatabaseConfigError();
+  if (configError) {
+    return res.status(500).json({ message: configError });
+  }
+
   try {
     const result = await pool.query(
       `
@@ -73,16 +79,32 @@ app.post("/auth/pet-owner/login", async (req, res) => {
   }
 });
 
-app.listen(port, async () => {
-  console.log(`Server running on http://localhost:${port}`);
+async function logDatabaseStatus() {
+  const configError = getDatabaseConfigError();
+  if (configError) {
+    console.error("PostgreSQL connection skipped:", configError);
+    return;
+  }
 
   try {
     await ensureDatabaseSchema();
     await pool.query("SELECT 1");
     console.log("Connected to PostgreSQL database NwayLoveVetClinicSever");
   } catch (error) {
-    console.error("PostgreSQL connection failed:", error.message);
-  }
-});
+    const message =
+      error.message || error.code || "Unknown PostgreSQL connection error";
 
-module.exports = { app, pool };
+    console.error("PostgreSQL connection failed:", message);
+  }
+}
+
+let server;
+
+if (require.main === module) {
+  server = app.listen(port, host, () => {
+    console.log(`Server running on http://${host}:${port}`);
+    logDatabaseStatus();
+  });
+}
+
+module.exports = { app, pool, server };
