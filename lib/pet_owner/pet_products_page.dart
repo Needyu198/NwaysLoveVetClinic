@@ -57,18 +57,8 @@ class _PetProductsPageState extends State<PetProductsPage> {
             bottom: false,
             child: Column(
               children: [
-                _ProductHeader(
-                  title: 'Available Products',
-                  onBack: () => Navigator.of(context).pop(),
-                  trailing: IconButton(
-                    onPressed: () =>
-                        setState(() => _showQuickMenu = !_showQuickMenu),
-                    icon: const Icon(Icons.tune_rounded),
-                    tooltip: 'Filters',
-                  ),
-                ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 12, 22, 12),
+                  padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
                   child: _SearchBar(
                     onChanged: (value) => setState(() => _query = value),
                     onFilterTap: _openFilterSheet,
@@ -883,13 +873,11 @@ class _ProductHeader extends StatelessWidget {
   const _ProductHeader({
     required this.title,
     required this.onBack,
-    this.trailing,
     this.closeIcon = false,
   });
 
   final String title;
   final VoidCallback onBack;
-  final Widget? trailing;
   final bool closeIcon;
 
   @override
@@ -914,7 +902,7 @@ class _ProductHeader extends StatelessWidget {
               style: ProductStyles.pageTitle,
             ),
           ),
-          SizedBox(width: 48, child: trailing),
+          const SizedBox(width: 48),
         ],
       ),
     );
