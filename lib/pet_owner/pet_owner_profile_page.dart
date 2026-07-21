@@ -380,7 +380,7 @@ class _QuickActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 162,
+      height: 174,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: PetOwnerProfileStyles.mint,
@@ -399,7 +399,10 @@ class _QuickActionCard extends StatelessWidget {
             child: Icon(icon, color: Colors.white, size: 43),
           ),
           const SizedBox(height: 12),
-          Text(label, style: PetOwnerProfileStyles.cardTitle),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label, style: PetOwnerProfileStyles.cardTitle),
+          ),
         ],
       ),
     );

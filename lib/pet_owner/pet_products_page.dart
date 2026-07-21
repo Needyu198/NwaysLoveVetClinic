@@ -481,9 +481,24 @@ class CheckoutPage extends StatelessWidget {
         children: [
           const Row(
             children: [
-              Text('Total (2 items)', style: ProductStyles.body),
-              Spacer(),
-              Text('8,000 MMK', style: ProductStyles.rowTitle),
+              Expanded(
+                child: Text(
+                  'Total (2 items)',
+                  style: ProductStyles.body,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  '8,000 MMK',
+                  textAlign: TextAlign.end,
+                  style: ProductStyles.rowTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -568,14 +583,23 @@ class _PaymentQrPageState extends State<PaymentQrPage> {
                               const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text(
-                                    'Total :',
-                                    style: ProductStyles.rowTitle,
+                                  Flexible(
+                                    child: Text(
+                                      'Total :',
+                                      textAlign: TextAlign.end,
+                                      style: ProductStyles.rowTitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                  SizedBox(width: 48),
-                                  Text(
-                                    '8,000 MMK',
-                                    style: ProductStyles.rowTitle,
+                                  SizedBox(width: 24),
+                                  Flexible(
+                                    child: Text(
+                                      '8,000 MMK',
+                                      style: ProductStyles.rowTitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1572,9 +1596,24 @@ class _CheckoutBottom extends StatelessWidget {
       children: [
         const Row(
           children: [
-            Text('Total (2 items)', style: ProductStyles.body),
-            Spacer(),
-            Text('8,000 MMK', style: ProductStyles.rowTitle),
+            Expanded(
+              child: Text(
+                'Total (2 items)',
+                style: ProductStyles.body,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                '8,000 MMK',
+                textAlign: TextAlign.end,
+                style: ProductStyles.rowTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 18),
