@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:senior_project/login/pet_owner_auth_api.dart';
 import 'package:senior_project/main.dart';
+import 'package:senior_project/pet_owner/appointment_booking_page.dart';
+import 'package:senior_project/pet_owner/pet_care_booking_page.dart';
 
 void main() {
   Future<void> signIn(WidgetTester tester) async {
@@ -71,9 +73,11 @@ void main() {
     expect(find.text('My Pets'), findsWidgets);
     expect(find.text('Reminders'), findsOneWidget);
 
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -450));
-    await tester.pumpAndSettle();
-
+    await tester.scrollUntilVisible(
+      find.text('Appointments'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Appointments'), findsOneWidget);
   });
 
@@ -149,6 +153,167 @@ void main() {
     expect(find.text('Add to Cart'), findsNothing);
     expect(find.text('Buy Now'), findsNothing);
     expect(find.text('Quantity'), findsNothing);
+  });
+
+  testWidgets('books an appointment and shows it in My Appointments', (
+    WidgetTester tester,
+  ) async {
+    AppointmentStore.instance.clear();
+    await signIn(tester);
+
+    await tester.tap(find.byTooltip('Clinic'));
+    await tester.pumpAndSettle();
+
+    final bookingCategory = find.byKey(
+      const ValueKey('clinic-booking-category'),
+    );
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1400));
+    await tester.pumpAndSettle();
+    await tester.tap(bookingCategory);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Choose Pet'), findsOneWidget);
+    await tester.tap(find.text('Max').last);
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('General Checkup'));
+    await tester.pump();
+    await tester.tap(find.text('Find Veterinarians'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Dr. Aye Chan'));
+    await tester.pump();
+    await tester.tap(find.text('Choose Date'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(ChoiceChip).first);
+    await tester.pump();
+    await tester.tap(find.text('View Time Slots'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('appointment-time-9:00 AM')));
+    await tester.pump();
+    await tester.tap(find.text('Enter Appointment Details'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('appointment-symptoms')),
+      'Low appetite',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('appointment-reason')),
+      'Routine health assessment',
+    );
+    await tester.tap(find.text('Review Booking'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Booking Summary'), findsOneWidget);
+    await tester.tap(find.text('Confirm Appointment'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your booking is confirmed!'), findsOneWidget);
+    expect(find.textContaining('Booking ID: #NWAY'), findsOneWidget);
+
+    await tester.tap(find.text('View My Appointments'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('My Appointments'), findsOneWidget);
+    expect(find.text('General Checkup'), findsOneWidget);
+    expect(find.text('Confirmed'), findsOneWidget);
+    expect(find.textContaining('Max • Dr. Aye Chan'), findsOneWidget);
+  });
+
+  testWidgets('books and completes a pet care service from Clinic categories', (
+    WidgetTester tester,
+  ) async {
+    PetCareBookingStore.instance.clear();
+    await signIn(tester);
+
+    await tester.tap(find.byTooltip('Clinic'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1400));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).at(1), const Offset(-520, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pet Care Services'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Care made comfortable'), findsOneWidget);
+    expect(find.text('Grooming'), findsOneWidget);
+    expect(find.text('From 7,000 MMK'), findsWidgets);
+
+    await tester.tap(find.byKey(const ValueKey('pet-care-service-Grooming')));
+    await tester.pumpAndSettle();
+    expect(find.text('Grooming Services'), findsOneWidget);
+    expect(find.text('Shaving'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('start-service-booking')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('care-pet-Max')));
+    await tester.pump();
+    await tester.tap(find.text('Check Eligibility'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Eligible for Grooming'), findsOneWidget);
+    await tester.tap(find.text('May Thazin'));
+    await tester.pump();
+    await tester.tap(find.text('Select Schedule'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(ChoiceChip).first);
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('care-time-9:00 AM')));
+    await tester.pump();
+    await tester.tap(find.text('Hold This Slot'));
+    await tester.pump();
+
+    expect(find.text('Special Instructions'), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Allergies'),
+      'No known allergies',
+    );
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Review Booking'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('No online payment is required.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Confirm Service'));
+    await tester.pumpAndSettle();
+    expect(find.text('Service booking confirmed!'), findsOneWidget);
+    expect(find.textContaining('Booking number: #CARE'), findsOneWidget);
+
+    await tester.tap(find.text('View Service Booking'));
+    await tester.pumpAndSettle();
+    expect(find.text('Confirmed'), findsOneWidget);
+
+    await tester.tap(find.text('Check In Pet'));
+    await tester.pumpAndSettle();
+    expect(find.text('Checked In'), findsOneWidget);
+    await tester.tap(find.text('Start Service'));
+    await tester.pumpAndSettle();
+    expect(find.text('In Progress'), findsOneWidget);
+    await tester.tap(find.text('Mark Service Complete'));
+    await tester.pumpAndSettle();
+    expect(find.text('Completed'), findsOneWidget);
+
+    await tester.tap(find.text('View Report & Review'));
+    await tester.pumpAndSettle();
+    expect(find.text('Service Report'), findsOneWidget);
+    expect(find.text('Provider notes'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('care-rating-5')));
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Write a review'),
+      'Excellent care.',
+    );
+    await tester.tap(find.text('Submit Review'));
+    await tester.pump();
+    expect(find.text('Thank you. Your review was saved.'), findsOneWidget);
   });
 
   testWidgets('login screen fits common phone sizes', (

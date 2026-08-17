@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'appointment_booking_page.dart';
+import 'pet_care_booking_page.dart';
 import 'pet_owner_home_page.dart';
 import 'pet_owner_nav_bar.dart';
 import 'pet_owner_profile_page.dart';
@@ -237,10 +239,9 @@ class _ClinicInfoCard extends StatelessWidget {
                             icon: Icons.event_available_rounded,
                             label: 'Book',
                             highlighted: true,
-                            onTap: () => _showActionMessage(
+                            onTap: () => Navigator.of(
                               context,
-                              'Booking feature coming next.',
-                            ),
+                            ).pushNamed(AppointmentBookingPage.routeName),
                           ),
                         ),
                       ],
@@ -531,10 +532,9 @@ class _DoctorCard extends StatelessWidget {
             height: 38,
             width: double.infinity,
             child: FilledButton(
-              onPressed: () => _showActionMessage(
+              onPressed: () => Navigator.of(
                 context,
-                'Selected ${doctor.name} for booking.',
-              ),
+              ).pushNamed(AppointmentBookingPage.routeName),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF0F201B),
                 foregroundColor: Colors.white,
@@ -590,7 +590,20 @@ class _ServiceItem extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _showServiceDetails(context, service),
+        key: service.title == 'Booking'
+            ? const ValueKey('clinic-booking-category')
+            : null,
+        onTap: () {
+          if (service.title == 'Booking') {
+            Navigator.of(context).pushNamed(AppointmentBookingPage.routeName);
+            return;
+          }
+          if (service.title == 'Pet Care Services') {
+            Navigator.of(context).pushNamed(PetCareServicesPage.routeName);
+            return;
+          }
+          _showServiceDetails(context, service);
+        },
         borderRadius: BorderRadius.circular(20),
         child: SizedBox(
           width: 112,
