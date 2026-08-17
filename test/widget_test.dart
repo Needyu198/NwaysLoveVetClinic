@@ -137,9 +137,7 @@ void main() {
     expect(find.text('Annual Rabies Vaccination'), findsOneWidget);
   });
 
-  testWidgets('product cart remains available without payment actions', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('product details are browse-only', (WidgetTester tester) async {
     await signIn(tester);
 
     await tester.tap(find.byTooltip('Products'));
@@ -148,14 +146,9 @@ void main() {
     await tester.tap(find.text('Dog Food 01'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Add to Cart'), findsOneWidget);
+    expect(find.text('Add to Cart'), findsNothing);
     expect(find.text('Buy Now'), findsNothing);
-
-    await tester.tap(find.text('Add to Cart'));
-    await tester.pumpAndSettle();
-    expect(find.text('Cart'), findsOneWidget);
-    expect(find.text('Check Out'), findsNothing);
-    expect(find.text('Payment Method'), findsNothing);
+    expect(find.text('Quantity'), findsNothing);
   });
 
   testWidgets('login screen fits common phone sizes', (

@@ -86,22 +86,6 @@ class PetOwnerProfilePage extends StatelessWidget {
                     ),
                     SizedBox(height: 16),
                     _FeatureSection(
-                      title: 'Orders',
-                      children: [
-                        _FeatureRow(
-                          icon: Icons.shopping_bag_rounded,
-                          title: 'Current Orders',
-                          color: Color(0xFF18A77B),
-                        ),
-                        _FeatureRow(
-                          icon: Icons.history_rounded,
-                          title: 'Order History',
-                          color: Color(0xFF69717F),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 16),
-                    _FeatureSection(
                       title: 'Account',
                       children: [
                         _FeatureRow(
