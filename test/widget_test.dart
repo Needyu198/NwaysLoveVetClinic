@@ -112,7 +112,10 @@ void main() {
     expect(find.text('Basic Info'), findsOneWidget);
 
     final reminderButton = find.widgetWithText(TextButton, 'Reminder');
-    await tester.drag(find.byType(CustomScrollView).last, const Offset(0, -520));
+    await tester.drag(
+      find.byType(CustomScrollView).last,
+      const Offset(0, -520),
+    );
     await tester.pumpAndSettle();
     await tester.ensureVisible(reminderButton);
     await tester.tap(reminderButton);
@@ -134,7 +137,7 @@ void main() {
     expect(find.text('Annual Rabies Vaccination'), findsOneWidget);
   });
 
-  testWidgets('product checkout flow reaches payment and returns home', (
+  testWidgets('product cart remains available without payment actions', (
     WidgetTester tester,
   ) async {
     await signIn(tester);
@@ -146,27 +149,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Add to Cart'), findsOneWidget);
-    expect(find.text('Buy Now'), findsOneWidget);
+    expect(find.text('Buy Now'), findsNothing);
 
-    await tester.tap(find.text('Buy Now'));
+    await tester.tap(find.text('Add to Cart'));
     await tester.pumpAndSettle();
-    expect(find.text('Check Out'), findsWidgets);
-
-    await tester.tap(find.text('Place Order'));
-    await tester.pumpAndSettle();
-    expect(find.text('Payment Method'), findsOneWidget);
-
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-    expect(find.text('Complete Payment in 00:20:00'), findsOneWidget);
-
-    await tester.tap(find.text('Finish'));
-    await tester.pumpAndSettle();
-    expect(find.text('Thank You !'), findsOneWidget);
-
-    await tester.tap(find.text('Done'));
-    await tester.pumpAndSettle();
-    expect(find.text('Healthy days start here'), findsOneWidget);
+    expect(find.text('Cart'), findsOneWidget);
+    expect(find.text('Check Out'), findsNothing);
+    expect(find.text('Payment Method'), findsNothing);
   });
 
   testWidgets('login screen fits common phone sizes', (

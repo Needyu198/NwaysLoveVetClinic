@@ -47,8 +47,6 @@ class NwayLoveVetClinicApp extends StatelessWidget {
         PetProductsPage.routeName: (context) => const PetProductsPage(),
         ProductDetailsPage.routeName: (context) => const ProductDetailsPage(),
         CartPage.routeName: (context) => const CartPage(),
-        CheckoutPage.routeName: (context) => const CheckoutPage(),
-        PaymentQrPage.routeName: (context) => const PaymentQrPage(),
         OrdersPage.routeName: (context) => const OrdersPage(),
         PetAddReminderPage.routeName: (context) => const PetAddReminderPage(),
         PetReminderPage.routeName: (context) => const PetReminderPage(),

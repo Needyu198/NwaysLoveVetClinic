@@ -105,11 +105,6 @@ class PetOwnerProfilePage extends StatelessWidget {
                       title: 'Account',
                       children: [
                         _FeatureRow(
-                          icon: Icons.credit_card_rounded,
-                          title: 'Payment Methods',
-                          color: Color(0xFF2F80FF),
-                        ),
-                        _FeatureRow(
                           icon: Icons.location_on_rounded,
                           title: 'Saved Address',
                           color: Color(0xFF18A77B),

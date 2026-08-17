@@ -384,33 +384,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 10, 24, 26),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () =>
-                          Navigator.of(context).pushNamed(CartPage.routeName),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        minimumSize: const Size.fromHeight(52),
-                      ),
-                      child: const Text('Add to Cart'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(
-                        context,
-                      ).pushNamed(CheckoutPage.routeName),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: ProductStyles.green,
-                        minimumSize: const Size.fromHeight(52),
-                      ),
-                      child: const Text('Buy Now'),
-                    ),
-                  ),
-                ],
+              child: FilledButton(
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(CartPage.routeName),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  minimumSize: const Size.fromHeight(52),
+                ),
+                child: const Text('Add to Cart'),
               ),
             ),
           ],
@@ -442,267 +423,13 @@ class CartPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              const Text('8,000 MMK', style: ProductStyles.rowTitle),
-              const SizedBox(width: 18),
-              Expanded(
-                child: FilledButton(
-                  onPressed: () =>
-                      Navigator.of(context).pushNamed(CheckoutPage.routeName),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: ProductStyles.green,
-                    minimumSize: const Size.fromHeight(54),
-                  ),
-                  child: const Text('Check Out'),
-                ),
-              ),
-            ],
+          const Align(
+            alignment: Alignment.centerRight,
+            child: Text('8,000 MMK', style: ProductStyles.rowTitle),
           ),
         ],
       ),
       products: [products[0], products[4], products[5]],
-    );
-  }
-}
-
-class CheckoutPage extends StatelessWidget {
-  const CheckoutPage({super.key});
-
-  static const String routeName = '/checkout';
-
-  @override
-  Widget build(BuildContext context) {
-    return _CartLikePage(
-      title: 'Check Out',
-      products: [products[0]],
-      bottom: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Total (2 items)',
-                  style: ProductStyles.body,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  '8,000 MMK',
-                  textAlign: TextAlign.end,
-                  style: ProductStyles.rowTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: FilledButton(
-              onPressed: () => _showPaymentMethods(context),
-              style: FilledButton.styleFrom(
-                backgroundColor: ProductStyles.green,
-              ),
-              child: const Text('Place Order'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static void _showPaymentMethods(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => const _PaymentMethodSheet(),
-    );
-  }
-}
-
-class PaymentQrPage extends StatefulWidget {
-  const PaymentQrPage({super.key});
-
-  static const String routeName = '/payment-qr';
-
-  @override
-  State<PaymentQrPage> createState() => _PaymentQrPageState();
-}
-
-class _PaymentQrPageState extends State<PaymentQrPage> {
-  bool _showThanks = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ProductStyles.background,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                _ProductHeader(
-                  title: 'Complete Payment in 00:20:00',
-                  onBack: () => Navigator.of(context).pop(),
-                  closeIcon: true,
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(28),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          child: Column(
-                            children: [
-                              CustomPaint(
-                                size: const Size(260, 260),
-                                painter: _QrPainter(),
-                              ),
-                              const Text(
-                                'K pay Wave pay\nQR here',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      'Total :',
-                                      textAlign: TextAlign.end,
-                                      style: ProductStyles.rowTitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  SizedBox(width: 24),
-                                  Flexible(
-                                    child: Text(
-                                      '8,000 MMK',
-                                      style: ProductStyles.rowTitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(22),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                          child: Column(
-                            children: [
-                              const Text(
-                                'Please Upload Your Complete Payment Slip Here',
-                                style: ProductStyles.body,
-                              ),
-                              const SizedBox(height: 22),
-                              Container(
-                                height: 110,
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(color: Colors.grey),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    _SlipPreview(),
-                                    Spacer(),
-                                    Icon(Icons.image_outlined, size: 34),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 120),
-                      ],
-                    ),
-                  ),
-                ),
-                _CheckoutBottom(
-                  buttonText: 'Finish',
-                  onPressed: () => setState(() => _showThanks = true),
-                ),
-              ],
-            ),
-            if (_showThanks)
-              Positioned.fill(
-                child: ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  child: Center(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 34),
-                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-                      color: Colors.white,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'Thank You !',
-                            style: ProductStyles.detailTitle,
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: FilledButton(
-                                  onPressed: () => Navigator.of(
-                                    context,
-                                  ).popUntil((route) => route.isFirst),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: ProductStyles.green,
-                                  ),
-                                  child: const Text('Done'),
-                                ),
-                              ),
-                              const SizedBox(width: 18),
-                              Expanded(
-                                child: FilledButton(
-                                  onPressed: () => Navigator.of(
-                                    context,
-                                  ).pushReplacementNamed(OrdersPage.routeName),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFFA7BBB4),
-                                  ),
-                                  child: const Text('Go To Order'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -894,15 +621,10 @@ const categories = [
 ];
 
 class _ProductHeader extends StatelessWidget {
-  const _ProductHeader({
-    required this.title,
-    required this.onBack,
-    this.closeIcon = false,
-  });
+  const _ProductHeader({required this.title, required this.onBack});
 
   final String title;
   final VoidCallback onBack;
-  final bool closeIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -912,11 +634,7 @@ class _ProductHeader extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onBack,
-            icon: Icon(
-              closeIcon
-                  ? Icons.close_rounded
-                  : Icons.arrow_back_ios_new_rounded,
-            ),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
             iconSize: 25,
           ),
           Expanded(
@@ -1495,179 +1213,6 @@ class _CartItem extends StatelessWidget {
       ),
     );
   }
-}
-
-class _PaymentMethodSheet extends StatefulWidget {
-  const _PaymentMethodSheet();
-  @override
-  State<_PaymentMethodSheet> createState() => _PaymentMethodSheetState();
-}
-
-class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
-  String selected = 'KBZ Pay (K pay)';
-  final methods = const [
-    'Wave Money',
-    'KBZ Pay (K pay)',
-    'AYA Pay',
-    'Bank Transfer',
-    'Cash On Delivery',
-  ];
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 24, 8, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      'Payment Method',
-                      style: ProductStyles.detailTitle,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded, size: 32),
-                ),
-              ],
-            ),
-            const Divider(),
-            for (final method in methods)
-              ListTile(
-                leading: Container(
-                  width: 64,
-                  alignment: Alignment.center,
-                  child: Text(
-                    method.split(' ').first,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1F63FF),
-                    ),
-                  ),
-                ),
-                title: Text(method, style: ProductStyles.rowTitle),
-                trailing: Icon(
-                  selected == method
-                      ? Icons.radio_button_checked_rounded
-                      : Icons.radio_button_unchecked_rounded,
-                  size: 34,
-                ),
-                onTap: () => setState(() => selected = method),
-              ),
-            const SizedBox(height: 28),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: FilledButton(
-                onPressed: () => Navigator.of(
-                  context,
-                ).pushReplacementNamed(PaymentQrPage.routeName),
-                style: FilledButton.styleFrom(
-                  backgroundColor: ProductStyles.green,
-                ),
-                child: const Text('Continue'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CheckoutBottom extends StatelessWidget {
-  const _CheckoutBottom({required this.buttonText, required this.onPressed});
-  final String buttonText;
-  final VoidCallback onPressed;
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-    decoration: const BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Total (2 items)',
-                style: ProductStyles.body,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            SizedBox(width: 12),
-            Flexible(
-              child: Text(
-                '8,000 MMK',
-                textAlign: TextAlign.end,
-                style: ProductStyles.rowTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: FilledButton(
-            onPressed: onPressed,
-            style: FilledButton.styleFrom(backgroundColor: ProductStyles.green),
-            child: Text(buttonText),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _QrPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.black;
-    final cell = size.width / 13;
-    for (var y = 0; y < 13; y++) {
-      for (var x = 0; x < 13; x++) {
-        if ((x * y + x + y) % 3 == 0 ||
-            x < 3 && y < 3 ||
-            x > 9 && y < 3 ||
-            x < 3 && y > 9) {
-          canvas.drawRect(
-            Rect.fromLTWH(x * cell, y * cell, cell * .86, cell * .86),
-            paint,
-          );
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _SlipPreview extends StatelessWidget {
-  const _SlipPreview();
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 82,
-    height: 82,
-    color: const Color(0xFF0D55AA),
-    alignment: Alignment.center,
-    child: const Text(
-      '8,000.00 Ks',
-      style: TextStyle(color: Colors.white, fontSize: 10),
-    ),
-  );
 }
 
 class _OrderCard extends StatelessWidget {
