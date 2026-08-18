@@ -4,6 +4,7 @@ import 'login/login_page.dart';
 import 'login/pet_owner_auth_api.dart';
 import 'pet_owner/appointment_booking_page.dart';
 import 'pet_owner/home_visit_booking_page.dart';
+import 'pet_owner/medical_services_page.dart';
 import 'pet_owner/pet_care_booking_page.dart';
 import 'pet_owner/pet_owner_clinic_page.dart';
 import 'pet_owner/pet_owner_home_page.dart';
@@ -52,6 +53,7 @@ class NwayLoveVetClinicApp extends StatelessWidget {
         HomeVisitBookingPage.routeName: (context) =>
             const HomeVisitBookingPage(),
         MyHomeVisitsPage.routeName: (context) => const MyHomeVisitsPage(),
+        MedicalServicesPage.routeName: (context) => const MedicalServicesPage(),
         PetCareServicesPage.routeName: (context) => const PetCareServicesPage(),
         MyServiceBookingsPage.routeName: (context) =>
             const MyServiceBookingsPage(),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'appointment_booking_page.dart';
 import 'home_visit_booking_page.dart';
+import 'medical_services_page.dart';
 import 'pet_care_booking_page.dart';
 import 'pet_owner_home_page.dart';
 import 'pet_owner_nav_bar.dart';
@@ -595,6 +596,8 @@ class _ServiceItem extends StatelessWidget {
             ? const ValueKey('clinic-booking-category')
             : service.title == 'Home Visit'
             ? const ValueKey('clinic-home-visit-category')
+            : service.title == 'Medical Services'
+            ? const ValueKey('clinic-medical-services-category')
             : null,
         onTap: () {
           if (service.title == 'Booking') {
@@ -607,6 +610,10 @@ class _ServiceItem extends StatelessWidget {
           }
           if (service.title == 'Home Visit') {
             Navigator.of(context).pushNamed(HomeVisitBookingPage.routeName);
+            return;
+          }
+          if (service.title == 'Medical Services') {
+            Navigator.of(context).pushNamed(MedicalServicesPage.routeName);
             return;
           }
           _showServiceDetails(context, service);

@@ -433,6 +433,41 @@ void main() {
     );
   });
 
+  testWidgets('Medical Services is a browse-only clinic catalog', (
+    WidgetTester tester,
+  ) async {
+    await signIn(tester);
+
+    await tester.tap(find.byTooltip('Clinic'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1400));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).at(1), const Offset(-360, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('clinic-medical-services-category')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Medical Services'), findsOneWidget);
+    expect(find.text('Diagnostic Services'), findsOneWidget);
+    expect(find.text('Rapid Test'), findsOneWidget);
+    expect(find.text('Ultra Sound'), findsOneWidget);
+    expect(find.text('Blood Testing'), findsOneWidget);
+    expect(find.text('Select Pet'), findsNothing);
+    expect(find.text('Confirm Appointment'), findsNothing);
+
+    await tester.drag(
+      find.byKey(const ValueKey('medical-services-catalog')),
+      const Offset(0, -900),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Preventive Care'), findsOneWidget);
+    expect(find.text('Rabies Vaccination'), findsOneWidget);
+    expect(find.text('Operational Services'), findsOneWidget);
+    expect(find.text('Neutering (Birth Control)'), findsOneWidget);
+  });
+
   testWidgets('login screen fits common phone sizes', (
     WidgetTester tester,
   ) async {
