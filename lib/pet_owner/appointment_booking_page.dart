@@ -121,6 +121,115 @@ class AppointmentStore extends ChangeNotifier {
   @visibleForTesting
   void clear() {
     _appointments.clear();
+    QueueStore.instance.clear();
+    notifyListeners();
+  }
+}
+
+enum QueueStatus { waiting, almostTurn, called, inConsultation, completed }
+
+class QueueEntry {
+  QueueEntry({
+    required this.appointment,
+    required this.queueNumber,
+    this.status = QueueStatus.waiting,
+    this.petsAhead = 2,
+    this.estimatedWaitMinutes = 20,
+    this.room = '',
+  });
+
+  final BookedAppointment appointment;
+  final String queueNumber;
+  QueueStatus status;
+  int petsAhead;
+  int estimatedWaitMinutes;
+  String room;
+  String consultationSummary = '';
+  String diagnosis = '';
+  String recommendations = '';
+}
+
+class QueueStore extends ChangeNotifier {
+  QueueStore._();
+
+  static final instance = QueueStore._();
+
+  final List<QueueEntry> _entries = [];
+
+  List<QueueEntry> get active => List.unmodifiable(
+    _entries.where((entry) => entry.status != QueueStatus.completed),
+  );
+
+  List<QueueEntry> get history => List.unmodifiable(
+    _entries.where((entry) => entry.status == QueueStatus.completed),
+  );
+
+  void syncConfirmedAppointments(Iterable<BookedAppointment> appointments) {
+    for (final appointment in appointments) {
+      if (appointment.service.homeVisit ||
+          _entries.any((entry) => entry.appointment.id == appointment.id)) {
+        continue;
+      }
+      _entries.add(
+        QueueEntry(
+          appointment: appointment,
+          queueNumber: 'Q${12 + _entries.length}',
+        ),
+      );
+    }
+  }
+
+  QueueEntry? entryFor(BookedAppointment appointment) {
+    syncConfirmedAppointments([appointment]);
+    return _entries.cast<QueueEntry?>().firstWhere(
+      (entry) => entry?.appointment.id == appointment.id,
+      orElse: () => null,
+    );
+  }
+
+  void staffUpdate(
+    QueueEntry entry,
+    QueueStatus status, {
+    int? petsAhead,
+    int? estimatedWaitMinutes,
+    String? room,
+  }) {
+    entry.status = status;
+    entry.petsAhead =
+        petsAhead ??
+        switch (status) {
+          QueueStatus.waiting => entry.petsAhead,
+          QueueStatus.almostTurn => 1,
+          QueueStatus.called ||
+          QueueStatus.inConsultation ||
+          QueueStatus.completed => 0,
+        };
+    entry.estimatedWaitMinutes =
+        estimatedWaitMinutes ??
+        switch (status) {
+          QueueStatus.waiting => entry.estimatedWaitMinutes,
+          QueueStatus.almostTurn => 5,
+          QueueStatus.called ||
+          QueueStatus.inConsultation ||
+          QueueStatus.completed => 0,
+        };
+    if (room != null) entry.room = room;
+    if (status == QueueStatus.called && entry.room.isEmpty) {
+      entry.room = 'Consultation Room 2';
+    }
+    if (status == QueueStatus.completed) {
+      entry.consultationSummary =
+          'Clinical examination completed and findings added to the pet’s history.';
+      entry.diagnosis = 'Consultation diagnosis recorded by the veterinarian.';
+      entry.recommendations =
+          'Follow the veterinarian’s care instructions and monitor symptoms.';
+    }
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void clear() {
+    _entries.clear();
     notifyListeners();
   }
 }
@@ -185,6 +294,395 @@ class BookingService {
   final IconData icon;
   final bool homeVisit;
   final List<String> doctors;
+}
+
+class AppointmentDetailsPage extends StatelessWidget {
+  const AppointmentDetailsPage({required this.appointment, super.key});
+
+  final BookedAppointment appointment;
+
+  @override
+  Widget build(BuildContext context) {
+    final queueEntry = QueueStore.instance.entryFor(appointment);
+    return Scaffold(
+      backgroundColor: _BookingColors.page,
+      appBar: AppBar(
+        title: const Text('Appointment Details'),
+        backgroundColor: _BookingColors.mint,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          _SummaryCard(
+            rows: [
+              ('Booking ID', '#${appointment.id}'),
+              ('Pet', '${appointment.pet.name} • ${appointment.pet.breed}'),
+              ('Service', appointment.service.name),
+              ('Veterinarian', appointment.veterinarian),
+              ('Date', _longDate(appointment.date)),
+              ('Time', appointment.time),
+              ('Status', appointment.status),
+              ('Reason', appointment.reason),
+              ('Symptoms', appointment.symptoms),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _NoticeBox(
+            icon: Icons.badge_outlined,
+            text: queueEntry == null
+                ? 'Home Visit appointments do not use the clinic queue.'
+                : 'Clinic staff verifies the booking and updates check-in and queue status. Pet owners can only view these updates.',
+          ),
+          if (queueEntry != null) ...[
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(MyQueuePage.routeName),
+              icon: const Icon(Icons.groups_2_outlined),
+              label: const Text('Open My Queue'),
+              style: FilledButton.styleFrom(
+                backgroundColor: _BookingColors.green,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(52),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class MyQueuePage extends StatelessWidget {
+  const MyQueuePage({super.key});
+
+  static const routeName = '/my-queue';
+
+  @override
+  Widget build(BuildContext context) {
+    QueueStore.instance.syncConfirmedAppointments(
+      AppointmentStore.instance.appointments,
+    );
+    return Scaffold(
+      backgroundColor: _BookingColors.page,
+      appBar: AppBar(
+        title: const Text('My Queue'),
+        backgroundColor: _BookingColors.mint,
+        surfaceTintColor: Colors.transparent,
+        actions: [
+          IconButton(
+            tooltip: 'Queue History',
+            onPressed: () =>
+                Navigator.of(context).pushNamed(QueueHistoryPage.routeName),
+            icon: const Icon(Icons.history_rounded),
+          ),
+        ],
+      ),
+      body: AnimatedBuilder(
+        animation: QueueStore.instance,
+        builder: (context, _) {
+          final entries = QueueStore.instance.active;
+          if (entries.isEmpty) {
+            return const _EmptyQueue(
+              icon: Icons.groups_2_outlined,
+              title: 'No active queue',
+              message:
+                  'Your queue information appears after clinic staff verifies and checks in a confirmed appointment.',
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+            itemCount: entries.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 14),
+            itemBuilder: (context, index) => _QueueCard(
+              entry: entries[index],
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => QueueDetailsPage(entry: entries[index]),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class QueueHistoryPage extends StatelessWidget {
+  const QueueHistoryPage({super.key});
+
+  static const routeName = '/queue-history';
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _BookingColors.page,
+      appBar: AppBar(
+        title: const Text('Queue History'),
+        backgroundColor: _BookingColors.mint,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: AnimatedBuilder(
+        animation: QueueStore.instance,
+        builder: (context, _) {
+          final entries = QueueStore.instance.history;
+          if (entries.isEmpty) {
+            return const _EmptyQueue(
+              icon: Icons.history_rounded,
+              title: 'No completed queues',
+              message: 'Completed clinic queues will appear here.',
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+            itemCount: entries.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 14),
+            itemBuilder: (context, index) => _QueueCard(
+              entry: entries[index],
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => QueueDetailsPage(entry: entries[index]),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class QueueDetailsPage extends StatelessWidget {
+  const QueueDetailsPage({required this.entry, super.key});
+
+  final QueueEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _BookingColors.page,
+      appBar: AppBar(
+        title: Text('Queue ${entry.queueNumber}'),
+        backgroundColor: _BookingColors.mint,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: AnimatedBuilder(
+        animation: QueueStore.instance,
+        builder: (context, _) => ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _QueueStatusPanel(entry: entry),
+            const SizedBox(height: 16),
+            _SummaryCard(
+              rows: [
+                ('Queue number', entry.queueNumber),
+                ('Pet', entry.appointment.pet.name),
+                ('Veterinarian', entry.appointment.veterinarian),
+                ('Service', entry.appointment.service.name),
+                ('Booking ID', '#${entry.appointment.id}'),
+                if (entry.room.isNotEmpty) ('Room', entry.room),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const _NoticeBox(
+              icon: Icons.lock_outline_rounded,
+              text:
+                  'Queue status is updated by clinic staff. Pet owners cannot change it manually.',
+            ),
+            if (entry.status == QueueStatus.almostTurn) ...[
+              const SizedBox(height: 16),
+              const _NoticeBox(
+                icon: Icons.notifications_active_outlined,
+                text: 'Almost your turn. Please stay near the waiting area.',
+              ),
+            ],
+            if (entry.status == QueueStatus.completed) ...[
+              const SizedBox(height: 20),
+              const Text('Consultation Record', style: _BookingText.section),
+              const SizedBox(height: 10),
+              _SummaryCard(
+                rows: [
+                  ('Consultation', entry.consultationSummary),
+                  ('Diagnosis', entry.diagnosis),
+                  ('Recommendations', entry.recommendations),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const _NoticeBox(
+                icon: Icons.receipt_long_outlined,
+                text:
+                    'This completed consultation is saved in the pet’s medical history. No payment controls are included.',
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QueueCard extends StatelessWidget {
+  const _QueueCard({required this.entry, required this.onTap});
+
+  final QueueEntry entry;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: _BookingColors.mint,
+                    child: Text(
+                      entry.queueNumber,
+                      style: const TextStyle(
+                        color: _BookingColors.ink,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          entry.appointment.pet.name,
+                          style: _BookingText.cardTitle,
+                        ),
+                        Text(
+                          entry.appointment.veterinarian,
+                          style: _BookingText.caption,
+                        ),
+                      ],
+                    ),
+                  ),
+                  _QueueStatusChip(status: entry.status),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                entry.status == QueueStatus.completed
+                    ? 'Completed appointment • Tap for consultation record'
+                    : '${entry.petsAhead} pet${entry.petsAhead == 1 ? '' : 's'} ahead • About ${entry.estimatedWaitMinutes} min',
+                style: _BookingText.body,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QueueStatusPanel extends StatelessWidget {
+  const _QueueStatusPanel({required this.entry});
+
+  final QueueEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _BookingColors.mint,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        children: [
+          Text(
+            entry.queueNumber,
+            style: const TextStyle(
+              color: _BookingColors.ink,
+              fontSize: 42,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(_queueStatusLabel(entry.status), style: _BookingText.cardTitle),
+          if (entry.status == QueueStatus.waiting ||
+              entry.status == QueueStatus.almostTurn) ...[
+            const SizedBox(height: 8),
+            Text(
+              '${entry.petsAhead} pet${entry.petsAhead == 1 ? '' : 's'} ahead • Estimated ${entry.estimatedWaitMinutes} minutes',
+              textAlign: TextAlign.center,
+              style: _BookingText.body,
+            ),
+          ],
+          if (entry.room.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(entry.room, style: _BookingText.body),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _QueueStatusChip extends StatelessWidget {
+  const _QueueStatusChip({required this.status});
+
+  final QueueStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE3F8EF),
+        borderRadius: BorderRadius.circular(50),
+      ),
+      child: Text(_queueStatusLabel(status), style: _BookingText.success),
+    );
+  }
+}
+
+class _EmptyQueue extends StatelessWidget {
+  const _EmptyQueue({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 68, color: _BookingColors.muted),
+            const SizedBox(height: 16),
+            Text(title, style: _BookingText.title, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: _BookingText.body,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
@@ -1310,62 +1808,87 @@ class _AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        key: ValueKey('appointment-${appointment.id}'),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => AppointmentDetailsPage(appointment: appointment),
+          ),
+        ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFD8E7E1)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _IconBubble(icon: appointment.service.icon),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFD8E7E1)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _IconBubble(icon: appointment.service.icon),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        appointment.service.name,
-                        style: _BookingText.cardTitle,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            appointment.service.name,
+                            style: _BookingText.cardTitle,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3F8EF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            appointment.status,
+                            style: _BookingText.success,
+                          ),
+                        ),
+                      ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE3F8EF),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        appointment.status,
-                        style: _BookingText.success,
-                      ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${appointment.pet.name} • ${appointment.veterinarian}',
+                      style: _BookingText.body,
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '${_longDate(appointment.date)} • ${appointment.time}',
+                      style: _BookingText.caption,
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Booking #${appointment.id}',
+                            style: _BookingText.caption,
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: _BookingColors.muted,
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '${appointment.pet.name} • ${appointment.veterinarian}',
-                  style: _BookingText.body,
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '${_longDate(appointment.date)} • ${appointment.time}',
-                  style: _BookingText.caption,
-                ),
-                const SizedBox(height: 5),
-                Text('Booking #${appointment.id}', style: _BookingText.caption),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1449,6 +1972,14 @@ String _longDate(DateTime date) {
   ];
   return '${weekdays[date.weekday - 1]}, ${date.day} ${months[date.month - 1]} ${date.year}';
 }
+
+String _queueStatusLabel(QueueStatus status) => switch (status) {
+  QueueStatus.waiting => 'Waiting',
+  QueueStatus.almostTurn => 'Almost Your Turn',
+  QueueStatus.called => 'Called',
+  QueueStatus.inConsultation => 'In Consultation',
+  QueueStatus.completed => 'Completed',
+};
 
 String _formatCountdown(int seconds) {
   final minutes = seconds ~/ 60;

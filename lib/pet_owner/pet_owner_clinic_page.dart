@@ -594,6 +594,8 @@ class _ServiceItem extends StatelessWidget {
       child: InkWell(
         key: service.title == 'Booking'
             ? const ValueKey('clinic-booking-category')
+            : service.title == 'Queue'
+            ? const ValueKey('clinic-queue-category')
             : service.title == 'Home Visit'
             ? const ValueKey('clinic-home-visit-category')
             : service.title == 'Medical Services'
@@ -602,6 +604,10 @@ class _ServiceItem extends StatelessWidget {
         onTap: () {
           if (service.title == 'Booking') {
             Navigator.of(context).pushNamed(AppointmentBookingPage.routeName);
+            return;
+          }
+          if (service.title == 'Queue') {
+            Navigator.of(context).pushNamed(MyQueuePage.routeName);
             return;
           }
           if (service.title == 'Pet Care Services') {

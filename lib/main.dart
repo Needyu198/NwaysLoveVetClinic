@@ -50,6 +50,8 @@ class NwayLoveVetClinicApp extends StatelessWidget {
         AppointmentBookingPage.routeName: (context) =>
             const AppointmentBookingPage(),
         MyAppointmentsPage.routeName: (context) => const MyAppointmentsPage(),
+        MyQueuePage.routeName: (context) => const MyQueuePage(),
+        QueueHistoryPage.routeName: (context) => const QueueHistoryPage(),
         HomeVisitBookingPage.routeName: (context) =>
             const HomeVisitBookingPage(),
         MyHomeVisitsPage.routeName: (context) => const MyHomeVisitsPage(),

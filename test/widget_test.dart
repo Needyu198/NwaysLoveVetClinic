@@ -224,6 +224,63 @@ void main() {
     expect(find.text('General Checkup'), findsOneWidget);
     expect(find.text('Confirmed'), findsOneWidget);
     expect(find.textContaining('Max • Dr. Aye Chan'), findsOneWidget);
+
+    await tester.tap(find.text('General Checkup'));
+    await tester.pumpAndSettle();
+    expect(find.text('Appointment Details'), findsOneWidget);
+    expect(
+      find.textContaining('Pet owners can only view these updates.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Open My Queue'));
+    await tester.pumpAndSettle();
+    expect(find.text('My Queue'), findsOneWidget);
+    expect(find.text('Waiting'), findsOneWidget);
+    expect(find.textContaining('2 pets ahead'), findsOneWidget);
+
+    final queueEntry = QueueStore.instance.active.single;
+    await tester.tap(find.text(queueEntry.queueNumber));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Pet owners cannot change it manually.'),
+      findsOneWidget,
+    );
+    expect(find.text('Check In'), findsNothing);
+
+    QueueStore.instance.staffUpdate(queueEntry, QueueStatus.almostTurn);
+    await tester.pumpAndSettle();
+    expect(find.text('Almost Your Turn'), findsOneWidget);
+    expect(find.textContaining('Almost your turn.'), findsOneWidget);
+
+    QueueStore.instance.staffUpdate(
+      queueEntry,
+      QueueStatus.called,
+      room: 'Consultation Room 2',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Called'), findsOneWidget);
+    expect(find.text('Consultation Room 2'), findsWidgets);
+
+    QueueStore.instance.staffUpdate(queueEntry, QueueStatus.inConsultation);
+    await tester.pumpAndSettle();
+    expect(find.text('In Consultation'), findsOneWidget);
+
+    QueueStore.instance.staffUpdate(queueEntry, QueueStatus.completed);
+    await tester.pumpAndSettle();
+    expect(find.text('Completed'), findsOneWidget);
+    await tester.ensureVisible(find.text('Consultation Record'));
+    await tester.pumpAndSettle();
+    expect(find.text('Consultation Record'), findsOneWidget);
+    expect(find.text('Diagnosis'), findsOneWidget);
+    expect(find.text('Recommendations'), findsOneWidget);
+
+    Navigator.of(tester.element(find.text('Consultation Record'))).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Queue History'));
+    await tester.pumpAndSettle();
+    expect(find.text('Queue History'), findsOneWidget);
+    expect(find.textContaining('Completed appointment'), findsOneWidget);
   });
 
   testWidgets('books pet care and shows staff-managed status', (
@@ -292,6 +349,24 @@ void main() {
     expect(find.text('Check In Pet'), findsNothing);
     expect(find.text('Start Service'), findsNothing);
     expect(find.text('Mark Service Complete'), findsNothing);
+  });
+
+  testWidgets('Clinic Queue category opens read-only My Queue', (
+    WidgetTester tester,
+  ) async {
+    AppointmentStore.instance.clear();
+    await signIn(tester);
+
+    await tester.tap(find.byTooltip('Clinic'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1400));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('clinic-queue-category')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('My Queue'), findsOneWidget);
+    expect(find.text('No active queue'), findsOneWidget);
+    expect(find.byTooltip('Queue History'), findsOneWidget);
   });
 
   testWidgets('books and completes a Home Visit from Clinic categories', (
