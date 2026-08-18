@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:senior_project/login/pet_owner_auth_api.dart';
 import 'package:senior_project/main.dart';
 import 'package:senior_project/pet_owner/appointment_booking_page.dart';
+import 'package:senior_project/pet_owner/home_visit_booking_page.dart';
 import 'package:senior_project/pet_owner/pet_care_booking_page.dart';
 
 void main() {
@@ -314,6 +315,122 @@ void main() {
     await tester.tap(find.text('Submit Review'));
     await tester.pump();
     expect(find.text('Thank you. Your review was saved.'), findsOneWidget);
+  });
+
+  testWidgets('books and completes a Home Visit from Clinic categories', (
+    WidgetTester tester,
+  ) async {
+    HomeVisitStore.instance.clear();
+    await signIn(tester);
+
+    await tester.tap(find.byTooltip('Clinic'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1400));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('clinic-home-visit-category')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Book a Home Visit'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('home-visit-pet-Max')));
+    await tester.pump();
+    await tester.tap(find.text('Select Veterinarian'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Dr. Hnin Thiri Aung'));
+    await tester.pump();
+    await tester.tap(find.text('View Available Dates'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(ChoiceChip).first);
+    await tester.pump();
+    await tester.tap(find.text('View Home Visit Times'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('12:00 PM and 3:00 PM'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('home-visit-time-12:00 PM')));
+    await tester.pump();
+    await tester.tap(find.text('Hold This Slot'));
+    await tester.pump();
+
+    await tester.tap(find.text('General Checkup'));
+    await tester.enterText(
+      find.byKey(const ValueKey('home-visit-symptoms')),
+      'Low appetite and tiredness',
+    );
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm Visit Address'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saved Address'), findsOneWidget);
+    await tester.tap(find.text('Validate Address'));
+    await tester.pumpAndSettle();
+    expect(find.text('Contact Details'), findsOneWidget);
+    await tester.tap(find.text('Review Home Visit'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Home Visit Summary'), findsOneWidget);
+    expect(
+      find.textContaining('No online payment is required.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Confirm Home Visit'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Home Visit confirmed!'), findsOneWidget);
+    expect(find.textContaining('Booking ID: #HOME'), findsOneWidget);
+    await tester.tap(find.text('Open Visit Reminder'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Confirmed'), findsOneWidget);
+    expect(find.textContaining('Reminder:'), findsOneWidget);
+    await tester.tap(find.text('Veterinarian On the Way'));
+    await tester.pumpAndSettle();
+    expect(find.text('On the Way'), findsOneWidget);
+
+    await tester.tap(find.text('Confirm Veterinarian Arrived'));
+    await tester.pumpAndSettle();
+    expect(find.text('Arrived'), findsOneWidget);
+    await tester.tap(find.text('Begin Home Consultation'));
+    await tester.pumpAndSettle();
+    expect(find.text('Consultation'), findsOneWidget);
+
+    await tester.tap(find.text('Record Findings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Treatment Proposed'), findsOneWidget);
+    expect(find.text('Proposed treatment'), findsOneWidget);
+    await tester.ensureVisible(find.text('Approve Treatment'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Approve Treatment'));
+    await tester.pumpAndSettle();
+    expect(find.text('Completed'), findsOneWidget);
+
+    await tester.tap(find.text('Open Medical Record'));
+    await tester.pumpAndSettle();
+    expect(find.text('Home Visit Medical Record'), findsOneWidget);
+    expect(find.text('Treatment notes'), findsOneWidget);
+    expect(find.text('Medicines'), findsOneWidget);
+    expect(find.text('Recommendations'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('home-visit-rating-5')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('home-visit-rating-5')));
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Write a review'),
+      'The veterinarian was very helpful.',
+    );
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Submit Review'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Submit Review'));
+    await tester.pump();
+    expect(
+      find.text('Thank you. Your Home Visit review was saved.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('login screen fits common phone sizes', (
