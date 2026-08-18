@@ -5,9 +5,10 @@ import 'package:flutter/material.dart';
 import 'pet_owner_home_page.dart';
 
 class AppointmentBookingPage extends StatefulWidget {
-  const AppointmentBookingPage({super.key});
+  const AppointmentBookingPage({this.initialPetName, super.key});
 
   static const routeName = '/book-appointment';
+  final String? initialPetName;
 
   @override
   State<AppointmentBookingPage> createState() => _AppointmentBookingPageState();
@@ -146,6 +147,8 @@ class QueueEntry {
   String room;
   String consultationSummary = '';
   String diagnosis = '';
+  String treatment = '';
+  String prescription = '';
   String recommendations = '';
 }
 
@@ -221,6 +224,10 @@ class QueueStore extends ChangeNotifier {
       entry.consultationSummary =
           'Clinical examination completed and findings added to the pet’s history.';
       entry.diagnosis = 'Consultation diagnosis recorded by the veterinarian.';
+      entry.treatment =
+          'Treatment and care were provided according to the recorded diagnosis.';
+      entry.prescription =
+          'Prescribed medicine, dosage, and usage instructions recorded by the veterinarian.';
       entry.recommendations =
           'Follow the veterinarian’s care instructions and monitor symptoms.';
     }
@@ -237,6 +244,7 @@ class QueueStore extends ChangeNotifier {
 class BookedAppointment {
   const BookedAppointment({
     required this.id,
+    required this.createdAt,
     required this.pet,
     required this.service,
     required this.veterinarian,
@@ -250,6 +258,7 @@ class BookedAppointment {
   });
 
   final String id;
+  final DateTime createdAt;
   final BookingPet pet;
   final BookingService service;
   final String veterinarian;
@@ -506,6 +515,8 @@ class QueueDetailsPage extends StatelessWidget {
                 rows: [
                   ('Consultation', entry.consultationSummary),
                   ('Diagnosis', entry.diagnosis),
+                  ('Treatment', entry.treatment),
+                  ('Prescription', entry.prescription),
                   ('Recommendations', entry.recommendations),
                 ],
               ),
@@ -777,6 +788,20 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       '5:00 PM',
       '6:00 PM',
     ];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final initialPetName = widget.initialPetName;
+    if (initialPetName != null) {
+      for (final pet in _pets) {
+        if (pet.name == initialPetName) {
+          _pet = pet;
+          break;
+        }
+      }
+    }
   }
 
   @override
@@ -1300,6 +1325,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
     final suffix = DateTime.now().millisecondsSinceEpoch.toString();
     final appointment = BookedAppointment(
       id: 'NWAY${suffix.substring(suffix.length - 7)}',
+      createdAt: DateTime.now(),
       pet: _pet!,
       service: _service!,
       veterinarian: _veterinarian!,
