@@ -226,7 +226,7 @@ void main() {
     expect(find.textContaining('Max • Dr. Aye Chan'), findsOneWidget);
   });
 
-  testWidgets('books and completes a pet care service from Clinic categories', (
+  testWidgets('books pet care and shows staff-managed status', (
     WidgetTester tester,
   ) async {
     PetCareBookingStore.instance.clear();
@@ -244,6 +244,7 @@ void main() {
     expect(find.text('Care made comfortable'), findsOneWidget);
     expect(find.text('Grooming'), findsOneWidget);
     expect(find.text('From 7,000 MMK'), findsWidgets);
+    expect(find.text('Home Care'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('pet-care-service-Grooming')));
     await tester.pumpAndSettle();
@@ -265,20 +266,15 @@ void main() {
 
     await tester.tap(find.byType(ChoiceChip).first);
     await tester.pump();
+    expect(find.byKey(const ValueKey('care-time-12:00 PM')), findsOneWidget);
+    expect(find.byKey(const ValueKey('care-time-5:00 PM')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('care-time-9:00 AM')));
     await tester.pump();
     await tester.tap(find.text('Hold This Slot'));
     await tester.pump();
 
-    expect(find.text('Special Instructions'), findsOneWidget);
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Allergies'),
-      'No known allergies',
-    );
-    tester.testTextInput.hide();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Review Booking'));
-    await tester.pumpAndSettle();
+    expect(find.text('Special Instructions'), findsNothing);
+    expect(find.text('Booking Summary'), findsOneWidget);
     expect(
       find.textContaining('No online payment is required.'),
       findsOneWidget,
@@ -292,29 +288,10 @@ void main() {
     await tester.tap(find.text('View Service Booking'));
     await tester.pumpAndSettle();
     expect(find.text('Confirmed'), findsOneWidget);
-
-    await tester.tap(find.text('Check In Pet'));
-    await tester.pumpAndSettle();
-    expect(find.text('Checked In'), findsOneWidget);
-    await tester.tap(find.text('Start Service'));
-    await tester.pumpAndSettle();
-    expect(find.text('In Progress'), findsOneWidget);
-    await tester.tap(find.text('Mark Service Complete'));
-    await tester.pumpAndSettle();
-    expect(find.text('Completed'), findsOneWidget);
-
-    await tester.tap(find.text('View Report & Review'));
-    await tester.pumpAndSettle();
-    expect(find.text('Service Report'), findsOneWidget);
-    expect(find.text('Provider notes'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('care-rating-5')));
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Write a review'),
-      'Excellent care.',
-    );
-    await tester.tap(find.text('Submit Review'));
-    await tester.pump();
-    expect(find.text('Thank you. Your review was saved.'), findsOneWidget);
+    expect(find.text('Status is updated by clinic staff.'), findsOneWidget);
+    expect(find.text('Check In Pet'), findsNothing);
+    expect(find.text('Start Service'), findsNothing);
+    expect(find.text('Mark Service Complete'), findsNothing);
   });
 
   testWidgets('books and completes a Home Visit from Clinic categories', (

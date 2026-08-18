@@ -161,10 +161,6 @@ class PetCareBooking {
     required this.provider,
     required this.date,
     required this.time,
-    required this.allergies,
-    required this.behaviorNotes,
-    required this.medicalConditions,
-    required this.specialRequests,
     required this.location,
     this.status = PetCareStatus.confirmed,
   });
@@ -175,10 +171,6 @@ class PetCareBooking {
   final String provider;
   final DateTime date;
   final String time;
-  final String allergies;
-  final String behaviorNotes;
-  final String medicalConditions;
-  final String specialRequests;
   final String location;
   PetCareStatus status;
   int rating = 0;
@@ -196,7 +188,6 @@ class PetCareService {
     required this.icon,
     required this.providers,
     required this.options,
-    this.homeService = false,
   });
 
   final String name;
@@ -208,7 +199,6 @@ class PetCareService {
   final IconData icon;
   final List<String> providers;
   final List<ServicePriceOption> options;
-  final bool homeService;
 }
 
 class ServicePriceOption {
@@ -302,21 +292,6 @@ class PetCareCatalog {
         ServicePriceOption('Day Care', '18,000 per day'),
         ServicePriceOption('Overnight Stay', '28,000 per night'),
       ],
-    ),
-    PetCareService(
-      name: 'Home Care',
-      description: 'A care provider visits your home for feeding and hygiene.',
-      price: 'From 25,000 MMK',
-      duration: '60–90 min',
-      availability: '12:00 PM–3:00 PM',
-      requirements: 'Address and a safe pet-access contact are required.',
-      icon: Icons.home_outlined,
-      providers: ['Moe Sandar', 'Clinic Home Care Team'],
-      options: [
-        ServicePriceOption('Home Care Visit', '25,000 per visit'),
-        ServicePriceOption('Two-pet Visit', '35,000 per visit'),
-      ],
-      homeService: true,
     ),
   ];
 
@@ -506,12 +481,6 @@ class PetCareBookingPage extends StatefulWidget {
 }
 
 class _PetCareBookingPageState extends State<PetCareBookingPage> {
-  final _allergies = TextEditingController();
-  final _behavior = TextEditingController();
-  final _conditions = TextEditingController();
-  final _requests = TextEditingController();
-  final _address = TextEditingController();
-
   int _step = 0;
   CarePet? _pet;
   String? _provider;
@@ -527,25 +496,21 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
     return List.generate(7, (index) => today.add(Duration(days: index + 1)));
   }
 
-  List<String> get _times => widget.service.homeService
-      ? const ['12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM']
-      : const [
-          '9:00 AM',
-          '10:00 AM',
-          '11:00 AM',
-          '1:00 PM',
-          '2:00 PM',
-          '4:00 PM',
-        ];
+  static const _times = [
+    '9:00 AM',
+    '10:00 AM',
+    '11:00 AM',
+    '12:00 PM',
+    '1:00 PM',
+    '2:00 PM',
+    '3:00 PM',
+    '4:00 PM',
+    '5:00 PM',
+  ];
 
   @override
   void dispose() {
     _timer?.cancel();
-    _allergies.dispose();
-    _behavior.dispose();
-    _conditions.dispose();
-    _requests.dispose();
-    _address.dispose();
     super.dispose();
   }
 
@@ -619,13 +584,7 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
       provider: _provider!,
       date: _date!,
       time: _time!,
-      allergies: _allergies.text.trim(),
-      behaviorNotes: _behavior.text.trim(),
-      medicalConditions: _conditions.text.trim(),
-      specialRequests: _requests.text.trim(),
-      location: widget.service.homeService
-          ? _address.text.trim()
-          : "Nway's Love Vet Clinic",
+      location: "Nway's Love Vet Clinic",
     );
     _timer?.cancel();
     PetCareBookingStore.instance.add(booking);
@@ -649,7 +608,7 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(5),
           child: LinearProgressIndicator(
-            value: (_step + 1) / 5,
+            value: (_step + 1) / 4,
             backgroundColor: Colors.white54,
             color: _CareColors.green,
           ),
@@ -686,7 +645,6 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
     0 => _petStep(),
     1 => _providerStep(),
     2 => _scheduleStep(),
-    3 => _instructionsStep(),
     _ => _summaryStep(),
   };
 
@@ -793,51 +751,6 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
     );
   }
 
-  Widget _instructionsStep() {
-    final minutes = _holdSeconds ~/ 60;
-    final seconds = (_holdSeconds % 60).toString().padLeft(2, '0');
-    return _BookingStep(
-      title: 'Special Instructions',
-      subtitle:
-          'Slot held for $minutes:$seconds. Add anything the provider should know.',
-      action: 'Review Booking',
-      enabled: !widget.service.homeService || _address.text.trim().isNotEmpty,
-      onAction: _next,
-      child: ListView(
-        children: [
-          _CareField(
-            controller: _allergies,
-            label: 'Allergies',
-            hint: 'Food, shampoo, medicine, or none',
-          ),
-          _CareField(
-            controller: _behavior,
-            label: 'Behavior notes',
-            hint: 'Anxious, friendly, dislikes nail care...',
-          ),
-          _CareField(
-            controller: _conditions,
-            label: 'Medical conditions',
-            hint: 'Skin, mobility, or other conditions',
-          ),
-          _CareField(
-            controller: _requests,
-            label: 'Special requests',
-            hint: 'Preferred style or care instructions',
-          ),
-          if (widget.service.homeService)
-            _CareField(
-              key: const ValueKey('care-address'),
-              controller: _address,
-              label: 'Confirmed home address *',
-              hint: 'House number, street, township',
-              onChanged: (_) => setState(() {}),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _summaryStep() {
     return _BookingStep(
       title: 'Booking Summary',
@@ -854,17 +767,8 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
               _DetailRow('Service', widget.service.name),
               _DetailRow('Provider', _provider!),
               _DetailRow('Schedule', '${_longDate(_date!)} • $_time'),
-              _DetailRow(
-                'Location',
-                widget.service.homeService
-                    ? _address.text.trim()
-                    : "Nway's Love Vet Clinic",
-              ),
+              const _DetailRow('Location', "Nway's Love Vet Clinic"),
               _DetailRow('Price', widget.service.price),
-              _DetailRow('Allergies', _valueOrNone(_allergies.text)),
-              _DetailRow('Behavior', _valueOrNone(_behavior.text)),
-              _DetailRow('Conditions', _valueOrNone(_conditions.text)),
-              _DetailRow('Requests', _valueOrNone(_requests.text)),
             ],
           ),
         ],
@@ -956,7 +860,6 @@ class _ServiceBookingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final store = PetCareBookingStore.instance;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -988,37 +891,29 @@ class _ServiceBookingCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text('Booking #${booking.id}', style: _CareText.body),
           const SizedBox(height: 15),
-          SizedBox(
+          Container(
             width: double.infinity,
-            child: switch (booking.status) {
-              PetCareStatus.confirmed => FilledButton(
-                onPressed: () =>
-                    store.updateStatus(booking, PetCareStatus.checkedIn),
-                child: const Text('Check In Pet'),
-              ),
-              PetCareStatus.checkedIn => FilledButton(
-                onPressed: () =>
-                    store.updateStatus(booking, PetCareStatus.inProgress),
-                child: const Text('Start Service'),
-              ),
-              PetCareStatus.inProgress => FilledButton(
-                onPressed: () =>
-                    store.updateStatus(booking, PetCareStatus.completed),
-                child: const Text('Mark Service Complete'),
-              ),
-              PetCareStatus.completed => OutlinedButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ServiceReportPage(booking: booking),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _CareColors.mint,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  color: _CareColors.green,
+                  size: 20,
+                ),
+                SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    'Status is updated by clinic staff.',
+                    style: _CareText.bodyDark,
                   ),
                 ),
-                child: Text(
-                  booking.rating == 0
-                      ? 'View Report & Review'
-                      : 'View Service Report',
-                ),
-              ),
-            },
+              ],
+            ),
           ),
         ],
       ),
@@ -1245,41 +1140,6 @@ class _SelectTile extends StatelessWidget {
   }
 }
 
-class _CareField extends StatelessWidget {
-  const _CareField({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    this.onChanged,
-    super.key,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final ValueChanged<String>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: TextField(
-        controller: controller,
-        onChanged: onChanged,
-        maxLines: 2,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          alignLabelWithHint: true,
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-      ),
-    );
-  }
-}
-
 class _DetailPanel extends StatelessWidget {
   const _DetailPanel({required this.title, required this.children});
 
@@ -1464,9 +1324,6 @@ class _CareStyles {
     textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
   );
 }
-
-String _valueOrNone(String value) =>
-    value.trim().isEmpty ? 'None provided' : value.trim();
 
 String _shortDate(DateTime date) {
   const months = [
