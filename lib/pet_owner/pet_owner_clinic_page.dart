@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'appointment_booking_page.dart';
+import 'contact_clinic_page.dart';
 import 'emergency_service_page.dart';
 import 'first_aid_information_page.dart';
 import 'home_visit_booking_page.dart';
@@ -212,7 +213,7 @@ class _ClinicInfoCard extends StatelessWidget {
                       icon: Icons.alarm_on_rounded,
                       iconColor: Color(0xFFFF6B00),
                       title: 'Clinic Hours',
-                      value: '9AM - 12PM\n4PM - 7PM',
+                      value: '8AM - 10PM',
                     ),
                     SizedBox(height: 24),
                     Row(
@@ -609,6 +610,8 @@ class _ServiceItem extends StatelessWidget {
             ? const ValueKey('clinic-emergency-services-category')
             : service.title == 'First Aid Info'
             ? const ValueKey('clinic-first-aid-category')
+            : service.title == 'Contact Clinic'
+            ? const ValueKey('clinic-contact-category')
             : null,
         onTap: () {
           if (service.title == 'Booking') {
@@ -641,6 +644,10 @@ class _ServiceItem extends StatelessWidget {
           }
           if (service.title == 'First Aid Info') {
             Navigator.of(context).pushNamed(FirstAidInformationPage.routeName);
+            return;
+          }
+          if (service.title == 'Contact Clinic') {
+            Navigator.of(context).pushNamed(ContactClinicPage.routeName);
             return;
           }
           _showServiceDetails(context, service);

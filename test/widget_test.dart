@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:senior_project/login/pet_owner_auth_api.dart';
 import 'package:senior_project/main.dart';
 import 'package:senior_project/pet_owner/appointment_booking_page.dart';
+import 'package:senior_project/pet_owner/contact_clinic_page.dart';
 import 'package:senior_project/pet_owner/emergency_service_page.dart';
 import 'package:senior_project/pet_owner/first_aid_information_page.dart';
 import 'package:senior_project/pet_owner/home_visit_booking_page.dart';
@@ -933,6 +934,100 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Emergency Service'), findsOneWidget);
   });
+
+  testWidgets(
+    'Contact Clinic provides contact actions and saved chat history',
+    (WidgetTester tester) async {
+      ContactClinicStore.instance.clear();
+      await signIn(tester);
+
+      await tester.tap(find.byTooltip('Clinic'));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -1700));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView).at(2), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('clinic-contact-category')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Contact Clinic'), findsOneWidget);
+      expect(find.text("Nway's Love Vet Clinic"), findsOneWidget);
+      expect(find.text('8:00 AM–10:00 PM'), findsOneWidget);
+      expect(find.text(ContactClinicPage.email), findsOneWidget);
+      expect(find.text('Call Clinic'), findsOneWidget);
+      expect(find.text('Chat'), findsOneWidget);
+      expect(find.text('Email'), findsWidgets);
+      expect(find.text('Directions'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('contact-call')));
+      await tester.pumpAndSettle();
+      expect(find.text('Call Clinic?'), findsOneWidget);
+      await tester.tap(find.text('Confirm Call'));
+      await tester.pumpAndSettle();
+      expect(find.text('Clinic phone number'), findsOneWidget);
+      expect(find.textContaining('call manually'), findsOneWidget);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('contact-chat')));
+      await tester.pumpAndSettle();
+      expect(find.text('Chat with Clinic'), findsOneWidget);
+      expect(
+        find.textContaining('does not replace an examination'),
+        findsOneWidget,
+      );
+      expect(find.text('No messages yet'), findsOneWidget);
+      expect(find.text('Payment'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('contact-send-message')));
+      await tester.pump();
+      expect(find.text('Enter a message before sending'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('contact-message-field')),
+        'Bella needs an appointment tomorrow.',
+      );
+      await tester.tap(find.byKey(const ValueKey('contact-select-pet')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bella').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('contact-message-category')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Appointment').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('contact-send-message')));
+      await tester.pump();
+
+      expect(find.text('Bella needs an appointment tomorrow.'), findsOneWidget);
+      expect(find.text('Pet: Bella'), findsOneWidget);
+      expect(find.text('Appointment • Sent'), findsOneWidget);
+
+      final message = ContactClinicStore.instance.messages.single;
+      ContactClinicStore.instance.staffUpdateStatus(
+        message.id,
+        ContactMessageStatus.read,
+      );
+      ContactClinicStore.instance.staffReply(
+        'Please bring Bella at 10:00 AM. Staff will confirm the appointment.',
+      );
+      await tester.pump();
+      expect(find.text('Appointment • Read'), findsOneWidget);
+      expect(find.text('Clinic Staff'), findsOneWidget);
+      expect(find.textContaining('Please bring Bella'), findsOneWidget);
+      expect(find.text('Edit Reply'), findsNothing);
+      expect(find.text('Delete Reply'), findsNothing);
+
+      Navigator.of(tester.element(find.text('Chat with Clinic'))).pop();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('contact-emergency-service')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('contact-emergency-service')));
+      await tester.pumpAndSettle();
+      expect(find.text('Emergency Notice'), findsOneWidget);
+    },
+  );
 
   testWidgets('login screen fits common phone sizes', (
     WidgetTester tester,

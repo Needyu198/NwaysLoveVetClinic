@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'login/login_page.dart';
 import 'login/pet_owner_auth_api.dart';
 import 'pet_owner/appointment_booking_page.dart';
+import 'pet_owner/contact_clinic_page.dart';
 import 'pet_owner/emergency_service_page.dart';
 import 'pet_owner/first_aid_information_page.dart';
 import 'pet_owner/home_visit_booking_page.dart';
@@ -52,6 +53,7 @@ class NwayLoveVetClinicApp extends StatelessWidget {
         PetOwnerProfilePage.routeName: (context) => const PetOwnerProfilePage(),
         AppointmentBookingPage.routeName: (context) =>
             const AppointmentBookingPage(),
+        ContactClinicPage.routeName: (context) => const ContactClinicPage(),
         MyAppointmentsPage.routeName: (context) => const MyAppointmentsPage(),
         MyQueuePage.routeName: (context) => const MyQueuePage(),
         QueueHistoryPage.routeName: (context) => const QueueHistoryPage(),
