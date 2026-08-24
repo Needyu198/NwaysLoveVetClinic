@@ -125,8 +125,12 @@ void main() {
     expect(find.textContaining('Dr. Aye Chan'), findsOneWidget);
     expect(find.byKey(const ValueKey('doctor-dashboard')), findsOneWidget);
     expect(find.text('Dashboard'), findsOneWidget);
-    expect(find.text('Appointments'), findsOneWidget);
-    expect(find.text('Profile'), findsOneWidget);
+    expect(find.byKey(const ValueKey('doctor-navigation-bar')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('doctor-appointments-tab')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('doctor-profile-tab')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('doctor-appointments-tab')));
     await tester.pumpAndSettle();
