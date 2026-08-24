@@ -10,6 +10,7 @@ import 'package:senior_project/pet_owner/first_aid_information_page.dart';
 import 'package:senior_project/pet_owner/home_visit_booking_page.dart';
 import 'package:senior_project/pet_owner/history_page.dart';
 import 'package:senior_project/pet_owner/pet_care_booking_page.dart';
+import 'package:senior_project/pet_owner/profile_flows.dart';
 
 void main() {
   Future<void> signIn(WidgetTester tester) async {
@@ -144,6 +145,219 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(find.text('Annual Rabies Vaccination'), findsOneWidget);
+  });
+
+  testWidgets('owner profile edits and verifies changed contact details', (
+    WidgetTester tester,
+  ) async {
+    OwnerProfileStore.instance.reset();
+    await signIn(tester);
+    await tester.tap(find.byTooltip('Profile'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('owner-edit-profile')));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit Profile'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('edit-owner-name')),
+      'Nee Yu Aung',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('edit-owner-phone')),
+      '09911122233',
+    );
+    await tester.tap(find.byKey(const ValueKey('save-owner-profile')));
+    await tester.pumpAndSettle();
+    expect(find.text('Verify Contact Information'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('owner-verification-code')),
+      '111111',
+    );
+    await tester.tap(find.byKey(const ValueKey('verify-owner-contact')));
+    await tester.pump();
+    expect(find.text('Incorrect verification code'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('owner-verification-code')),
+      '123456',
+    );
+    await tester.tap(find.byKey(const ValueKey('verify-owner-contact')));
+    await tester.pumpAndSettle();
+    expect(find.text('Nee Yu Aung'), findsOneWidget);
+    expect(find.text('09911122233'), findsOneWidget);
+    expect(find.text('Profile updated successfully'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('owner-edit-profile')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('edit-owner-name')),
+      'Unsaved Name',
+    );
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Discard changes?'), findsOneWidget);
+    await tester.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nee Yu Aung'), findsOneWidget);
+    expect(find.text('Unsaved Name'), findsNothing);
+  });
+
+  testWidgets('profile quick actions open location and emergency safeguards', (
+    WidgetTester tester,
+  ) async {
+    await signIn(tester);
+    await tester.tap(find.byTooltip('Profile'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('profile-location-action')));
+    await tester.pumpAndSettle();
+    expect(find.text('Clinic Location'), findsOneWidget);
+    expect(find.text('8:00 AM–10:00 PM'), findsOneWidget);
+    expect(find.text(ContactClinicPage.address), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('get-clinic-directions')));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose navigation option'), findsOneWidget);
+    expect(find.text('Copy clinic address'), findsOneWidget);
+    await tester.tap(find.text('Copy clinic address'));
+    await tester.pumpAndSettle();
+    Navigator.of(tester.element(find.text('Clinic Location'))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('profile-emergency-action')));
+    await tester.pumpAndSettle();
+    expect(find.text('Emergency Notice'), findsOneWidget);
+    expect(find.text('Call Clinic Now'), findsOneWidget);
+    expect(find.textContaining('should not be delayed'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('emergency-call-clinic-now')));
+    await tester.pumpAndSettle();
+    expect(find.text('Call Clinic Now?'), findsOneWidget);
+    expect(find.text('Confirm Call'), findsOneWidget);
+  });
+
+  testWidgets('profile adds a pet and opens the created pet profile', (
+    WidgetTester tester,
+  ) async {
+    ProfilePetStore.instance.reset();
+    await signIn(tester);
+    await tester.tap(find.byTooltip('Profile'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('profile-add-pet')));
+    await tester.tap(find.byKey(const ValueKey('profile-add-pet')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const ValueKey('add-pet-name')), 'Milo');
+    await tester.tap(find.byKey(const ValueKey('add-pet-type')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cat').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Cat breed *'),
+      'Siamese',
+    );
+    await tester.tap(find.byKey(const ValueKey('add-pet-sex')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Male').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add-pet-dob')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('15').last);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('add-pet-weight')));
+    await tester.enterText(find.byKey(const ValueKey('add-pet-weight')), '4.5');
+    await tester.ensureVisible(find.byKey(const ValueKey('review-add-pet')));
+    await tester.tap(find.byKey(const ValueKey('review-add-pet')));
+    await tester.pumpAndSettle();
+    expect(find.text('Review Pet'), findsWidgets);
+    expect(find.textContaining('Milo'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('confirm-add-pet')));
+    await tester.pumpAndSettle();
+    expect(find.text('Pet Profile'), findsOneWidget);
+    expect(find.text('Milo'), findsWidgets);
+    expect(
+      ProfilePetStore.instance.pets.any((pet) => pet.name == 'Milo'),
+      isTrue,
+    );
+  });
+
+  testWidgets('profile displays and manages upcoming appointments', (
+    WidgetTester tester,
+  ) async {
+    AppointmentStore.instance.clear();
+    final appointment = BookedAppointment(
+      id: 'PROFILE-1',
+      createdAt: DateTime.now(),
+      pet: const BookingPet(
+        name: 'Max',
+        species: 'Dog',
+        breed: 'Golden Retriever',
+        age: '2 years',
+        icon: Icons.pets,
+        color: Colors.blue,
+      ),
+      service: const BookingService(
+        name: 'General Checkup',
+        description: 'Routine examination',
+        icon: Icons.health_and_safety,
+        homeVisit: false,
+        doctors: ['Dr. Aye Chan'],
+      ),
+      veterinarian: 'Dr. Aye Chan',
+      date: DateTime.now().add(const Duration(days: 2)),
+      time: '10:00 AM',
+      symptoms: 'Low appetite',
+      reason: 'Checkup',
+      notes: '',
+      address: '',
+      status: 'Confirmed',
+    );
+    AppointmentStore.instance.add(appointment);
+    await signIn(tester);
+    await tester.tap(find.byTooltip('Profile'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('profile-appointment-PROFILE-1')),
+      350,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Max • General Checkup'), findsOneWidget);
+    expect(find.text('Confirmed'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('appointment-reminder-PROFILE-1')),
+    );
+    await tester.pump();
+    expect(find.textContaining('Reminder scheduled'), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('appointment-reschedule-PROFILE-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Reschedule Appointment'), findsOneWidget);
+    await tester.tap(find.byType(ChoiceChip).first);
+    await tester.pump();
+    await tester.tap(find.text('9:00 AM'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('confirm-reschedule')));
+    await tester.pumpAndSettle();
+    expect(appointment.time, '9:00 AM');
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('appointment-cancel-PROFILE-1')),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('appointment-cancel-PROFILE-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Cancel Appointment?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('confirm-cancel-appointment')));
+    await tester.pumpAndSettle();
+    expect(appointment.status, 'Cancelled');
+    expect(find.text('No upcoming appointments'), findsOneWidget);
+    expect(find.text('Book Appointment'), findsOneWidget);
   });
 
   testWidgets('product details are browse-only', (WidgetTester tester) async {

@@ -10,6 +10,7 @@ class PetProfile {
     required this.breed,
     required this.sex,
     required this.weight,
+    required this.age,
     required this.imageAsset,
     this.imageAlignment = Alignment.center,
   });
@@ -19,6 +20,7 @@ class PetProfile {
   final String breed;
   final String sex;
   final String weight;
+  final String age;
   final String imageAsset;
   final Alignment imageAlignment;
 }
@@ -34,6 +36,7 @@ class PetProfilePage extends StatelessWidget {
     breed: 'Golden Retriever',
     sex: 'Male',
     weight: '18 kg',
+    age: '2 years',
     imageAsset: PetOwnerHomePage.dogAsset,
   );
 
@@ -240,10 +243,10 @@ class _BasicInfoPanel extends StatelessWidget {
                 label: 'Sex',
                 value: profile.sex,
               ),
-              const _InfoTile(
+              _InfoTile(
                 icon: Icons.cake_rounded,
                 label: 'Age',
-                value: '2 years',
+                value: profile.age,
               ),
             ],
           ),

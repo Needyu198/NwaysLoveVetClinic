@@ -105,9 +105,12 @@ class AppointmentStore extends ChangeNotifier {
     required String veterinarian,
     required DateTime date,
     required String time,
+    String? excludingAppointmentId,
   }) {
     return !_appointments.any(
       (appointment) =>
+          appointment.id != excludingAppointmentId &&
+          appointment.status != 'Cancelled' &&
           appointment.veterinarian == veterinarian &&
           DateUtils.isSameDay(appointment.date, date) &&
           appointment.time == time,
@@ -116,6 +119,31 @@ class AppointmentStore extends ChangeNotifier {
 
   void add(BookedAppointment appointment) {
     _appointments.add(appointment);
+    notifyListeners();
+  }
+
+  bool reschedule(
+    BookedAppointment appointment, {
+    required DateTime date,
+    required String time,
+  }) {
+    if (!isSlotAvailable(
+      veterinarian: appointment.veterinarian,
+      date: date,
+      time: time,
+      excludingAppointmentId: appointment.id,
+    )) {
+      return false;
+    }
+    appointment.date = date;
+    appointment.time = time;
+    appointment.status = 'Confirmed';
+    notifyListeners();
+    return true;
+  }
+
+  void cancel(BookedAppointment appointment) {
+    appointment.status = 'Cancelled';
     notifyListeners();
   }
 
@@ -242,7 +270,7 @@ class QueueStore extends ChangeNotifier {
 }
 
 class BookedAppointment {
-  const BookedAppointment({
+  BookedAppointment({
     required this.id,
     required this.createdAt,
     required this.pet,
@@ -262,13 +290,13 @@ class BookedAppointment {
   final BookingPet pet;
   final BookingService service;
   final String veterinarian;
-  final DateTime date;
-  final String time;
+  DateTime date;
+  String time;
   final String symptoms;
   final String reason;
   final String notes;
   final String address;
-  final String status;
+  String status;
 }
 
 class BookingPet {

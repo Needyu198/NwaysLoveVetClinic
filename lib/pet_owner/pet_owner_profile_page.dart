@@ -1,49 +1,76 @@
 import 'package:flutter/material.dart';
 
+import 'appointment_booking_page.dart';
+import 'emergency_service_page.dart';
 import 'pet_owner_clinic_page.dart';
 import 'pet_owner_home_page.dart';
 import 'pet_owner_nav_bar.dart';
 import 'pet_owner_profile_styles.dart';
 import 'pet_products_page.dart';
+import 'pet_profile_page.dart';
+import 'profile_flows.dart';
 
-class PetOwnerProfilePage extends StatelessWidget {
+class PetOwnerProfilePage extends StatefulWidget {
   const PetOwnerProfilePage({super.key});
-
   static const String routeName = '/pet-owner-profile';
 
   @override
+  State<PetOwnerProfilePage> createState() => _PetOwnerProfilePageState();
+}
+
+class _PetOwnerProfilePageState extends State<PetOwnerProfilePage> {
+  @override
+  void initState() {
+    super.initState();
+    OwnerProfileStore.instance.addListener(_refresh);
+    ProfilePetStore.instance.addListener(_refresh);
+    AppointmentStore.instance.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    OwnerProfileStore.instance.removeListener(_refresh);
+    ProfilePetStore.instance.removeListener(_refresh);
+    AppointmentStore.instance.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final owner = OwnerProfileStore.instance.profile;
     return Scaffold(
       backgroundColor: PetOwnerProfileStyles.pageBackground,
       body: Stack(
         children: [
           CustomScrollView(
+            key: const ValueKey('owner-profile-scroll'),
             physics: const BouncingScrollPhysics(),
             slivers: [
-              const SliverToBoxAdapter(child: _ProfileHeader()),
+              SliverToBoxAdapter(
+                child: _ProfileHeader(onEdit: () => _editProfile(context)),
+              ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(22, 18, 22, 128),
                 sliver: SliverList.list(
-                  children: const [
-                    _OwnerInfoCard(),
-                    SizedBox(height: 22),
-                    _QuickActions(),
-                    SizedBox(height: 22),
-                    _MyPetsSection(),
-                    SizedBox(height: 16),
-                    _FeatureSection(
-                      title: 'Appointment',
-                      children: [
-                        _FeatureRow(
-                          icon: Icons.event_available_rounded,
-                          title: 'Upcoming Appointment',
-                          subtitle: 'View your next clinic visit',
-                          color: Color(0xFF2F80FF),
-                        ),
-                      ],
+                  children: [
+                    _OwnerInfoCard(
+                      owner: owner,
+                      onEdit: () => _editProfile(context),
                     ),
-                    SizedBox(height: 16),
-                    _FeatureSection(
+                    const SizedBox(height: 22),
+                    const _QuickActions(),
+                    const SizedBox(height: 22),
+                    _MyPetsSection(pets: ProfilePetStore.instance.pets),
+                    const SizedBox(height: 16),
+                    _UpcomingAppointmentsSection(
+                      appointments: AppointmentStore.instance.appointments,
+                    ),
+                    const SizedBox(height: 16),
+                    const _FeatureSection(
                       title: 'Medical Summary',
                       children: [
                         _FeatureRow(
@@ -63,52 +90,27 @@ class PetOwnerProfilePage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    SizedBox(height: 16),
-                    _FeatureSection(
-                      title: 'Reminders',
-                      children: [
-                        _FeatureRow(
-                          icon: Icons.alarm_rounded,
-                          title: 'Vaccine',
-                          color: Color(0xFFEF5B4E),
-                        ),
-                        _FeatureRow(
-                          icon: Icons.medication_liquid_rounded,
-                          title: 'Medication',
-                          color: Color(0xFF2F80FF),
-                        ),
-                        _FeatureRow(
-                          icon: Icons.content_cut_rounded,
-                          title: 'Grooming',
-                          color: Color(0xFF8B3DFF),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     _FeatureSection(
                       title: 'Account',
                       children: [
                         _FeatureRow(
                           icon: Icons.location_on_rounded,
                           title: 'Saved Address',
-                          color: Color(0xFF18A77B),
+                          subtitle: owner.address,
+                          color: const Color(0xFF18A77B),
                         ),
-                        _FeatureRow(
+                        const _FeatureRow(
                           icon: Icons.notifications_rounded,
                           title: 'Notification Settings',
                           color: Color(0xFFEF5B4E),
                         ),
-                        _FeatureRow(
+                        const _FeatureRow(
                           icon: Icons.support_agent_rounded,
                           title: 'Help & Support',
                           color: Color(0xFF8B3DFF),
                         ),
-                        _FeatureRow(
-                          icon: Icons.settings_rounded,
-                          title: 'Settings',
-                          color: Color(0xFF69717F),
-                        ),
-                        _FeatureRow(
+                        const _FeatureRow(
                           icon: Icons.logout_rounded,
                           title: 'Logout',
                           color: Color(0xFFFF1E17),
@@ -125,224 +127,185 @@ class PetOwnerProfilePage extends StatelessWidget {
             alignment: Alignment.bottomCenter,
             child: PetOwnerNavBar(
               selectedItem: PetOwnerNavItem.profile,
-              onPetsTap: () {
-                Navigator.of(
-                  context,
-                ).pushReplacementNamed(PetOwnerHomePage.routeName);
-              },
-              onShopTap: () {
-                Navigator.of(
-                  context,
-                ).pushReplacementNamed(PetProductsPage.routeName);
-              },
-              onAppointmentsTap: () {
-                Navigator.of(
-                  context,
-                ).pushReplacementNamed(PetOwnerClinicPage.routeName);
-              },
+              onPetsTap: () => Navigator.of(
+                context,
+              ).pushReplacementNamed(PetOwnerHomePage.routeName),
+              onShopTap: () => Navigator.of(
+                context,
+              ).pushReplacementNamed(PetProductsPage.routeName),
+              onAppointmentsTap: () => Navigator.of(
+                context,
+              ).pushReplacementNamed(PetOwnerClinicPage.routeName),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _editProfile(BuildContext context) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (_) => const EditOwnerProfilePage()),
+    );
+    if (saved == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully')),
+      );
+    }
   }
 }
 
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader();
+  const _ProfileHeader({required this.onEdit});
+  final VoidCallback onEdit;
 
   @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(26, 18, 26, 0),
-        child: Row(
-          children: [
-            Image.asset(
-              PetOwnerHomePage.logoAsset,
-              width: 94,
-              height: 94,
-              fit: BoxFit.contain,
-            ),
-            const Spacer(),
-            IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.edit_rounded),
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: PetOwnerProfileStyles.ink,
-                fixedSize: const Size(48, 48),
-              ),
-              tooltip: 'Edit Profile',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OwnerInfoCard extends StatelessWidget {
-  const _OwnerInfoCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return _MintPanel(
+  Widget build(BuildContext context) => SafeArea(
+    bottom: false,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(26, 18, 26, 0),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Stack(
-            children: [
-              Container(
-                width: 132,
-                height: 164,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(34),
-                ),
-                child: const Icon(
-                  Icons.person_rounded,
-                  color: Color(0xFF7C958E),
-                  size: 82,
-                ),
-              ),
-              Positioned(
-                right: 14,
-                bottom: 14,
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.camera_alt_outlined, size: 18),
-                ),
-              ),
-            ],
+          Image.asset(
+            PetOwnerHomePage.logoAsset,
+            width: 94,
+            height: 94,
+            fit: BoxFit.contain,
           ),
-          const SizedBox(width: 20),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Nee Yu', style: PetOwnerProfileStyles.name),
-                SizedBox(height: 12),
-                _ContactLine(
-                  icon: Icons.phone_in_talk_rounded,
-                  text: '09xxxxxxxx',
-                ),
-                SizedBox(height: 9),
-                _ContactLine(
-                  icon: Icons.email_outlined,
-                  text: 'neeyu@email.com',
-                ),
-                SizedBox(height: 9),
-                _ContactLine(icon: Icons.home_rounded, text: 'NPW'),
-                SizedBox(height: 18),
-                _EditProfileButton(),
-              ],
+          const Spacer(),
+          IconButton(
+            key: const ValueKey('header-edit-profile'),
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_rounded),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              fixedSize: const Size(48, 48),
             ),
+            tooltip: 'Edit Profile',
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
+
+class _OwnerInfoCard extends StatelessWidget {
+  const _OwnerInfoCard({required this.owner, required this.onEdit});
+  final OwnerProfileData owner;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) => _MintPanel(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 104,
+          height: 148,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Icon(
+            owner.photoSource == null
+                ? Icons.person_rounded
+                : Icons.person_pin_rounded,
+            color: const Color(0xFF7C958E),
+            size: 68,
+          ),
+        ),
+        const SizedBox(width: 15),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(owner.fullName, style: PetOwnerProfileStyles.name),
+              const SizedBox(height: 9),
+              _ContactLine(
+                icon: Icons.phone_in_talk_rounded,
+                text: owner.phone,
+              ),
+              const SizedBox(height: 6),
+              _ContactLine(icon: Icons.email_outlined, text: owner.email),
+              const SizedBox(height: 6),
+              _ContactLine(icon: Icons.home_rounded, text: owner.address),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                key: const ValueKey('owner-edit-profile'),
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_rounded, size: 17),
+                label: const Text('Edit Profile'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ContactLine extends StatelessWidget {
   const _ContactLine({required this.icon, required this.text});
-
   final IconData icon;
   final String text;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.black, size: 22),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: const ShapeDecoration(
-              color: Colors.white,
-              shape: StadiumBorder(),
-            ),
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: PetOwnerProfileStyles.contact,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EditProfileButton extends StatelessWidget {
-  const _EditProfileButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 42,
-      child: FilledButton.icon(
-        onPressed: () {},
-        icon: const Icon(Icons.edit_rounded, size: 18),
-        label: const Text('Edit Profile'),
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF69717F),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          textStyle: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0,
-          ),
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, size: 19),
+      const SizedBox(width: 7),
+      Expanded(
+        child: Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: PetOwnerProfileStyles.contact,
         ),
       ),
-    );
-  }
+    ],
+  );
 }
 
 class _QuickActions extends StatelessWidget {
   const _QuickActions();
 
   @override
-  Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Quick Actions', style: PetOwnerProfileStyles.sectionTitle),
-        SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _QuickActionCard(
-                icon: Icons.phone_in_talk_rounded,
-                label: 'Emergency',
-                color: Color(0xFFFF000F),
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text('Quick Actions', style: PetOwnerProfileStyles.sectionTitle),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: _QuickActionCard(
+              key: const ValueKey('profile-emergency-action'),
+              icon: Icons.phone_in_talk_rounded,
+              label: 'Emergency',
+              color: const Color(0xFFFF000F),
+              onTap: () => Navigator.of(
+                context,
+              ).pushNamed(EmergencyServicePage.routeName),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _QuickActionCard(
+              key: const ValueKey('profile-location-action'),
+              icon: Icons.location_on_rounded,
+              label: 'Location',
+              color: const Color(0xFF4167D8),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ClinicLocationPage(),
+                ),
               ),
             ),
-            SizedBox(width: 16),
-            Expanded(
-              child: _QuickActionCard(
-                icon: Icons.location_on_rounded,
-                label: 'Location',
-                color: Color(0xFF4167D8),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 class _QuickActionCard extends StatelessWidget {
@@ -350,104 +313,239 @@ class _QuickActionCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.color,
+    required this.onTap,
+    super.key,
   });
-
   final IconData icon;
   final String label;
   final Color color;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 174,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: PetOwnerProfileStyles.mint,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 74,
-            height: 74,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(14),
+  Widget build(BuildContext context) => Material(
+    color: PetOwnerProfileStyles.mint,
+    borderRadius: BorderRadius.circular(24),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: SizedBox(
+        height: 150,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 66,
+              height: 66,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: Colors.white, size: 38),
             ),
-            child: Icon(icon, color: Colors.white, size: 43),
-          ),
-          const SizedBox(height: 12),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(label, style: PetOwnerProfileStyles.cardTitle),
-          ),
-        ],
+            const SizedBox(height: 10),
+            Text(label, style: PetOwnerProfileStyles.cardTitle),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _MyPetsSection extends StatelessWidget {
-  const _MyPetsSection();
+  const _MyPetsSection({required this.pets});
+  final List<ProfilePet> pets;
+
+  @override
+  Widget build(BuildContext context) => _FeatureSection(
+    title: 'My Pets',
+    action: TextButton.icon(
+      key: const ValueKey('profile-add-pet'),
+      onPressed: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const AddPetPage())),
+      icon: const Icon(Icons.add_rounded),
+      label: const Text('Add Pet'),
+    ),
+    children: pets
+        .map(
+          (pet) => _FeatureRow(
+            key: ValueKey('profile-pet-${pet.name}'),
+            icon: pet.type == 'Cat'
+                ? Icons.cruelty_free_rounded
+                : Icons.pets_rounded,
+            title: pet.name,
+            subtitle: '${pet.type} • ${pet.breed} • ${pet.ageYears} years',
+            color: pet.type == 'Cat'
+                ? const Color(0xFF8B3DFF)
+                : const Color(0xFF2F80FF),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const PetProfilePage(),
+                settings: RouteSettings(arguments: pet.toPetProfile()),
+              ),
+            ),
+          ),
+        )
+        .toList(),
+  );
+}
+
+class _UpcomingAppointmentsSection extends StatelessWidget {
+  const _UpcomingAppointmentsSection({required this.appointments});
+  final List<BookedAppointment> appointments;
 
   @override
   Widget build(BuildContext context) {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final upcoming =
+        appointments
+            .where(
+              (item) =>
+                  item.status != 'Cancelled' &&
+                  !DateUtils.dateOnly(item.date).isBefore(today),
+            )
+            .toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
     return _FeatureSection(
-      title: 'My Pets',
-      action: TextButton.icon(
-        onPressed: () {},
-        icon: const Icon(Icons.add_rounded, size: 20),
-        label: const Text('Add Pet'),
-        style: TextButton.styleFrom(
-          foregroundColor: const Color(0xFF16785B),
-          textStyle: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0,
-          ),
-        ),
-      ),
-      children: const [
-        _PetRow(
-          icon: Icons.pets_rounded,
-          title: 'Max',
-          subtitle: 'Dog',
-          color: Color(0xFF2F80FF),
-        ),
-        _PetRow(
-          icon: Icons.cruelty_free_rounded,
-          title: 'Luna',
-          subtitle: 'Cat',
-          color: Color(0xFF8B3DFF),
-        ),
-      ],
+      title: 'Upcoming Appointments',
+      action: upcoming.isEmpty
+          ? null
+          : TextButton(
+              key: const ValueKey('view-all-appointments'),
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(MyAppointmentsPage.routeName),
+              child: const Text('View All'),
+            ),
+      children: upcoming.isEmpty
+          ? [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 14),
+                child: Text(
+                  'No upcoming appointments',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              FilledButton.icon(
+                key: const ValueKey('profile-book-appointment'),
+                onPressed: () => Navigator.of(
+                  context,
+                ).pushNamed(AppointmentBookingPage.routeName),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Book Appointment'),
+              ),
+            ]
+          : upcoming
+                .take(2)
+                .map(
+                  (appointment) =>
+                      _UpcomingAppointmentCard(appointment: appointment),
+                )
+                .toList(),
     );
   }
 }
 
-class _PetRow extends StatelessWidget {
-  const _PetRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
+class _UpcomingAppointmentCard extends StatelessWidget {
+  const _UpcomingAppointmentCard({required this.appointment});
+  final BookedAppointment appointment;
 
   @override
-  Widget build(BuildContext context) {
-    return _FeatureRow(
-      icon: icon,
-      title: title,
-      subtitle: subtitle,
-      color: color,
-    );
-  }
+  Widget build(BuildContext context) => Card(
+    key: ValueKey('profile-appointment-${appointment.id}'),
+    elevation: 0,
+    color: const Color(0xFFF3FFF9),
+    child: InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => AppointmentDetailsPage(appointment: appointment),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${appointment.pet.name} • ${appointment.service.name}',
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+                Chip(
+                  label: Text(appointment.status),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            Text(appointment.veterinarian),
+            Text('${_profileDate(appointment.date)} • ${appointment.time}'),
+            const SizedBox(height: 9),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                OutlinedButton(
+                  key: ValueKey('appointment-reminder-${appointment.id}'),
+                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Reminder scheduled for ${appointment.pet.name}’s appointment',
+                      ),
+                    ),
+                  ),
+                  child: const Text('Set Reminder'),
+                ),
+                OutlinedButton(
+                  key: ValueKey('appointment-reschedule-${appointment.id}'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          RescheduleAppointmentPage(appointment: appointment),
+                    ),
+                  ),
+                  child: const Text('Reschedule'),
+                ),
+                TextButton(
+                  key: ValueKey('appointment-cancel-${appointment.id}'),
+                  onPressed: () => _cancelAppointment(context, appointment),
+                  child: const Text('Cancel Appointment'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Future<void> _cancelAppointment(
+  BuildContext context,
+  BookedAppointment appointment,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Cancel Appointment?'),
+      content: const Text(
+        'Cancelling releases the reserved time slot. Contact the clinic if cancellation is close to the appointment time.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Keep Appointment'),
+        ),
+        FilledButton(
+          key: const ValueKey('confirm-cancel-appointment'),
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Confirm Cancellation'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true) AppointmentStore.instance.cancel(appointment);
 }
 
 class _FeatureSection extends StatelessWidget {
@@ -456,43 +554,33 @@ class _FeatureSection extends StatelessWidget {
     required this.children,
     this.action,
   });
-
   final String title;
   final Widget? action;
   final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: PetOwnerProfileStyles.border),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x100B2F25),
-            blurRadius: 14,
-            offset: Offset(0, 7),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(title, style: PetOwnerProfileStyles.sectionTitle),
-              ),
-              ?action,
-            ],
-          ),
-          const SizedBox(height: 8),
-          for (final child in children) child,
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: PetOwnerProfileStyles.border),
+    ),
+    child: Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(title, style: PetOwnerProfileStyles.sectionTitle),
+            ),
+            ?action,
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...children,
+      ],
+    ),
+  );
 }
 
 class _FeatureRow extends StatelessWidget {
@@ -502,80 +590,67 @@ class _FeatureRow extends StatelessWidget {
     required this.color,
     this.subtitle,
     this.destructive = false,
+    this.onTap,
+    super.key,
   });
-
   final IconData icon;
   final String title;
   final String? subtitle;
   final Color color;
   final bool destructive;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final titleColor = destructive ? const Color(0xFFFF1E17) : Colors.black;
-
-    return InkWell(
-      onTap: () {},
-      borderRadius: BorderRadius.circular(18),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: PetOwnerProfileStyles.rowTitle.copyWith(
-                      color: titleColor,
-                    ),
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(18),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: color.withValues(alpha: 0.12),
+            foregroundColor: color,
+            child: Icon(icon),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: PetOwnerProfileStyles.rowTitle.copyWith(
+                    color: destructive ? const Color(0xFFFF1E17) : null,
                   ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(subtitle!, style: PetOwnerProfileStyles.cardSubtitle),
-                  ],
-                ],
-              ),
+                ),
+                if (subtitle != null)
+                  Text(subtitle!, style: PetOwnerProfileStyles.cardSubtitle),
+              ],
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: Color(0xFF98A8A1),
-              size: 28,
-            ),
-          ],
-        ),
+          ),
+          if (onTap != null) const Icon(Icons.chevron_right_rounded),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _MintPanel extends StatelessWidget {
   const _MintPanel({required this.child});
-
   final Widget child;
-
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: PetOwnerProfileStyles.mint,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white, width: 1.5),
-      ),
-      child: child,
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: PetOwnerProfileStyles.mint,
+      borderRadius: BorderRadius.circular(30),
+      border: Border.all(color: Colors.white, width: 1.5),
+    ),
+    child: child,
+  );
 }
+
+String _profileDate(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'appointment_booking_page.dart';
+import 'contact_clinic_page.dart';
 
 class EmergencyServicePage extends StatefulWidget {
   const EmergencyServicePage({super.key});
@@ -377,29 +378,46 @@ class _EmergencyServicePageState extends State<EmergencyServicePage> {
       enabled: true,
       onAction: _next,
       child: ListView(
-        children: const [
-          _EmergencyNotice(
+        children: [
+          const _EmergencyNotice(
             icon: Icons.warning_amber_rounded,
             text:
                 'For breathing difficulty, uncontrolled bleeding, collapse, poisoning, or seizures, call the clinic immediately and bring the pet without delay.',
           ),
-          SizedBox(height: 14),
-          _EmergencyInfoCard(
+          const SizedBox(height: 14),
+          const _EmergencyInfoCard(
             title: 'Clinic Hours',
-            value: '9:00 AM–12:00 PM\n4:00 PM–7:00 PM',
+            value: '8:00 AM–10:00 PM',
             icon: Icons.schedule_rounded,
           ),
-          SizedBox(height: 12),
-          _EmergencyInfoCard(
+          const SizedBox(height: 12),
+          const _EmergencyInfoCard(
             title: 'Emergency Contact',
             value: '09-5312717 • 09-965805940',
             icon: Icons.call_outlined,
           ),
-          SizedBox(height: 12),
-          _EmergencyInfoCard(
+          const SizedBox(height: 12),
+          const _EmergencyInfoCard(
             title: 'Clinic Address',
             value: 'Chindwin Street, Popba Thiri Township, Nay Pyi Taw',
             icon: Icons.location_on_outlined,
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            key: const ValueKey('emergency-call-clinic-now'),
+            onPressed: () => _showEmergencyCall(context),
+            style: FilledButton.styleFrom(
+              backgroundColor: _EmergencyColors.red,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(54),
+            ),
+            icon: const Icon(Icons.call_rounded),
+            label: const Text('Call Clinic Now'),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Calling or travelling to the clinic should not be delayed while submitting an online request.',
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -551,6 +569,37 @@ class _EmergencyServicePageState extends State<EmergencyServicePage> {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+Future<void> _showEmergencyCall(BuildContext context) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Call Clinic Now?'),
+      content: const Text(
+        '${ContactClinicPage.phonePrimary}\n${ContactClinicPage.phoneSecondary}',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Confirm Call'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Call ${ContactClinicPage.phonePrimary} now. If the phone app does not open, dial manually.',
+        ),
       ),
     );
   }
