@@ -5,10 +5,15 @@ import 'package:flutter/material.dart';
 import 'pet_owner_home_page.dart';
 
 class AppointmentBookingPage extends StatefulWidget {
-  const AppointmentBookingPage({this.initialPetName, super.key});
+  const AppointmentBookingPage({
+    this.initialPetName,
+    this.initialServiceName,
+    super.key,
+  });
 
   static const routeName = '/book-appointment';
   final String? initialPetName;
+  final String? initialServiceName;
 
   @override
   State<AppointmentBookingPage> createState() => _AppointmentBookingPageState();
@@ -826,6 +831,16 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       for (final pet in _pets) {
         if (pet.name == initialPetName) {
           _pet = pet;
+          break;
+        }
+      }
+    }
+    final initialServiceName = widget.initialServiceName;
+    if (_pet != null && initialServiceName != null) {
+      for (final service in _services) {
+        if (service.name == initialServiceName) {
+          _service = service;
+          _step = 2;
           break;
         }
       }

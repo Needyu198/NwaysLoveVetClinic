@@ -9,6 +9,7 @@ import 'pet_owner_profile_styles.dart';
 import 'pet_products_page.dart';
 import 'pet_profile_page.dart';
 import 'profile_flows.dart';
+import 'profile_account_pages.dart';
 
 class PetOwnerProfilePage extends StatefulWidget {
   const PetOwnerProfilePage({super.key});
@@ -70,23 +71,38 @@ class _PetOwnerProfilePageState extends State<PetOwnerProfilePage> {
                       appointments: AppointmentStore.instance.appointments,
                     ),
                     const SizedBox(height: 16),
-                    const _FeatureSection(
+                    _FeatureSection(
                       title: 'Medical Summary',
                       children: [
                         _FeatureRow(
                           icon: Icons.verified_rounded,
                           title: 'Vaccines',
                           color: Color(0xFF18A77B),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const VaccinationSummaryPage(),
+                            ),
+                          ),
                         ),
                         _FeatureRow(
                           icon: Icons.medication_rounded,
                           title: 'Treatments',
                           color: Color(0xFF8B3DFF),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const TreatmentHistoryPage(),
+                            ),
+                          ),
                         ),
                         _FeatureRow(
                           icon: Icons.assignment_rounded,
                           title: 'Records',
                           color: Color(0xFF69717F),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ProfileMedicalRecordsPage(),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -96,25 +112,41 @@ class _PetOwnerProfilePageState extends State<PetOwnerProfilePage> {
                       children: [
                         _FeatureRow(
                           icon: Icons.location_on_rounded,
-                          title: 'Saved Address',
+                          title: 'Saved Addresses',
                           subtitle: owner.address,
                           color: const Color(0xFF18A77B),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const SavedAddressesPage(),
+                            ),
+                          ),
                         ),
-                        const _FeatureRow(
+                        _FeatureRow(
                           icon: Icons.notifications_rounded,
                           title: 'Notification Settings',
                           color: Color(0xFFEF5B4E),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const NotificationSettingsPage(),
+                            ),
+                          ),
                         ),
-                        const _FeatureRow(
+                        _FeatureRow(
                           icon: Icons.support_agent_rounded,
                           title: 'Help & Support',
                           color: Color(0xFF8B3DFF),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const HelpSupportPage(),
+                            ),
+                          ),
                         ),
-                        const _FeatureRow(
+                        _FeatureRow(
                           icon: Icons.logout_rounded,
-                          title: 'Logout',
+                          title: 'Log Out',
                           color: Color(0xFFFF1E17),
                           destructive: true,
+                          onTap: () => confirmProfileLogout(context),
                         ),
                       ],
                     ),

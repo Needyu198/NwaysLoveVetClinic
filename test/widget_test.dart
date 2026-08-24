@@ -360,6 +360,187 @@ void main() {
     expect(find.text('Book Appointment'), findsOneWidget);
   });
 
+  testWidgets(
+    'profile medical summary opens read-only vaccine treatment records',
+    (WidgetTester tester) async {
+      await signIn(tester);
+      await tester.tap(find.byTooltip('Profile'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Vaccines'),
+        400,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.drag(
+        find.byKey(const ValueKey('owner-profile-scroll')),
+        const Offset(0, -150),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vaccines'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Vaccination Summary'), findsOneWidget);
+      expect(find.text('Completed'), findsOneWidget);
+      expect(find.text('Upcoming'), findsOneWidget);
+      expect(find.text('Overdue'), findsOneWidget);
+      expect(find.textContaining('read-only'), findsOneWidget);
+      await tester.tap(find.text('Rabies Vaccination'));
+      await tester.pumpAndSettle();
+      expect(find.text('Record Details'), findsOneWidget);
+      expect(find.text('Dose'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('view-medical-document')));
+      await tester.pumpAndSettle();
+      expect(find.text('Vaccination Certificate'), findsWidgets);
+      expect(find.text('Clinic-issued read-only document'), findsOneWidget);
+      Navigator.of(
+        tester.element(find.text('Clinic-issued read-only document')),
+      ).pop();
+      await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.text('Record Details'))).pop();
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('book-vaccination')),
+        300,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.tap(find.byKey(const ValueKey('book-vaccination')));
+      await tester.pumpAndSettle();
+      expect(find.text('Select Veterinarian'), findsOneWidget);
+      Navigator.of(tester.element(find.text('Select Veterinarian'))).pop();
+      await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.text('Vaccination Summary'))).pop();
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Treatments'));
+      await tester.tap(find.text('Treatments'));
+      await tester.pumpAndSettle();
+      expect(find.text('Treatment History'), findsOneWidget);
+      expect(find.text('Follow-up Required'), findsOneWidget);
+      await tester.tap(find.text('Skin Irritation Treatment'));
+      await tester.pumpAndSettle();
+      expect(find.text('Diagnosis'), findsOneWidget);
+      expect(find.text('Recommendations'), findsOneWidget);
+      expect(find.text('View Prescription'), findsOneWidget);
+      Navigator.of(tester.element(find.text('Record Details'))).pop();
+      await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.text('Treatment History'))).pop();
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Records'));
+      await tester.tap(find.text('Records'));
+      await tester.pumpAndSettle();
+      expect(find.text('Medical Records'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('medical-record-search')),
+        findsOneWidget,
+      );
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(-600, 0),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('medical-category-prescription')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Dermatitis Prescription'), findsOneWidget);
+      expect(find.text('Edit'), findsNothing);
+      expect(find.text('Delete'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'profile account tools save address notifications support and logout',
+    (WidgetTester tester) async {
+      await signIn(tester);
+      await tester.tap(find.byTooltip('Profile'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Saved Addresses'),
+        500,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.drag(
+        find.byKey(const ValueKey('owner-profile-scroll')),
+        const Offset(0, -180),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Saved Addresses'));
+      await tester.pumpAndSettle();
+      expect(find.text('Saved Addresses'), findsOneWidget);
+      expect(find.text('Default'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('add-saved-address')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('save-address')));
+      await tester.pump();
+      expect(find.text('This field is required'), findsWidgets);
+
+      const addressValues = [
+        'Mya Mya',
+        '09912345678',
+        'No. 24',
+        'Thazin Street',
+        'Zabuthiri',
+        'Nay Pyi Taw',
+      ];
+      for (var index = 0; index < addressValues.length; index++) {
+        await tester.enterText(
+          find.byType(TextFormField).at(index),
+          addressValues[index],
+        );
+      }
+      await tester.ensureVisible(find.byKey(const ValueKey('save-address')));
+      await tester.tap(find.byKey(const ValueKey('save-address')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Thazin Street'), findsOneWidget);
+      Navigator.of(tester.element(find.text('Saved Addresses').first)).pop();
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Notification Settings'));
+      await tester.tap(find.text('Notification Settings'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Always enabled'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('save-notification-settings')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Notification settings updated'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Help & Support'));
+      await tester.tap(find.text('Help & Support'));
+      await tester.pumpAndSettle();
+      expect(find.text('Technical Support'), findsOneWidget);
+      expect(find.text('Payment'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('contact-support')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('support-subject')),
+        'Cannot open a record',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('support-description')),
+        'The medical record page needs assistance.',
+      );
+      await tester.tap(find.byKey(const ValueKey('submit-support-request')));
+      await tester.pumpAndSettle();
+      expect(find.text('Support request submitted'), findsOneWidget);
+      expect(find.textContaining('Reference number'), findsOneWidget);
+      await tester.tap(find.text('View Requests'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Cannot open a record'), findsOneWidget);
+      Navigator.of(tester.element(find.text('Help & Support'))).pop();
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Log Out'));
+      await tester.tap(find.text('Log Out'));
+      await tester.pumpAndSettle();
+      expect(find.text('Log Out?'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('confirm-profile-logout')));
+      await tester.pumpAndSettle();
+      expect(find.text('Log in'), findsOneWidget);
+    },
+  );
+
   testWidgets('product details are browse-only', (WidgetTester tester) async {
     await signIn(tester);
 
