@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'doctor/doctor_portal.dart';
+import 'login/doctor_auth_api.dart';
 import 'login/login_page.dart';
 import 'login/pet_owner_auth_api.dart';
+import 'login/system_admin_auth_api.dart';
 import 'pet_owner/appointment_booking_page.dart';
 import 'pet_owner/contact_clinic_page.dart';
 import 'pet_owner/emergency_service_page.dart';
@@ -17,6 +20,7 @@ import 'pet_owner/pet_profile_page.dart';
 import 'pet_owner/pet_products_page.dart';
 import 'pet_owner/pet_add_reminder_page.dart';
 import 'pet_owner/pet_reminder_page.dart';
+import 'system_admin/system_admin_dashboard.dart';
 
 void main() {
   runApp(const NwayLoveVetClinicApp());
@@ -25,10 +29,14 @@ void main() {
 class NwayLoveVetClinicApp extends StatelessWidget {
   const NwayLoveVetClinicApp({
     this.authApi = const PetOwnerAuthApi(),
+    this.doctorAuthApi = const DoctorAuthApi(),
+    this.systemAdminAuthApi = const SystemAdminAuthApi(),
     super.key,
   });
 
   final PetOwnerAuthApi authApi;
+  final DoctorAuthApi doctorAuthApi;
+  final SystemAdminAuthApi systemAdminAuthApi;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +55,14 @@ class NwayLoveVetClinicApp extends StatelessWidget {
       ),
       initialRoute: LoginPage.routeName,
       routes: {
-        LoginPage.routeName: (context) => LoginPage(authApi: authApi),
+        LoginPage.routeName: (context) => LoginPage(
+          authApi: authApi,
+          doctorAuthApi: doctorAuthApi,
+          systemAdminAuthApi: systemAdminAuthApi,
+        ),
+        DoctorPortalPage.routeName: (context) => const DoctorPortalPage(),
+        SystemAdminDashboardPage.routeName: (context) =>
+            const SystemAdminDashboardPage(),
         PetOwnerClinicPage.routeName: (context) => const PetOwnerClinicPage(),
         PetOwnerHomePage.routeName: (context) => const PetOwnerHomePage(),
         PetOwnerProfilePage.routeName: (context) => const PetOwnerProfilePage(),

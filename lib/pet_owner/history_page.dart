@@ -282,6 +282,7 @@ class _HistoryPageState extends State<HistoryPage> {
                               'All statuses',
                               'Active',
                               'Confirmed',
+                              'Cancelled',
                               'Completed',
                             ]
                             .map(
@@ -317,8 +318,10 @@ class _HistoryPageState extends State<HistoryPage> {
         })
         .where(
           (record) => switch (_status) {
-            'Active' => !record.completed,
+            'Active' =>
+              !record.completed && record.status.toLowerCase() != 'cancelled',
             'Confirmed' => record.status.toLowerCase() == 'confirmed',
+            'Cancelled' => record.status.toLowerCase() == 'cancelled',
             'Completed' => record.completed,
             _ => true,
           },
@@ -354,6 +357,18 @@ class _HistoryPageState extends State<HistoryPage> {
             'Status': appointment.status,
             'Symptoms': appointment.symptoms,
             'Visit reason': appointment.reason,
+            if (appointment.cancellation case final cancellation?) ...{
+              'Cancellation ID': cancellation.id,
+              'Cancellation reason': cancellation.reason,
+              if (cancellation.additionalReason.isNotEmpty)
+                'Cancellation explanation': cancellation.additionalReason,
+              'Cancelled at': _historyDate(cancellation.cancelledAt),
+              'Cancellation fee': 'MMK 0 — No cancellation fee',
+              'Refund': 'No payment collected; no refund required',
+              'Notification': cancellation.notificationsSent
+                  ? 'Pet owner and clinic staff notified'
+                  : 'Notification pending',
+            },
           },
         ),
       );

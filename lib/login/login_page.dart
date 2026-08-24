@@ -1,12 +1,24 @@
 import 'package:flutter/material.dart';
 
+import '../doctor/doctor_portal.dart';
 import '../pet_owner/pet_owner_home_page.dart';
+import '../system_admin/system_admin_dashboard.dart';
+import 'account_auth_api.dart';
+import 'doctor_auth_api.dart';
 import 'pet_owner_auth_api.dart';
+import 'system_admin_auth_api.dart';
 
 class LoginPage extends StatelessWidget {
-  const LoginPage({this.authApi = const PetOwnerAuthApi(), super.key});
+  const LoginPage({
+    this.authApi = const PetOwnerAuthApi(),
+    this.doctorAuthApi = const DoctorAuthApi(),
+    this.systemAdminAuthApi = const SystemAdminAuthApi(),
+    super.key,
+  });
 
   final PetOwnerAuthApi authApi;
+  final DoctorAuthApi doctorAuthApi;
+  final SystemAdminAuthApi systemAdminAuthApi;
 
   static const String routeName = '/login';
 
@@ -67,7 +79,11 @@ class LoginPage extends StatelessWidget {
                   right: 37 * scaleX,
                   bottom: 92 * scaleY,
                   height: 58 * scaleY,
-                  child: LoginActionButton(authApi: authApi),
+                  child: LoginActionButton(
+                    authApi: authApi,
+                    doctorAuthApi: doctorAuthApi,
+                    systemAdminAuthApi: systemAdminAuthApi,
+                  ),
                 ),
               ],
             ),
@@ -79,9 +95,16 @@ class LoginPage extends StatelessWidget {
 }
 
 class LoginActionButton extends StatelessWidget {
-  const LoginActionButton({required this.authApi, super.key});
+  const LoginActionButton({
+    required this.authApi,
+    required this.doctorAuthApi,
+    required this.systemAdminAuthApi,
+    super.key,
+  });
 
   final PetOwnerAuthApi authApi;
+  final DoctorAuthApi doctorAuthApi;
+  final SystemAdminAuthApi systemAdminAuthApi;
 
   void _showSignInPanel(BuildContext context) {
     showModalBottomSheet<void>(
@@ -89,7 +112,11 @@ class LoginActionButton extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.28),
-      builder: (context) => SignInPanel(authApi: authApi),
+      builder: (context) => SignInPanel(
+        authApi: authApi,
+        doctorAuthApi: doctorAuthApi,
+        systemAdminAuthApi: systemAdminAuthApi,
+      ),
     );
   }
 
@@ -121,9 +148,16 @@ class LoginActionButton extends StatelessWidget {
 }
 
 class SignInPanel extends StatelessWidget {
-  const SignInPanel({required this.authApi, super.key});
+  const SignInPanel({
+    required this.authApi,
+    required this.doctorAuthApi,
+    required this.systemAdminAuthApi,
+    super.key,
+  });
 
   final PetOwnerAuthApi authApi;
+  final DoctorAuthApi doctorAuthApi;
+  final SystemAdminAuthApi systemAdminAuthApi;
 
   static const Color panelColor = Color(0xB2A1FDD8);
   static const Color buttonColor = Color(0xFF2E2E2E);
@@ -174,7 +208,11 @@ class SignInPanel extends StatelessWidget {
                         79 * scaleX,
                         158 * scaleY,
                       ),
-                      child: SignInForm(authApi: authApi),
+                      child: SignInForm(
+                        authApi: authApi,
+                        doctorAuthApi: doctorAuthApi,
+                        systemAdminAuthApi: systemAdminAuthApi,
+                      ),
                     ),
                   ],
                 ),
@@ -188,9 +226,16 @@ class SignInPanel extends StatelessWidget {
 }
 
 class SignInForm extends StatefulWidget {
-  const SignInForm({this.authApi = const PetOwnerAuthApi(), super.key});
+  const SignInForm({
+    this.authApi = const PetOwnerAuthApi(),
+    this.doctorAuthApi = const DoctorAuthApi(),
+    this.systemAdminAuthApi = const SystemAdminAuthApi(),
+    super.key,
+  });
 
   final PetOwnerAuthApi authApi;
+  final DoctorAuthApi doctorAuthApi;
+  final SystemAdminAuthApi systemAdminAuthApi;
 
   @override
   State<SignInForm> createState() => _SignInFormState();
@@ -226,10 +271,11 @@ class _SignInFormState extends State<SignInForm> {
       _errorMessage = null;
     });
 
-    final result = await widget.authApi.login(
-      username: username,
-      password: password,
-    );
+    final result = await AccountAuthApi(
+      petOwnerAuthApi: widget.authApi,
+      doctorAuthApi: widget.doctorAuthApi,
+      systemAdminAuthApi: widget.systemAdminAuthApi,
+    ).login(identifier: username, password: password);
 
     if (!mounted) {
       return;
@@ -248,7 +294,12 @@ class _SignInFormState extends State<SignInForm> {
 
     final navigator = Navigator.of(context, rootNavigator: true);
     Navigator.of(context).pop();
-    navigator.pushReplacementNamed(PetOwnerHomePage.routeName);
+    final destination = switch (result.role!) {
+      AccountRole.petOwner => PetOwnerHomePage.routeName,
+      AccountRole.doctor => DoctorPortalPage.routeName,
+      AccountRole.systemAdmin => SystemAdminDashboardPage.routeName,
+    };
+    navigator.pushReplacementNamed(destination);
   }
 
   @override

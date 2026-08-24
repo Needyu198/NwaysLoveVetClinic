@@ -541,8 +541,13 @@ class _UpcomingAppointmentCard extends StatelessWidget {
                 ),
                 TextButton(
                   key: ValueKey('appointment-cancel-${appointment.id}'),
-                  onPressed: () => _cancelAppointment(context, appointment),
-                  child: const Text('Cancel Appointment'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          BookingCancellationPage(appointment: appointment),
+                    ),
+                  ),
+                  child: const Text('Cancel Booking'),
                 ),
               ],
             ),
@@ -551,33 +556,6 @@ class _UpcomingAppointmentCard extends StatelessWidget {
       ),
     ),
   );
-}
-
-Future<void> _cancelAppointment(
-  BuildContext context,
-  BookedAppointment appointment,
-) async {
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Cancel Appointment?'),
-      content: const Text(
-        'Cancelling releases the reserved time slot. Contact the clinic if cancellation is close to the appointment time.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: const Text('Keep Appointment'),
-        ),
-        FilledButton(
-          key: const ValueKey('confirm-cancel-appointment'),
-          onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: const Text('Confirm Cancellation'),
-        ),
-      ],
-    ),
-  );
-  if (confirmed == true) AppointmentStore.instance.cancel(appointment);
 }
 
 class _FeatureSection extends StatelessWidget {

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:senior_project/doctor/doctor_portal.dart';
+import 'package:senior_project/login/doctor_auth_api.dart';
 import 'package:senior_project/login/pet_owner_auth_api.dart';
+import 'package:senior_project/login/system_admin_auth_api.dart';
 import 'package:senior_project/main.dart';
 import 'package:senior_project/pet_owner/appointment_booking_page.dart';
 import 'package:senior_project/pet_owner/contact_clinic_page.dart';
@@ -34,6 +37,28 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> signInAsDoctor(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.tap(find.text('Log in'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-field')),
+      DoctorAuthApi.demoEmail,
+    );
+    await tester.enterText(
+      find.byType(TextField).last,
+      DoctorAuthApi.demoPassword,
+    );
+    await tester.ensureVisible(find.text('Sign In'));
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('shows login screen', (WidgetTester tester) async {
     await tester.pumpWidget(const NwayLoveVetClinicApp());
 
@@ -50,6 +75,9 @@ void main() {
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Sign In'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
+    expect(find.byKey(const ValueKey('login-role-selector')), findsNothing);
+    expect(find.text('Pet Owner'), findsNothing);
+    expect(find.text('Doctor'), findsNothing);
   });
 
   testWidgets('phone icon switches contact field mode', (
@@ -85,6 +113,99 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Appointments'), findsOneWidget);
+  });
+
+  testWidgets('doctor credentials open the three-page doctor portal', (
+    WidgetTester tester,
+  ) async {
+    DoctorAppointmentStore.instance.clearDemoSchedule();
+    await signInAsDoctor(tester);
+
+    expect(find.text('Doctor Dashboard'), findsOneWidget);
+    expect(find.text('Good day, Dr. Aye Chan'), findsOneWidget);
+    expect(find.byKey(const ValueKey('doctor-dashboard')), findsOneWidget);
+    expect(find.text('Dashboard'), findsOneWidget);
+    expect(find.text('Appointments'), findsOneWidget);
+    expect(find.text('Profile'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('doctor-appointments-tab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('doctor-appointments')), findsOneWidget);
+    expect(find.text('Bruno'), findsWidgets);
+
+    await tester.tap(
+      find
+          .byKey(
+            ValueKey(
+              'doctor-appointment-${DoctorAppointmentStore.instance.appointments.first.id}',
+            ),
+          )
+          .last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Appointment Details'), findsOneWidget);
+    expect(find.text('General Checkup'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('doctor-update-status')));
+    await tester.pumpAndSettle();
+    expect(find.text('Update appointment status?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('confirm-doctor-status')));
+    await tester.pumpAndSettle();
+    expect(find.text('Checked In'), findsWidgets);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('doctor-profile-tab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('doctor-profile')), findsOneWidget);
+    expect(find.text('doctor@nwaysclinic.com'), findsOneWidget);
+    expect(find.text('General Veterinarian'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('doctor-logout')));
+    await tester.tap(find.byKey(const ValueKey('doctor-logout')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('confirm-doctor-logout')));
+    await tester.pumpAndSettle();
+    expect(find.text('Log in'), findsOneWidget);
+  });
+
+  test('doctor authentication rejects incorrect credentials', () async {
+    const api = DoctorAuthApi();
+    final result = await api.login(
+      username: DoctorAuthApi.demoEmail,
+      password: 'wrong-password',
+    );
+    expect(result.isSuccess, isFalse);
+    expect(result.message, 'Invalid doctor username or password.');
+  });
+
+  testWidgets('registered administrator email opens the admin dashboard', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.tap(find.text('Log in'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-field')),
+      SystemAdminAuthApi.demoEmail,
+    );
+    await tester.enterText(
+      find.byType(TextField).last,
+      SystemAdminAuthApi.demoPassword,
+    );
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('System Administration'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('system-admin-dashboard')),
+      findsOneWidget,
+    );
+    expect(find.text('System Administrator'), findsOneWidget);
   });
 
   testWidgets('bottom navigation opens main pet owner sections', (
@@ -352,12 +473,146 @@ void main() {
       find.byKey(const ValueKey('appointment-cancel-PROFILE-1')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Cancel Appointment?'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('confirm-cancel-appointment')));
+    expect(find.text('Cancel Booking'), findsOneWidget);
+    expect(find.text('Cancellation policy'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('cancellation-reason-Other')));
+    await tester.pump();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -650));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('review-cancellation')),
+          )
+          .onPressed,
+      isNull,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('other-cancellation-reason')),
+      'Family schedule changed',
+    );
+    tester.testTextInput.hide();
+    await tester.pump();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -250));
+    await tester.pumpAndSettle();
+    tester
+        .widget<FilledButton>(find.byKey(const ValueKey('review-cancellation')))
+        .onPressed!();
+    await tester.pumpAndSettle();
+    expect(find.text('Cancellation Summary'), findsOneWidget);
+    expect(find.text('MMK 0 — No cancellation fee'), findsOneWidget);
+    expect(
+      find.text('MMK 0 — No payment collected; no refund required'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('confirm-cancellation')));
+    await tester.pumpAndSettle();
+    expect(find.text('Final Confirmation'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('yes-cancel-booking')));
     await tester.pumpAndSettle();
     expect(appointment.status, 'Cancelled');
-    expect(find.text('No upcoming appointments'), findsOneWidget);
-    expect(find.text('Book Appointment'), findsOneWidget);
+    expect(appointment.cancellation?.reason, 'Other');
+    expect(
+      appointment.cancellation?.additionalReason,
+      'Family schedule changed',
+    );
+    expect(find.text('Booking Cancelled'), findsOneWidget);
+    expect(find.textContaining('Cancellation ID: CAN-'), findsOneWidget);
+    expect(
+      AppointmentStore.instance.isSlotAvailable(
+        veterinarian: appointment.veterinarian,
+        date: appointment.date,
+        time: appointment.time,
+      ),
+      isTrue,
+    );
+    expect(QueueStore.instance.existingEntryFor(appointment), isNull);
+  });
+
+  test('cancellation rules prevent duplicates and started cancellations', () {
+    AppointmentStore.instance.clear();
+    BookedAppointment appointment(String id, DateTime date) =>
+        BookedAppointment(
+          id: id,
+          createdAt: DateTime.now(),
+          pet: const BookingPet(
+            name: 'Max',
+            species: 'Dog',
+            breed: 'Golden Retriever',
+            age: '2 years',
+            icon: Icons.pets,
+            color: Colors.blue,
+          ),
+          service: const BookingService(
+            name: 'General Checkup',
+            description: 'Routine examination',
+            icon: Icons.health_and_safety,
+            homeVisit: false,
+            doctors: ['Dr. Aye Chan'],
+          ),
+          veterinarian: 'Dr. Aye Chan',
+          date: date,
+          time: '10:00 AM',
+          symptoms: 'Low appetite',
+          reason: 'Checkup',
+          notes: '',
+          address: '',
+          status: 'Confirmed',
+        );
+
+    final cancellable = appointment(
+      'CANCEL-RULE-1',
+      DateTime.now().add(const Duration(days: 3)),
+    );
+    AppointmentStore.instance.add(cancellable);
+    final first = AppointmentStore.instance.cancelWithDetails(
+      cancellable,
+      reason: 'Schedule conflict',
+    );
+    expect(first, isNotNull);
+    expect(
+      AppointmentStore.instance.cancelWithDetails(
+        cancellable,
+        reason: 'Personal reason',
+      ),
+      isNull,
+    );
+    expect(
+      AppointmentStore.instance.reschedule(
+        cancellable,
+        date: DateTime.now().add(const Duration(days: 4)),
+        time: '11:00 AM',
+      ),
+      isFalse,
+    );
+
+    final started = appointment(
+      'CANCEL-RULE-2',
+      DateTime.now().add(const Duration(days: 3)),
+    );
+    AppointmentStore.instance.add(started);
+    QueueStore.instance.syncConfirmedAppointments([started]);
+    final entry = QueueStore.instance.existingEntryFor(started)!;
+    QueueStore.instance.staffUpdate(entry, QueueStatus.inConsultation);
+    expect(
+      AppointmentStore.instance.cancellationEligibility(started).allowed,
+      isFalse,
+    );
+    expect(
+      AppointmentStore.instance.cancelWithDetails(
+        started,
+        reason: 'Staff cancellation',
+        initiatedBy: CancellationInitiator.staff,
+      ),
+      isNull,
+    );
+
+    final sameDay = appointment('CANCEL-RULE-3', DateTime.now());
+    expect(
+      AppointmentStore.instance.cancellationEligibility(sameDay).late,
+      isTrue,
+    );
+    AppointmentStore.instance.clear();
   });
 
   testWidgets(

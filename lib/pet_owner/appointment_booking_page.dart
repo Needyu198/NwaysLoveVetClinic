@@ -127,11 +127,38 @@ class AppointmentStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  void staffSetStatus(BookedAppointment appointment, String status) {
+    if (appointment.status == 'Cancelled' ||
+        appointment.status == 'Completed') {
+      return;
+    }
+    if (!appointment.service.homeVisit &&
+        const {'Checked In', 'In Consultation', 'Completed'}.contains(status)) {
+      QueueStore.instance.syncConfirmedAppointments([appointment]);
+      final queue = QueueStore.instance.existingEntryFor(appointment);
+      if (queue != null) {
+        final queueStatus = switch (status) {
+          'Checked In' => QueueStatus.almostTurn,
+          'In Consultation' => QueueStatus.inConsultation,
+          _ => QueueStatus.completed,
+        };
+        QueueStore.instance.staffUpdate(queue, queueStatus);
+        return;
+      }
+    }
+    appointment.status = status;
+    notifyListeners();
+  }
+
   bool reschedule(
     BookedAppointment appointment, {
     required DateTime date,
     required String time,
   }) {
+    if (appointment.cancellation != null ||
+        !const {'Pending', 'Confirmed'}.contains(appointment.status)) {
+      return false;
+    }
     if (!isSlotAvailable(
       veterinarian: appointment.veterinarian,
       date: date,
@@ -147,9 +174,86 @@ class AppointmentStore extends ChangeNotifier {
     return true;
   }
 
-  void cancel(BookedAppointment appointment) {
-    appointment.status = 'Cancelled';
+  CancellationEligibility cancellationEligibility(
+    BookedAppointment appointment, {
+    DateTime? now,
+  }) {
+    if (appointment.cancellation != null || appointment.status == 'Cancelled') {
+      return const CancellationEligibility(
+        allowed: false,
+        message: 'This booking has already been cancelled.',
+      );
+    }
+    if (!const {'Pending', 'Confirmed'}.contains(appointment.status)) {
+      return CancellationEligibility(
+        allowed: false,
+        message:
+            'This booking cannot be cancelled because its current status is ${appointment.status}. Contact the clinic for help.',
+      );
+    }
+    final queue = QueueStore.instance.existingEntryFor(appointment);
+    if (queue != null && queue.status != QueueStatus.waiting) {
+      return const CancellationEligibility(
+        allowed: false,
+        message:
+            'Check-in or consultation has already started. Please contact clinic staff for help.',
+      );
+    }
+    final current = now ?? DateTime.now();
+    final appointmentStart = DateTime(
+      appointment.date.year,
+      appointment.date.month,
+      appointment.date.day,
+    );
+    final today = DateTime(current.year, current.month, current.day);
+    if (!appointmentStart.isAfter(today)) {
+      return const CancellationEligibility(
+        allowed: false,
+        message:
+            'Online cancellation is closed for same-day or past appointments. Please contact the clinic.',
+        late: true,
+      );
+    }
+    return const CancellationEligibility(
+      allowed: true,
+      message: 'This booking is eligible for cancellation.',
+    );
+  }
+
+  BookingCancellation? cancelWithDetails(
+    BookedAppointment appointment, {
+    required String reason,
+    String additionalReason = '',
+    CancellationInitiator initiatedBy = CancellationInitiator.owner,
+  }) {
+    if (appointment.cancellation != null || reason.trim().isEmpty) return null;
+    if (initiatedBy == CancellationInitiator.owner) {
+      if (!cancellationEligibility(appointment).allowed) return null;
+    } else {
+      final queue = QueueStore.instance.existingEntryFor(appointment);
+      if (!const {'Pending', 'Confirmed'}.contains(appointment.status) ||
+          (queue != null && queue.status != QueueStatus.waiting)) {
+        return null;
+      }
+    }
+    final cancelledAt = DateTime.now();
+    final cancellation = BookingCancellation(
+      id: 'CAN-${cancelledAt.microsecondsSinceEpoch}',
+      reason: reason.trim(),
+      additionalReason: additionalReason.trim(),
+      cancelledAt: cancelledAt,
+      cancellationFee: 0,
+      refundAmount: 0,
+      refundStatus: RefundStatus.notApplicable,
+      initiatedBy: initiatedBy,
+      notificationsSent: true,
+    );
+    appointment
+      ..cancellation = cancellation
+      ..status = 'Cancelled';
+    QueueStore.instance.releaseForCancellation(appointment);
     notifyListeners();
+    return cancellation;
   }
 
   @visibleForTesting
@@ -203,6 +307,7 @@ class QueueStore extends ChangeNotifier {
   void syncConfirmedAppointments(Iterable<BookedAppointment> appointments) {
     for (final appointment in appointments) {
       if (appointment.service.homeVisit ||
+          !const {'Pending', 'Confirmed'}.contains(appointment.status) ||
           _entries.any((entry) => entry.appointment.id == appointment.id)) {
         continue;
       }
@@ -221,6 +326,22 @@ class QueueStore extends ChangeNotifier {
       (entry) => entry?.appointment.id == appointment.id,
       orElse: () => null,
     );
+  }
+
+  QueueEntry? existingEntryFor(BookedAppointment appointment) {
+    return _entries.cast<QueueEntry?>().firstWhere(
+      (entry) => entry?.appointment.id == appointment.id,
+      orElse: () => null,
+    );
+  }
+
+  void releaseForCancellation(BookedAppointment appointment) {
+    _entries.removeWhere(
+      (entry) =>
+          entry.appointment.id == appointment.id &&
+          entry.status == QueueStatus.waiting,
+    );
+    notifyListeners();
   }
 
   void staffUpdate(
@@ -264,6 +385,13 @@ class QueueStore extends ChangeNotifier {
       entry.recommendations =
           'Follow the veterinarian’s care instructions and monitor symptoms.';
     }
+    entry.appointment.status = switch (status) {
+      QueueStatus.waiting => entry.appointment.status,
+      QueueStatus.almostTurn || QueueStatus.called => 'Checked In',
+      QueueStatus.inConsultation => 'In Consultation',
+      QueueStatus.completed => 'Completed',
+    };
+    AppointmentStore.instance.notifyListeners();
     notifyListeners();
   }
 
@@ -288,6 +416,7 @@ class BookedAppointment {
     required this.notes,
     required this.address,
     required this.status,
+    this.cancellation,
   });
 
   final String id;
@@ -302,6 +431,47 @@ class BookedAppointment {
   final String notes;
   final String address;
   String status;
+  BookingCancellation? cancellation;
+}
+
+enum CancellationInitiator { owner, staff }
+
+enum RefundStatus { notApplicable, pending, completed, failed }
+
+class BookingCancellation {
+  const BookingCancellation({
+    required this.id,
+    required this.reason,
+    required this.additionalReason,
+    required this.cancelledAt,
+    required this.cancellationFee,
+    required this.refundAmount,
+    required this.refundStatus,
+    required this.initiatedBy,
+    required this.notificationsSent,
+  });
+
+  final String id;
+  final String reason;
+  final String additionalReason;
+  final DateTime cancelledAt;
+  final int cancellationFee;
+  final int refundAmount;
+  final RefundStatus refundStatus;
+  final CancellationInitiator initiatedBy;
+  final bool notificationsSent;
+}
+
+class CancellationEligibility {
+  const CancellationEligibility({
+    required this.allowed,
+    required this.message,
+    this.late = false,
+  });
+
+  final bool allowed;
+  final String message;
+  final bool late;
 }
 
 class BookingPet {
@@ -345,7 +515,6 @@ class AppointmentDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final queueEntry = QueueStore.instance.entryFor(appointment);
     return Scaffold(
       backgroundColor: _BookingColors.page,
       appBar: AppBar(
@@ -353,47 +522,391 @@ class AppointmentDetailsPage extends StatelessWidget {
         backgroundColor: _BookingColors.mint,
         surfaceTintColor: Colors.transparent,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          _SummaryCard(
-            rows: [
-              ('Booking ID', '#${appointment.id}'),
-              ('Pet', '${appointment.pet.name} • ${appointment.pet.breed}'),
-              ('Service', appointment.service.name),
-              ('Veterinarian', appointment.veterinarian),
-              ('Date', _longDate(appointment.date)),
-              ('Time', appointment.time),
-              ('Status', appointment.status),
-              ('Reason', appointment.reason),
-              ('Symptoms', appointment.symptoms),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _NoticeBox(
-            icon: Icons.badge_outlined,
-            text: queueEntry == null
-                ? 'Home Visit appointments do not use the clinic queue.'
-                : 'Clinic staff verifies the booking and updates check-in and queue status. Pet owners can only view these updates.',
-          ),
-          if (queueEntry != null) ...[
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: () =>
-                  Navigator.of(context).pushNamed(MyQueuePage.routeName),
-              icon: const Icon(Icons.groups_2_outlined),
-              label: const Text('Open My Queue'),
-              style: FilledButton.styleFrom(
-                backgroundColor: _BookingColors.green,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(52),
+      body: AnimatedBuilder(
+        animation: Listenable.merge([
+          AppointmentStore.instance,
+          QueueStore.instance,
+        ]),
+        builder: (context, _) {
+          final queueEntry = QueueStore.instance.entryFor(appointment);
+          final cancellation = appointment.cancellation;
+          final eligibility = AppointmentStore.instance.cancellationEligibility(
+            appointment,
+          );
+          return ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              _SummaryCard(
+                rows: [
+                  ('Booking ID', '#${appointment.id}'),
+                  ('Pet', '${appointment.pet.name} • ${appointment.pet.breed}'),
+                  ('Service', appointment.service.name),
+                  ('Veterinarian', appointment.veterinarian),
+                  ('Date', _longDate(appointment.date)),
+                  ('Time', appointment.time),
+                  ('Status', appointment.status),
+                  ('Reason', appointment.reason),
+                  ('Symptoms', appointment.symptoms),
+                  if (cancellation != null)
+                    ('Cancellation ID', cancellation.id),
+                ],
               ),
-            ),
-          ],
-        ],
+              const SizedBox(height: 16),
+              _NoticeBox(
+                icon: Icons.badge_outlined,
+                text: queueEntry == null
+                    ? appointment.service.homeVisit
+                          ? 'Home Visit appointments do not use the clinic queue.'
+                          : cancellation != null
+                          ? 'This booking was cancelled and its time slot was released.'
+                          : 'Clinic queue information will appear after staff check-in.'
+                    : 'Clinic staff verifies the booking and updates check-in and queue status. Pet owners can only view these updates.',
+              ),
+              if (queueEntry != null) ...[
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(MyQueuePage.routeName),
+                  icon: const Icon(Icons.groups_2_outlined),
+                  label: const Text('Open My Queue'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _BookingColors.green,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(52),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              if (cancellation != null)
+                OutlinedButton.icon(
+                  key: const ValueKey('view-cancellation'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          BookingCancellationPage(appointment: appointment),
+                    ),
+                  ),
+                  icon: const Icon(Icons.event_busy_outlined),
+                  label: const Text('View Cancellation'),
+                )
+              else if (eligibility.allowed)
+                OutlinedButton.icon(
+                  key: const ValueKey('cancel-booking'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          BookingCancellationPage(appointment: appointment),
+                    ),
+                  ),
+                  icon: const Icon(Icons.event_busy_outlined),
+                  label: const Text('Cancel Booking'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFB3261E),
+                    minimumSize: const Size.fromHeight(50),
+                  ),
+                )
+              else
+                _NoticeBox(
+                  icon: Icons.info_outline_rounded,
+                  text: eligibility.message,
+                ),
+            ],
+          );
+        },
       ),
     );
   }
+}
+
+class BookingCancellationPage extends StatefulWidget {
+  const BookingCancellationPage({required this.appointment, super.key});
+
+  final BookedAppointment appointment;
+
+  @override
+  State<BookingCancellationPage> createState() =>
+      _BookingCancellationPageState();
+}
+
+class _BookingCancellationPageState extends State<BookingCancellationPage> {
+  static const reasons = [
+    'Pet recovered',
+    'Schedule conflict',
+    'Wrong date/time',
+    'Wrong service',
+    'Transportation problem',
+    'Booked another veterinarian',
+    'Personal reason',
+    'Other',
+  ];
+
+  final _otherReason = TextEditingController();
+  String? _reason;
+  bool _showSummary = false;
+
+  @override
+  void dispose() {
+    _otherReason.dispose();
+    super.dispose();
+  }
+
+  bool get _reasonIsValid =>
+      _reason != null &&
+      (_reason != 'Other' || _otherReason.text.trim().isNotEmpty);
+
+  @override
+  Widget build(BuildContext context) {
+    final appointment = widget.appointment;
+    final cancellation = appointment.cancellation;
+    final eligibility = AppointmentStore.instance.cancellationEligibility(
+      appointment,
+    );
+    return Scaffold(
+      backgroundColor: _BookingColors.page,
+      appBar: AppBar(
+        title: Text(cancellation == null ? 'Cancel Booking' : 'Cancellation'),
+        backgroundColor: _BookingColors.mint,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: cancellation != null
+          ? _confirmation(cancellation)
+          : !eligibility.allowed
+          ? _ineligible(eligibility)
+          : _showSummary
+          ? _summary()
+          : _reasonSelection(),
+    );
+  }
+
+  Widget _reasonSelection() => ListView(
+    padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+    children: [
+      const Text('Cancellation policy', style: _BookingText.title),
+      const SizedBox(height: 10),
+      const _NoticeBox(
+        icon: Icons.policy_outlined,
+        text:
+            'Only Pending or Confirmed bookings can be cancelled online. Same-day, checked-in, or started bookings require clinic assistance. A cancelled booking cannot be restored.',
+      ),
+      const SizedBox(height: 18),
+      const Text('Why are you cancelling?', style: _BookingText.section),
+      const SizedBox(height: 8),
+      Card(
+        color: Colors.white,
+        child: RadioGroup<String>(
+          groupValue: _reason,
+          onChanged: (value) => setState(() => _reason = value),
+          child: Column(
+            children: [
+              for (final reason in reasons)
+                RadioListTile<String>(
+                  key: ValueKey('cancellation-reason-$reason'),
+                  value: reason,
+                  title: Text(reason),
+                ),
+            ],
+          ),
+        ),
+      ),
+      if (_reason == 'Other') ...[
+        const SizedBox(height: 12),
+        TextField(
+          key: const ValueKey('other-cancellation-reason'),
+          controller: _otherReason,
+          maxLines: 3,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            labelText: 'Please explain *',
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ],
+      const SizedBox(height: 22),
+      FilledButton(
+        key: const ValueKey('review-cancellation'),
+        onPressed: _reasonIsValid
+            ? () => setState(() => _showSummary = true)
+            : null,
+        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+        child: const Text('Review Cancellation'),
+      ),
+    ],
+  );
+
+  Widget _summary() => ListView(
+    padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+    children: [
+      const Text('Cancellation Summary', style: _BookingText.title),
+      const SizedBox(height: 16),
+      _SummaryCard(
+        rows: [
+          ('Booking ID', '#${widget.appointment.id}'),
+          ('Pet', widget.appointment.pet.name),
+          ('Service', widget.appointment.service.name),
+          ('Date', _longDate(widget.appointment.date)),
+          ('Time', widget.appointment.time),
+          ('Reason', _reason!),
+          if (_otherReason.text.trim().isNotEmpty)
+            ('Explanation', _otherReason.text.trim()),
+          ('Cancellation fee', 'MMK 0 — No cancellation fee'),
+          ('Refund', 'MMK 0 — No payment collected; no refund required'),
+        ],
+      ),
+      const SizedBox(height: 16),
+      const _NoticeBox(
+        icon: Icons.info_outline_rounded,
+        text:
+            'The appointment slot will be released and the cancelled booking will remain available in History.',
+      ),
+      const SizedBox(height: 22),
+      FilledButton(
+        key: const ValueKey('confirm-cancellation'),
+        onPressed: _confirmCancellation,
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFFB3261E),
+          minimumSize: const Size.fromHeight(52),
+        ),
+        child: const Text('Confirm Cancellation'),
+      ),
+      TextButton(
+        onPressed: () => setState(() => _showSummary = false),
+        child: const Text('Back'),
+      ),
+    ],
+  );
+
+  Future<void> _confirmCancellation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Final Confirmation'),
+        content: const Text(
+          'This booking cannot be restored after cancellation. Do you want to continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep Booking'),
+          ),
+          FilledButton(
+            key: const ValueKey('yes-cancel-booking'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFB3261E),
+            ),
+            child: const Text('Yes, Cancel Booking'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final result = AppointmentStore.instance.cancelWithDetails(
+      widget.appointment,
+      reason: _reason!,
+      additionalReason: _otherReason.text,
+    );
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'The booking changed before cancellation. Please review it and try again.',
+          ),
+        ),
+      );
+    }
+    setState(() {});
+  }
+
+  Widget _confirmation(BookingCancellation cancellation) => ListView(
+    padding: const EdgeInsets.fromLTRB(24, 38, 24, 32),
+    children: [
+      const CircleAvatar(
+        radius: 48,
+        backgroundColor: Color(0xFFE9F7F0),
+        child: Icon(
+          Icons.event_busy_rounded,
+          color: _BookingColors.green,
+          size: 56,
+        ),
+      ),
+      const SizedBox(height: 22),
+      const Text(
+        'Booking Cancelled',
+        textAlign: TextAlign.center,
+        style: _BookingText.title,
+      ),
+      const SizedBox(height: 8),
+      Text(
+        'Cancellation ID: ${cancellation.id}',
+        textAlign: TextAlign.center,
+        style: _BookingText.body,
+      ),
+      const SizedBox(height: 22),
+      _SummaryCard(
+        rows: [
+          ('Booking ID', '#${widget.appointment.id}'),
+          ('Status', 'Cancelled'),
+          ('Reason', cancellation.reason),
+          if (cancellation.additionalReason.isNotEmpty)
+            ('Explanation', cancellation.additionalReason),
+          ('Cancellation fee', 'MMK 0'),
+          ('Refund', 'No payment collected; no refund required'),
+        ],
+      ),
+      const SizedBox(height: 16),
+      const _NoticeBox(
+        icon: Icons.notifications_active_outlined,
+        text:
+            'The slot has been released. The pet owner and clinic staff have been notified. This record is available in History.',
+      ),
+      const SizedBox(height: 22),
+      FilledButton(
+        key: const ValueKey('view-cancellation-history'),
+        onPressed: () => Navigator.of(context).pushNamed('/history'),
+        child: const Text('View Cancellation in History'),
+      ),
+      OutlinedButton(
+        onPressed: () => Navigator.of(context).popUntil(
+          (route) =>
+              route.isFirst ||
+              route.settings.name == MyAppointmentsPage.routeName,
+        ),
+        child: const Text('Back to My Appointments'),
+      ),
+    ],
+  );
+
+  Widget _ineligible(CancellationEligibility eligibility) => Center(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.lock_clock_outlined, size: 68),
+          const SizedBox(height: 16),
+          const Text('Cancellation unavailable', style: _BookingText.title),
+          const SizedBox(height: 10),
+          Text(
+            eligibility.message,
+            textAlign: TextAlign.center,
+            style: _BookingText.body,
+          ),
+          const SizedBox(height: 22),
+          FilledButton.icon(
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Call the clinic using Contact Clinic for assistance.',
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.call_outlined),
+            label: const Text('Contact Clinic'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class MyQueuePage extends StatelessWidget {
