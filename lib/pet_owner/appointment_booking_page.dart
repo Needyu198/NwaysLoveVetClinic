@@ -133,12 +133,18 @@ class AppointmentStore extends ChangeNotifier {
       return;
     }
     if (!appointment.service.homeVisit &&
-        const {'Checked In', 'In Consultation', 'Completed'}.contains(status)) {
+        const {
+          'Checked In',
+          'Called',
+          'In Consultation',
+          'Completed',
+        }.contains(status)) {
       QueueStore.instance.syncConfirmedAppointments([appointment]);
       final queue = QueueStore.instance.existingEntryFor(appointment);
       if (queue != null) {
         final queueStatus = switch (status) {
           'Checked In' => QueueStatus.almostTurn,
+          'Called' => QueueStatus.called,
           'In Consultation' => QueueStatus.inConsultation,
           _ => QueueStatus.completed,
         };
@@ -387,7 +393,8 @@ class QueueStore extends ChangeNotifier {
     }
     entry.appointment.status = switch (status) {
       QueueStatus.waiting => entry.appointment.status,
-      QueueStatus.almostTurn || QueueStatus.called => 'Checked In',
+      QueueStatus.almostTurn => 'Checked In',
+      QueueStatus.called => 'Called',
       QueueStatus.inConsultation => 'In Consultation',
       QueueStatus.completed => 'Completed',
     };

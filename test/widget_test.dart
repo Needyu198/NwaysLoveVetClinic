@@ -164,7 +164,11 @@ void main() {
     expect(find.text('doctor@nwaysclinic.com'), findsOneWidget);
     expect(find.text('General Veterinarian'), findsOneWidget);
 
-    await tester.ensureVisible(find.byKey(const ValueKey('doctor-logout')));
+    await tester.drag(
+      find.byKey(const ValueKey('doctor-profile')),
+      const Offset(0, -1100),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('doctor-logout')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('confirm-doctor-logout')));
@@ -203,7 +207,18 @@ void main() {
     expect(find.text('Consultation'), findsOneWidget);
     expect(next.status, 'In Consultation');
     expect(find.byKey(const ValueKey('consultation-notes')), findsOneWidget);
-
+    await tester.enterText(
+      find.byKey(const ValueKey('consultation-diagnosis')),
+      'Mild digestive upset',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('consultation-treatment')),
+      'Supportive care and dietary monitoring',
+    );
+    await tester.drag(find.byType(ListView).last, const Offset(0, -1500));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -900));
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('complete-doctor-consultation')),
     );
@@ -213,6 +228,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(next.status, 'Completed');
+    expect(
+      DoctorMedicalRecordStore.instance.records.any(
+        (record) => record.appointmentId == next.id && record.finalized,
+      ),
+      isTrue,
+    );
     expect(find.text('Doctor Dashboard'), findsOneWidget);
 
     await tester.scrollUntilVisible(
@@ -224,6 +245,44 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Create Post'), findsOneWidget);
     expect(find.byKey(const ValueKey('doctor-post-title')), findsOneWidget);
+  });
+
+  testWidgets('doctor accepts appointments and controls the patient queue', (
+    WidgetTester tester,
+  ) async {
+    DoctorAppointmentStore.instance.clearDemoSchedule();
+    await signInAsDoctor(tester);
+    await tester.tap(find.byKey(const ValueKey('doctor-appointments-tab')));
+    await tester.pumpAndSettle();
+
+    final pending = DoctorAppointmentStore.instance.appointments.firstWhere(
+      (record) => record.status == 'Pending',
+    );
+    await tester.tap(find.byKey(ValueKey('doctor-appointment-${pending.id}')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('doctor-accept-appointment')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('doctor-accept-appointment')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('confirm-doctor-decision')));
+    await tester.pumpAndSettle();
+    expect(pending.status, 'Confirmed');
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('doctor-open-queue')));
+    await tester.pumpAndSettle();
+    expect(find.text('Patient Queue'), findsOneWidget);
+    final first = DoctorAppointmentStore.instance.appointments.first;
+    await tester.tap(find.byKey(ValueKey('doctor-call-${first.id}')));
+    await tester.pumpAndSettle();
+    expect(first.status, 'Called');
+    await tester.tap(find.byKey(ValueKey('doctor-queue-start-${first.id}')));
+    await tester.pumpAndSettle();
+    expect(first.status, 'In Consultation');
+    expect(find.text('Consultation'), findsOneWidget);
   });
 
   testWidgets('doctor dashboard prioritizes active emergency cases', (
@@ -257,7 +316,72 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Emergency Cases'), findsOneWidget);
     expect(find.text('Lucky • Emergency'), findsOneWidget);
+    await tester.tap(find.text('Lucky • Emergency'));
+    await tester.pumpAndSettle();
+    expect(find.text('Emergency Case'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('doctor-accept-emergency')));
+    await tester.pumpAndSettle();
+    expect(
+      EmergencyRequestStore.instance.requests.first.status,
+      EmergencyStatus.accepted,
+    );
     EmergencyRequestStore.instance.clear();
+  });
+
+  testWidgets('doctor updates Home Visit travel and profile settings', (
+    WidgetTester tester,
+  ) async {
+    HomeVisitStore.instance.clear();
+    final visit = HomeVisit(
+      id: 'DOCTOR-HOME-1',
+      pet: const HomeVisitPet(
+        name: 'Max',
+        breed: 'Golden Retriever',
+        age: '2 years',
+        medicalHistory: 'Vaccinations current',
+        color: Colors.blue,
+      ),
+      veterinarian: DoctorAppointmentStore.doctorName,
+      date: DateTime.now().add(const Duration(days: 1)),
+      time: '1:00 PM',
+      reason: 'Mobility concern',
+      symptoms: 'Limping',
+      address: 'No. 18, Chindwin Street, Nay Pyi Taw',
+      contactPerson: 'Pet Owner',
+      phone: '09-123456789',
+    );
+    HomeVisitStore.instance.add(visit);
+    await signInAsDoctor(tester);
+    await tester.tap(find.byKey(const ValueKey('doctor-appointments-tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('doctor-open-home-visits')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('doctor-home-visit-DOCTOR-HOME-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Home Visit Details'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('doctor-update-home-visit')));
+    await tester.pumpAndSettle();
+    expect(visit.status, HomeVisitStatus.onTheWay);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('doctor-profile-tab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('edit-doctor-profile')), findsOneWidget);
+    await tester.drag(
+      find.byKey(const ValueKey('doctor-profile')),
+      const Offset(0, -900),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('doctor-availability-setting')),
+      findsOneWidget,
+    );
+    HomeVisitStore.instance.clear();
   });
 
   test('doctor authentication rejects incorrect credentials', () async {

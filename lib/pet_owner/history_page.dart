@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../doctor/doctor_portal.dart';
 import 'appointment_booking_page.dart';
 import 'emergency_service_page.dart';
 import 'home_visit_booking_page.dart';
@@ -82,7 +83,7 @@ class HistoryReviewStore extends ChangeNotifier {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  static const _petNames = ['Max', 'Bella', 'Luna'];
+  static const _defaultPetNames = ['Max', 'Bella', 'Luna'];
   final _search = TextEditingController();
 
   String? _petName;
@@ -115,6 +116,7 @@ class _HistoryPageState extends State<HistoryPage> {
           PetCareBookingStore.instance,
           HomeVisitStore.instance,
           EmergencyRequestStore.instance,
+          DoctorMedicalRecordStore.instance,
         ]),
         builder: (context, _) {
           if (_petName == null) return _petSelection();
@@ -148,6 +150,10 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _petSelection() {
+    final petNames = {
+      ..._defaultPetNames,
+      ..._allRecords().map((record) => record.petName),
+    }.toList()..sort();
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -158,7 +164,7 @@ class _HistoryPageState extends State<HistoryPage> {
           style: _HistoryText.body,
         ),
         const SizedBox(height: 20),
-        for (final petName in _petNames) ...[
+        for (final petName in petNames) ...[
           Material(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
@@ -461,6 +467,48 @@ class _HistoryPageState extends State<HistoryPage> {
       );
     }
 
+    for (final medical in DoctorMedicalRecordStore.instance.records) {
+      if (!medical.finalized) continue;
+      records.add(
+        HistoryRecord(
+          id: medical.id,
+          petName: medical.petName,
+          category: HistoryCategory.medical,
+          title: medical.service,
+          subtitle: DoctorAppointmentStore.doctorName,
+          date: medical.date,
+          time: _historyTime(medical.date),
+          status: 'Completed',
+          completed: true,
+          source: medical,
+          details: {
+            'Medical record ID': '#${medical.id}',
+            'Symptoms': medical.symptoms,
+            'Examination findings': medical.findings,
+            'Diagnosis': medical.diagnosis,
+            'Treatment': medical.treatment,
+            'Prescription': medical.prescription.isEmpty
+                ? 'No prescription recorded'
+                : medical.prescription,
+            'Vaccination': medical.vaccination.isEmpty
+                ? 'No vaccine administered'
+                : medical.vaccination,
+            'Next dose': medical.nextDoseDate.isEmpty
+                ? 'Not required'
+                : medical.nextDoseDate,
+            'Follow-up': medical.followUp.isEmpty
+                ? 'No follow-up recorded'
+                : medical.followUp,
+            'Test result': medical.testResult.isEmpty
+                ? 'No attachment'
+                : medical.testResult,
+            'Veterinarian': DoctorAppointmentStore.doctorName,
+            'Date': _historyDate(medical.date),
+          },
+        ),
+      );
+    }
+
     final queueEntries = [
       ...QueueStore.instance.active,
       ...QueueStore.instance.history,
@@ -498,7 +546,12 @@ class _HistoryPageState extends State<HistoryPage> {
           },
         ),
       );
-      if (completed) {
+      if (completed &&
+          !DoctorMedicalRecordStore.instance.records.any(
+            (record) =>
+                record.appointmentId == entry.appointment.id &&
+                record.finalized,
+          )) {
         records.add(
           HistoryRecord(
             id: 'MED-${entry.appointment.id}',
