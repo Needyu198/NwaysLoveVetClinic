@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../login/login_page.dart';
 import '../pet_owner/appointment_booking_page.dart';
+import '../pet_owner/emergency_service_page.dart';
 
 class DoctorPortalPage extends StatefulWidget {
   const DoctorPortalPage({super.key});
@@ -14,6 +15,7 @@ class DoctorPortalPage extends StatefulWidget {
 
 class _DoctorPortalPageState extends State<DoctorPortalPage> {
   var _index = 0;
+  var _appointmentFilter = 'All';
 
   static const _titles = ['Doctor Dashboard', 'Appointments', 'Doctor Profile'];
 
@@ -38,10 +40,16 @@ class _DoctorPortalPageState extends State<DoctorPortalPage> {
       ),
       body: IndexedStack(
         index: _index,
-        children: const [
-          DoctorDashboardPage(),
-          DoctorAppointmentsPage(),
-          DoctorProfilePage(),
+        children: [
+          DoctorDashboardPage(
+            onOpenAppointments: _openAppointments,
+            onOpenProfile: () => setState(() => _index = 2),
+          ),
+          DoctorAppointmentsPage(
+            key: ValueKey('doctor-appointments-$_appointmentFilter'),
+            initialFilter: _appointmentFilter,
+          ),
+          const DoctorProfilePage(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -71,6 +79,13 @@ class _DoctorPortalPageState extends State<DoctorPortalPage> {
         ],
       ),
     );
+  }
+
+  void _openAppointments(String filter) {
+    setState(() {
+      _appointmentFilter = filter;
+      _index = 1;
+    });
   }
 }
 
@@ -116,6 +131,9 @@ class DoctorAppointmentRecord {
   final String symptoms;
   final BookedAppointment? source;
   String _status;
+  String consultationNotes = '';
+  String diagnosis = '';
+  String treatment = '';
 
   String get status => source?.status ?? _status;
   set status(String value) => _status = value;
@@ -208,7 +226,14 @@ class DoctorAppointmentStore extends ChangeNotifier {
 }
 
 class DoctorDashboardPage extends StatelessWidget {
-  const DoctorDashboardPage({super.key});
+  const DoctorDashboardPage({
+    required this.onOpenAppointments,
+    required this.onOpenProfile,
+    super.key,
+  });
+
+  final ValueChanged<String> onOpenAppointments;
+  final VoidCallback onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -216,82 +241,177 @@ class DoctorDashboardPage extends StatelessWidget {
       animation: Listenable.merge([
         DoctorAppointmentStore.instance,
         AppointmentStore.instance,
+        EmergencyRequestStore.instance,
       ]),
       builder: (context, _) {
         final records = DoctorAppointmentStore.instance.appointments;
         final today = records
-            .where((record) => DateUtils.isSameDay(record.date, DateTime.now()))
+            .where(
+              (record) =>
+                  DateUtils.isSameDay(record.date, DateTime.now()) &&
+                  record.status != 'Cancelled',
+            )
             .toList();
         final completed = today
             .where((record) => record.status == 'Completed')
             .length;
-        final active = today
-            .where(
-              (record) =>
-                  !const {'Completed', 'Cancelled'}.contains(record.status),
-            )
+        final waiting = today
+            .where((record) => record.status != 'Completed')
             .length;
-        final next = today.cast<DoctorAppointmentRecord?>().firstWhere(
-          (record) =>
-              record != null &&
-              !const {'Completed', 'Cancelled'}.contains(record.status),
-          orElse: () => null,
-        );
+        final upNext = today
+            .where(
+              (record) => !const {
+                'Completed',
+                'Cancelled',
+                'In Consultation',
+              }.contains(record.status),
+            )
+            .toList();
+        final emergencyCases = EmergencyRequestStore.instance.requests
+            .where(
+              (request) => !const {
+                EmergencyStatus.completed,
+                EmergencyStatus.declined,
+              }.contains(request.status),
+            )
+            .toList();
         return ListView(
           key: const ValueKey('doctor-dashboard'),
           padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
           children: [
-            const Text('Good day, Dr. Aye Chan', style: DoctorStyles.title),
+            Text('${_greeting()}, Dr. Aye Chan', style: DoctorStyles.title),
             const SizedBox(height: 5),
             Text(_fullDate(DateTime.now()), style: DoctorStyles.muted),
             const SizedBox(height: 22),
+            _DashboardStatCard(
+              key: const ValueKey('doctor-emergency-stat'),
+              label: 'Emergency Cases',
+              value: '${emergencyCases.length}',
+              icon: Icons.emergency_rounded,
+              color: const Color(0xFFE92832),
+              foregroundColor: Colors.white,
+              horizontal: true,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const DoctorEmergencyCasesPage(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
-                  child: _StatCard(
-                    label: "Today's appointments",
-                    value: '${today.length}',
-                    icon: Icons.calendar_today_rounded,
-                    color: const Color(0xFF176B50),
+                  child: _DashboardStatCard(
+                    key: const ValueKey('doctor-waiting-stat'),
+                    label: 'Waiting',
+                    value: '$waiting',
+                    icon: Icons.groups_2_outlined,
+                    color: DoctorStyles.mint,
+                    onTap: () => onOpenAppointments('Waiting'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _StatCard(
-                    label: 'Waiting / active',
-                    value: '$active',
-                    icon: Icons.schedule_rounded,
-                    color: const Color(0xFFB26A00),
+                  child: _DashboardStatCard(
+                    key: const ValueKey('doctor-completed-stat'),
+                    label: 'Completed',
+                    value: '$completed',
+                    icon: Icons.task_alt_rounded,
+                    color: DoctorStyles.mint,
+                    onTap: () => onOpenAppointments('Completed'),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            _StatCard(
-              label: 'Completed today',
-              value: '$completed',
-              icon: Icons.task_alt_rounded,
-              color: const Color(0xFF2358A5),
+            _DashboardStatCard(
+              key: const ValueKey('doctor-total-stat'),
+              label: 'Today Total Appointments',
+              value: '${today.length}',
+              icon: Icons.calendar_today_rounded,
+              color: DoctorStyles.mint,
               horizontal: true,
+              onTap: () => onOpenAppointments('Today'),
             ),
             const SizedBox(height: 24),
-            const Text('Next Appointment', style: DoctorStyles.section),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Up Next', style: DoctorStyles.section),
+                ),
+                TextButton(
+                  key: const ValueKey('doctor-view-all-appointments'),
+                  onPressed: () => onOpenAppointments('All'),
+                  child: const Text('View All Appointments'),
+                ),
+              ],
+            ),
             const SizedBox(height: 10),
-            if (next == null)
+            if (emergencyCases.isNotEmpty) ...[
+              for (final emergency in emergencyCases.take(2)) ...[
+                _EmergencyQueueCard(request: emergency),
+                const SizedBox(height: 10),
+              ],
+            ],
+            if (upNext.isEmpty && emergencyCases.isEmpty)
               const _EmptyDoctorState(
                 icon: Icons.event_available_rounded,
-                title: 'No more appointments today',
-                message: 'Your remaining schedule is clear.',
+                title: 'No patients waiting',
+                message: 'Today’s active queue is clear.',
               )
-            else
-              DoctorAppointmentCard(record: next),
-            const SizedBox(height: 24),
-            const Text("Today's Schedule", style: DoctorStyles.section),
-            const SizedBox(height: 10),
-            for (final record in today) ...[
-              DoctorAppointmentCard(record: record, compact: true),
-              const SizedBox(height: 10),
+            else ...[
+              for (var index = 0; index < upNext.length; index++) ...[
+                _UpNextCard(
+                  record: upNext[index],
+                  canStart: index == 0 && emergencyCases.isEmpty,
+                ),
+                const SizedBox(height: 10),
+              ],
             ],
+            const SizedBox(height: 18),
+            const Text('Quick Menu', style: DoctorStyles.section),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const ValueKey('doctor-write-post'),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DoctorCreatePostPage(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.edit_note_rounded),
+                    label: const Text('Write a Post'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(58),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const ValueKey('doctor-medical-records'),
+                    onPressed: () => onOpenAppointments('Completed'),
+                    icon: const Icon(Icons.medical_information_outlined),
+                    label: const Text('Medical Records'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(58),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              key: const ValueKey('doctor-dashboard-profile'),
+              onPressed: onOpenProfile,
+              icon: const Icon(Icons.manage_accounts_outlined),
+              label: const Text('Profile & Account Settings'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(50),
+              ),
+            ),
           ],
         );
       },
@@ -300,16 +420,20 @@ class DoctorDashboardPage extends StatelessWidget {
 }
 
 class DoctorAppointmentsPage extends StatefulWidget {
-  const DoctorAppointmentsPage({super.key});
+  const DoctorAppointmentsPage({this.initialFilter = 'All', super.key});
+
+  final String initialFilter;
 
   @override
   State<DoctorAppointmentsPage> createState() => _DoctorAppointmentsPageState();
 }
 
 class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
-  String _filter = 'All';
+  late String _filter = widget.initialFilter;
   static const _filters = [
     'All',
+    'Today',
+    'Waiting',
     'Pending',
     'Confirmed',
     'Checked In',
@@ -327,9 +451,24 @@ class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
       ]),
       builder: (context, _) {
         final all = DoctorAppointmentStore.instance.appointments;
-        final records = _filter == 'All'
-            ? all
-            : all.where((record) => record.status == _filter).toList();
+        final records = switch (_filter) {
+          'All' => all,
+          'Today' =>
+            all
+                .where(
+                  (record) => DateUtils.isSameDay(record.date, DateTime.now()),
+                )
+                .toList(),
+          'Waiting' =>
+            all
+                .where(
+                  (record) =>
+                      DateUtils.isSameDay(record.date, DateTime.now()) &&
+                      !const {'Completed', 'Cancelled'}.contains(record.status),
+                )
+                .toList(),
+          _ => all.where((record) => record.status == _filter).toList(),
+        };
         return Column(
           key: const ValueKey('doctor-appointments'),
           children: [
@@ -547,6 +686,302 @@ class DoctorAppointmentDetailsPage extends StatelessWidget {
   }
 }
 
+class DoctorConsultationPage extends StatefulWidget {
+  const DoctorConsultationPage({required this.record, super.key});
+
+  final DoctorAppointmentRecord record;
+
+  @override
+  State<DoctorConsultationPage> createState() => _DoctorConsultationPageState();
+}
+
+class _DoctorConsultationPageState extends State<DoctorConsultationPage> {
+  late final _notes = TextEditingController(
+    text: widget.record.consultationNotes,
+  );
+  late final _diagnosis = TextEditingController(text: widget.record.diagnosis);
+  late final _treatment = TextEditingController(text: widget.record.treatment);
+
+  @override
+  void dispose() {
+    _notes.dispose();
+    _diagnosis.dispose();
+    _treatment.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final record = widget.record;
+    return Scaffold(
+      backgroundColor: DoctorStyles.page,
+      appBar: AppBar(
+        title: const Text('Consultation'),
+        backgroundColor: DoctorStyles.mint,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+        children: [
+          Row(
+            children: [
+              const CircleAvatar(
+                radius: 30,
+                backgroundColor: DoctorStyles.softMint,
+                child: Icon(Icons.pets_rounded, size: 30),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(record.petName, style: DoctorStyles.title),
+                    Text(record.petDetails, style: DoctorStyles.muted),
+                    Text(
+                      'Owner: ${record.ownerName}',
+                      style: DoctorStyles.body,
+                    ),
+                  ],
+                ),
+              ),
+              const _StatusBadge(status: 'In Consultation'),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _DoctorDetailsCard(
+            rows: [
+              ('Booking ID', '#${record.id}'),
+              ('Service', record.service),
+              ('Date and time', '${_fullDate(record.date)} • ${record.time}'),
+              ('Visit reason', record.reason),
+              ('Symptoms', record.symptoms),
+            ],
+          ),
+          const SizedBox(height: 18),
+          TextField(
+            key: const ValueKey('consultation-notes'),
+            controller: _notes,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Examination notes',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 13),
+          TextField(
+            key: const ValueKey('consultation-diagnosis'),
+            controller: _diagnosis,
+            maxLines: 2,
+            decoration: const InputDecoration(
+              labelText: 'Diagnosis',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 13),
+          TextField(
+            key: const ValueKey('consultation-treatment'),
+            controller: _treatment,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Treatment and recommendations',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            key: const ValueKey('complete-doctor-consultation'),
+            onPressed: _completeConsultation,
+            icon: const Icon(Icons.task_alt_rounded),
+            label: const Text('Complete Consultation'),
+            style: FilledButton.styleFrom(
+              backgroundColor: DoctorStyles.green,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(52),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _completeConsultation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Complete consultation?'),
+        content: const Text(
+          'The appointment will move to Completed and today’s dashboard totals will update automatically.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Continue Consulting'),
+          ),
+          FilledButton(
+            key: const ValueKey('confirm-complete-consultation'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Complete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    widget.record
+      ..consultationNotes = _notes.text.trim()
+      ..diagnosis = _diagnosis.text.trim()
+      ..treatment = _treatment.text.trim();
+    DoctorAppointmentStore.instance.updateStatus(widget.record, 'Completed');
+    Navigator.of(context).pop();
+  }
+}
+
+class DoctorEmergencyCasesPage extends StatelessWidget {
+  const DoctorEmergencyCasesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: DoctorStyles.page,
+      appBar: AppBar(
+        title: const Text('Emergency Cases'),
+        backgroundColor: const Color(0xFFFFCDD0),
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: AnimatedBuilder(
+        animation: EmergencyRequestStore.instance,
+        builder: (context, _) {
+          final cases = EmergencyRequestStore.instance.requests
+              .where(
+                (request) => !const {
+                  EmergencyStatus.completed,
+                  EmergencyStatus.declined,
+                }.contains(request.status),
+              )
+              .toList();
+          if (cases.isEmpty) {
+            return const _EmptyDoctorState(
+              icon: Icons.health_and_safety_outlined,
+              title: 'No active emergency cases',
+              message: 'New accepted emergency requests will appear here.',
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.all(18),
+            itemCount: cases.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemBuilder: (_, index) =>
+                _EmergencyQueueCard(request: cases[index], showDetails: true),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class DoctorCreatePostPage extends StatefulWidget {
+  const DoctorCreatePostPage({super.key});
+
+  @override
+  State<DoctorCreatePostPage> createState() => _DoctorCreatePostPageState();
+}
+
+class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
+  final _title = TextEditingController();
+  final _content = TextEditingController();
+  var _category = 'Pet Health';
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _content.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: DoctorStyles.page,
+      appBar: AppBar(
+        title: const Text('Create Post'),
+        backgroundColor: DoctorStyles.mint,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+        children: [
+          const Text('Share Clinic Information', style: DoctorStyles.title),
+          const SizedBox(height: 6),
+          const Text(
+            'Create an educational update for pet owners.',
+            style: DoctorStyles.muted,
+          ),
+          const SizedBox(height: 20),
+          DropdownButtonFormField<String>(
+            initialValue: _category,
+            decoration: const InputDecoration(
+              labelText: 'Category',
+              border: OutlineInputBorder(),
+            ),
+            items: const ['Pet Health', 'Clinic News', 'First Aid', 'Pet Care']
+                .map(
+                  (category) =>
+                      DropdownMenuItem(value: category, child: Text(category)),
+                )
+                .toList(),
+            onChanged: (value) => setState(() => _category = value!),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            key: const ValueKey('doctor-post-title'),
+            controller: _title,
+            decoration: const InputDecoration(
+              labelText: 'Post title',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            key: const ValueKey('doctor-post-content'),
+            controller: _content,
+            minLines: 7,
+            maxLines: 12,
+            decoration: const InputDecoration(
+              labelText: 'Post content',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            key: const ValueKey('publish-doctor-post'),
+            onPressed: _publish,
+            icon: const Icon(Icons.publish_rounded),
+            label: const Text('Publish Post'),
+            style: FilledButton.styleFrom(
+              backgroundColor: DoctorStyles.green,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(52),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _publish() {
+    if (_title.text.trim().isEmpty || _content.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a title and post content.')),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$_category post published.')));
+    Navigator.of(context).pop();
+  }
+}
+
 class DoctorProfilePage extends StatelessWidget {
   const DoctorProfilePage({super.key});
 
@@ -634,49 +1069,231 @@ class DoctorProfilePage extends StatelessWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
+class _DashboardStatCard extends StatelessWidget {
+  const _DashboardStatCard({
     required this.label,
     required this.value,
     required this.icon,
     required this.color,
+    required this.onTap,
     this.horizontal = false,
+    this.foregroundColor = DoctorStyles.ink,
+    super.key,
   });
 
   final String label;
   final String value;
   final IconData icon;
   final Color color;
+  final Color foregroundColor;
   final bool horizontal;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: color,
+    borderRadius: BorderRadius.circular(20),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(17),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: color == Colors.white ? DoctorStyles.border : color,
+          ),
+        ),
+        child: horizontal
+            ? Row(
+                children: [
+                  Icon(icon, color: foregroundColor, size: 30),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: DoctorStyles.body.copyWith(
+                        color: foregroundColor,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    value,
+                    style: DoctorStyles.stat.copyWith(color: foregroundColor),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right_rounded, color: foregroundColor),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, color: foregroundColor, size: 28),
+                  const SizedBox(height: 12),
+                  Text(
+                    value,
+                    style: DoctorStyles.stat.copyWith(color: foregroundColor),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    label,
+                    style: DoctorStyles.muted.copyWith(color: foregroundColor),
+                  ),
+                ],
+              ),
+      ),
+    ),
+  );
+}
+
+class _UpNextCard extends StatelessWidget {
+  const _UpNextCard({required this.record, required this.canStart});
+
+  final DoctorAppointmentRecord record;
+  final bool canStart;
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(17),
+    padding: const EdgeInsets.all(15),
     decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: DoctorStyles.border),
+      color: DoctorStyles.mint,
+      borderRadius: BorderRadius.circular(22),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x22000000),
+          blurRadius: 7,
+          offset: Offset(0, 3),
+        ),
+      ],
     ),
-    child: horizontal
-        ? Row(
-            children: [
-              Icon(icon, color: color, size: 30),
-              const SizedBox(width: 14),
-              Expanded(child: Text(label, style: DoctorStyles.body)),
-              Text(value, style: DoctorStyles.stat),
-            ],
-          )
-        : Column(
+    child: Row(
+      children: [
+        const CircleAvatar(
+          radius: 29,
+          backgroundColor: Colors.white,
+          child: Icon(Icons.pets_rounded, size: 29),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: color, size: 28),
-              const SizedBox(height: 14),
-              Text(value, style: DoctorStyles.stat),
-              const SizedBox(height: 3),
-              Text(label, style: DoctorStyles.muted),
+              Text(record.petName, style: DoctorStyles.cardTitle),
+              Text('Pet Owner: ${record.ownerName}', style: DoctorStyles.body),
+              Text(
+                '${record.time} • ${record.service}',
+                style: DoctorStyles.muted,
+              ),
             ],
           ),
+        ),
+        const SizedBox(width: 8),
+        if (canStart)
+          FilledButton(
+            key: ValueKey('start-consulting-${record.id}'),
+            onPressed: () {
+              DoctorAppointmentStore.instance.updateStatus(
+                record,
+                'In Consultation',
+              );
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => DoctorConsultationPage(record: record),
+                ),
+              );
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: DoctorStyles.ink,
+            ),
+            child: const Text('Start Consulting'),
+          )
+        else
+          const Chip(
+            label: Text('In Queue'),
+            backgroundColor: Colors.white,
+            side: BorderSide.none,
+          ),
+      ],
+    ),
   );
+}
+
+class _EmergencyQueueCard extends StatelessWidget {
+  const _EmergencyQueueCard({required this.request, this.showDetails = false});
+
+  final EmergencyRequest request;
+  final bool showDetails;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xFFFFE8E9),
+    borderRadius: BorderRadius.circular(20),
+    child: InkWell(
+      onTap: showDetails ? () => _showEmergencyDetails(context) : null,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(15),
+        child: Row(
+          children: [
+            const CircleAvatar(
+              backgroundColor: Color(0xFFE92832),
+              foregroundColor: Colors.white,
+              child: Icon(Icons.emergency_rounded),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${request.pet.name} • Emergency',
+                    style: DoctorStyles.cardTitle,
+                  ),
+                  Text(
+                    request.symptoms.join(', '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: DoctorStyles.body,
+                  ),
+                  Text(
+                    '${request.priority} • ${_emergencyLabel(request.status)}',
+                    style: const TextStyle(
+                      color: Color(0xFFB3261E),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showDetails) const Icon(Icons.chevron_right_rounded),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  void _showEmergencyDetails(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('${request.pet.name} Emergency'),
+        content: Text(
+          'Symptoms: ${request.symptoms.join(', ')}\n\n'
+          'Description: ${request.description}\n\n'
+          'Contact: ${request.contactPerson} • ${request.phone}\n\n'
+          'Status: ${_emergencyLabel(request.status)}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _StatusBadge extends StatelessWidget {
@@ -916,3 +1533,24 @@ int _timeMinutes(String value) {
   if (parts[2].toUpperCase() == 'AM' && hour == 12) hour = 0;
   return hour * 60 + minute;
 }
+
+String _greeting() {
+  final hour = DateTime.now().hour;
+  if (hour < 12) return 'Good Morning';
+  if (hour < 17) return 'Good Afternoon';
+  return 'Good Evening';
+}
+
+String _emergencyLabel(EmergencyStatus status) => switch (status) {
+  EmergencyStatus.submitted => 'Submitted',
+  EmergencyStatus.underReview => 'Under Review',
+  EmergencyStatus.accepted => 'Accepted',
+  EmergencyStatus.declined => 'Declined',
+  EmergencyStatus.checkedIn => 'Checked In',
+  EmergencyStatus.assessment => 'Assessment',
+  EmergencyStatus.waiting => 'Waiting',
+  EmergencyStatus.consultation => 'Consultation',
+  EmergencyStatus.treatmentProposed => 'Treatment Proposed',
+  EmergencyStatus.treatmentInProgress => 'Treatment In Progress',
+  EmergencyStatus.completed => 'Completed',
+};

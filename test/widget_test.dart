@@ -122,7 +122,7 @@ void main() {
     await signInAsDoctor(tester);
 
     expect(find.text('Doctor Dashboard'), findsOneWidget);
-    expect(find.text('Good day, Dr. Aye Chan'), findsOneWidget);
+    expect(find.textContaining('Dr. Aye Chan'), findsOneWidget);
     expect(find.byKey(const ValueKey('doctor-dashboard')), findsOneWidget);
     expect(find.text('Dashboard'), findsOneWidget);
     expect(find.text('Appointments'), findsOneWidget);
@@ -166,6 +166,94 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('confirm-doctor-logout')));
     await tester.pumpAndSettle();
     expect(find.text('Log in'), findsOneWidget);
+  });
+
+  testWidgets('doctor dashboard drives queue consultation and quick actions', (
+    WidgetTester tester,
+  ) async {
+    DoctorAppointmentStore.instance.clearDemoSchedule();
+    EmergencyRequestStore.instance.clear();
+    await signInAsDoctor(tester);
+
+    expect(find.text('Emergency Cases'), findsOneWidget);
+    expect(find.text('Waiting'), findsOneWidget);
+    expect(find.text('Completed'), findsOneWidget);
+    expect(find.text('Today Total Appointments'), findsOneWidget);
+    expect(find.text('Up Next'), findsOneWidget);
+    expect(find.text('View All Appointments'), findsOneWidget);
+
+    final next = DoctorAppointmentStore.instance.appointments.first;
+    final startButton = find.byKey(ValueKey('start-consulting-${next.id}'));
+    await tester.scrollUntilVisible(
+      startButton,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.drag(
+      find.byKey(const ValueKey('doctor-dashboard')),
+      const Offset(0, -220),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(startButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Consultation'), findsOneWidget);
+    expect(next.status, 'In Consultation');
+    expect(find.byKey(const ValueKey('consultation-notes')), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('complete-doctor-consultation')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('confirm-complete-consultation')),
+    );
+    await tester.pumpAndSettle();
+    expect(next.status, 'Completed');
+    expect(find.text('Doctor Dashboard'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('doctor-write-post')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('doctor-write-post')));
+    await tester.pumpAndSettle();
+    expect(find.text('Create Post'), findsOneWidget);
+    expect(find.byKey(const ValueKey('doctor-post-title')), findsOneWidget);
+  });
+
+  testWidgets('doctor dashboard prioritizes active emergency cases', (
+    WidgetTester tester,
+  ) async {
+    DoctorAppointmentStore.instance.clearDemoSchedule();
+    EmergencyRequestStore.instance.clear();
+    EmergencyRequestStore.instance.add(
+      EmergencyRequest(
+        id: 'DOCTOR-EMERGENCY-1',
+        createdAt: DateTime.now(),
+        pet: const EmergencyPet(
+          name: 'Lucky',
+          breed: 'Mixed Breed',
+          age: '3 years',
+          medicalHistory: 'No known allergies',
+          color: Colors.red,
+        ),
+        symptoms: const ['Difficulty breathing'],
+        description: 'Sudden breathing difficulty',
+        contactPerson: 'Pet Owner',
+        phone: '09-123456789',
+      ),
+    );
+    await signInAsDoctor(tester);
+
+    expect(find.text('Lucky • Emergency'), findsOneWidget);
+    expect(find.text('Difficulty breathing'), findsOneWidget);
+    expect(find.byKey(const ValueKey('doctor-emergency-stat')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('doctor-emergency-stat')));
+    await tester.pumpAndSettle();
+    expect(find.text('Emergency Cases'), findsOneWidget);
+    expect(find.text('Lucky • Emergency'), findsOneWidget);
+    EmergencyRequestStore.instance.clear();
   });
 
   test('doctor authentication rejects incorrect credentials', () async {
