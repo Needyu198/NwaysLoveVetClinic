@@ -5,6 +5,7 @@ import 'package:senior_project/login/pet_owner_auth_api.dart';
 import 'package:senior_project/main.dart';
 import 'package:senior_project/pet_owner/appointment_booking_page.dart';
 import 'package:senior_project/pet_owner/emergency_service_page.dart';
+import 'package:senior_project/pet_owner/first_aid_information_page.dart';
 import 'package:senior_project/pet_owner/home_visit_booking_page.dart';
 import 'package:senior_project/pet_owner/history_page.dart';
 import 'package:senior_project/pet_owner/pet_care_booking_page.dart';
@@ -851,6 +852,86 @@ void main() {
     expect(find.text('Rabies Vaccination'), findsOneWidget);
     expect(find.text('Operational Services'), findsOneWidget);
     expect(find.text('Neutering (Birth Control)'), findsOneWidget);
+  });
+
+  testWidgets('First Aid provides offline read-only emergency guidance', (
+    WidgetTester tester,
+  ) async {
+    FirstAidSavedStore.instance.clear();
+    await signIn(tester);
+
+    await tester.tap(find.byTooltip('Clinic'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1700));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).at(2), const Offset(-250, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('clinic-first-aid-category')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('First Aid Information'), findsOneWidget);
+    expect(find.text('Choose pet type'), findsOneWidget);
+    expect(
+      find.text(
+        'Read-only guidance available without a booking or internet connection.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Bleeding'), findsOneWidget);
+    expect(find.text('Select Pet'), findsNothing);
+    expect(find.text('Confirm Booking'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('first-aid-pet-Cat')));
+    await tester.tap(find.byKey(const ValueKey('first-aid-topic-bleeding')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cat guide'), findsOneWidget);
+    expect(find.text('Possible signs'), findsOneWidget);
+    expect(find.text('What to do'), findsOneWidget);
+    expect(
+      find.textContaining('does not replace veterinary treatment'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('save-first-aid-guide')));
+    await tester.pump();
+    expect(FirstAidSavedStore.instance.contains('bleeding'), isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('share-first-aid-guide')));
+    await tester.pumpAndSettle();
+    expect(find.text('Share First Aid Guide'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('copy-first-aid-guide')));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const ValueKey('first-aid-guide-content')),
+      const Offset(0, -1800),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Do not'), findsOneWidget);
+    expect(find.text('Helpful materials'), findsOneWidget);
+    expect(find.textContaining('Do not apply powders'), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('first-aid-call-clinic')),
+    );
+    await tester.tap(find.byKey(const ValueKey('first-aid-call-clinic')));
+    await tester.pumpAndSettle();
+    expect(find.text('Call Clinic?'), findsOneWidget);
+    expect(find.text('Confirm Call'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('first-aid-directions')));
+    await tester.pumpAndSettle();
+    expect(find.text('Clinic Directions'), findsOneWidget);
+    expect(find.textContaining('Popba Thiri Township'), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('first-aid-emergency-service')));
+    await tester.pumpAndSettle();
+    expect(find.text('Emergency Service'), findsOneWidget);
   });
 
   testWidgets('login screen fits common phone sizes', (

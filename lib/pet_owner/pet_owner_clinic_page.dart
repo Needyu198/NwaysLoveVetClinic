@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'appointment_booking_page.dart';
 import 'emergency_service_page.dart';
+import 'first_aid_information_page.dart';
 import 'home_visit_booking_page.dart';
 import 'history_page.dart';
 import 'medical_services_page.dart';
@@ -606,6 +607,8 @@ class _ServiceItem extends StatelessWidget {
             ? const ValueKey('clinic-history-category')
             : service.title == 'Emergency Services'
             ? const ValueKey('clinic-emergency-services-category')
+            : service.title == 'First Aid Info'
+            ? const ValueKey('clinic-first-aid-category')
             : null,
         onTap: () {
           if (service.title == 'Booking') {
@@ -634,6 +637,10 @@ class _ServiceItem extends StatelessWidget {
           }
           if (service.title == 'Emergency Services') {
             Navigator.of(context).pushNamed(EmergencyServicePage.routeName);
+            return;
+          }
+          if (service.title == 'First Aid Info') {
+            Navigator.of(context).pushNamed(FirstAidInformationPage.routeName);
             return;
           }
           _showServiceDetails(context, service);
