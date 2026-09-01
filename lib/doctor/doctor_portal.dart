@@ -40,23 +40,25 @@ class _DoctorPortalPageState extends State<DoctorPortalPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DoctorStyles.page,
-      appBar: AppBar(
-        title: Text(_titles[_index]),
-        backgroundColor: DoctorStyles.mint,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          if (_index != 2)
-            IconButton(
-              tooltip: 'Notifications',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const DoctorNotificationsPage(),
-                ),
-              ),
-              icon: const Icon(Icons.notifications_none_rounded),
+      appBar: _index == 0
+          ? null
+          : AppBar(
+              title: Text(_titles[_index]),
+              backgroundColor: DoctorStyles.mint,
+              surfaceTintColor: Colors.transparent,
+              actions: [
+                if (_index != 2)
+                  IconButton(
+                    tooltip: 'Notifications',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DoctorNotificationsPage(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.notifications_none_rounded),
+                  ),
+              ],
             ),
-        ],
-      ),
       body: IndexedStack(
         index: _index,
         children: [

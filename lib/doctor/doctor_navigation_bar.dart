@@ -34,17 +34,17 @@ class DoctorNavigationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: DoctorStyles.page,
+      color: Colors.white,
       child: SafeArea(
         top: false,
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        minimum: const EdgeInsets.fromLTRB(34, 8, 34, 14),
         child: Container(
           key: const ValueKey('doctor-navigation-bar'),
-          height: 78,
-          padding: const EdgeInsets.all(8),
+          height: 68,
+          padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
             color: Colors.black,
-            borderRadius: BorderRadius.circular(42),
+            borderRadius: BorderRadius.circular(38),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x26000000),
@@ -123,7 +123,7 @@ class _DoctorNavigationDestination extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(item.icon, color: item.color, size: selected ? 35 : 38),
+                  Icon(item.icon, color: item.color, size: selected ? 30 : 34),
                   if (selected) ...[
                     const SizedBox(width: 9),
                     Flexible(
@@ -134,7 +134,7 @@ class _DoctorNavigationDestination extends StatelessWidget {
                           maxLines: 1,
                           style: const TextStyle(
                             color: Colors.black,
-                            fontSize: 21,
+                            fontSize: 20,
                             fontWeight: FontWeight.w800,
                           ),
                         ),

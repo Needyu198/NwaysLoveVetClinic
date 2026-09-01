@@ -55,7 +55,7 @@ class _DoctorConsultationPageState extends State<DoctorConsultationPage> {
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-        children: [
+        children: [Column(children: [
           Row(
             children: [
               const CircleAvatar(
@@ -239,7 +239,7 @@ class _DoctorConsultationPageState extends State<DoctorConsultationPage> {
               minimumSize: const Size.fromHeight(52),
             ),
           ),
-        ],
+        ])],
       ),
     );
   }

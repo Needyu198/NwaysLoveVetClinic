@@ -33,72 +33,84 @@ class _DashboardStatCard extends StatelessWidget {
   const _DashboardStatCard({
     required this.label,
     required this.value,
-    required this.icon,
     required this.color,
     required this.onTap,
     this.horizontal = false,
-    this.foregroundColor = DoctorStyles.ink,
+    this.large = false,
     super.key,
   });
 
   final String label;
   final String value;
-  final IconData icon;
   final Color color;
-  final Color foregroundColor;
   final bool horizontal;
+  final bool large;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Material(
     color: color,
-    borderRadius: BorderRadius.circular(20),
+    borderRadius: BorderRadius.circular(22),
+    elevation: 5,
+    shadowColor: const Color(0x55000000),
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(17),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: color == Colors.white ? DoctorStyles.border : color,
-          ),
+      borderRadius: BorderRadius.circular(22),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: horizontal ? 14 : 6,
+          vertical: 8,
         ),
         child: horizontal
             ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, color: foregroundColor, size: 30),
-                  const SizedBox(width: 14),
-                  Expanded(
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 31,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Flexible(
                     child: Text(
                       label,
-                      style: DoctorStyles.body.copyWith(
-                        color: foregroundColor,
-                        fontWeight: FontWeight.w800,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 15,
+                        height: 1.1,
                       ),
                     ),
                   ),
-                  Text(
-                    value,
-                    style: DoctorStyles.stat.copyWith(color: foregroundColor),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.chevron_right_rounded, color: foregroundColor),
                 ],
               )
             : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, color: foregroundColor, size: 28),
-                  const SizedBox(height: 12),
                   Text(
                     value,
-                    style: DoctorStyles.stat.copyWith(color: foregroundColor),
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: large ? 48 : 29,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    label,
-                    style: DoctorStyles.muted.copyWith(color: foregroundColor),
+                  SizedBox(height: large ? 15 : 7),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: large ? 16 : 14,
+                        height: 1.15,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -115,66 +127,103 @@ class _UpNextCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(15),
+    height: 86,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     decoration: BoxDecoration(
       color: DoctorStyles.mint,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(30),
       boxShadow: const [
         BoxShadow(
-          color: Color(0x22000000),
+          color: Color(0x33000000),
           blurRadius: 7,
-          offset: Offset(0, 3),
+          offset: Offset(0, 4),
         ),
       ],
     ),
     child: Row(
       children: [
-        const CircleAvatar(
-          radius: 29,
-          backgroundColor: Colors.white,
-          child: Icon(Icons.pets_rounded, size: 29),
+        ClipOval(
+          child: SizedBox(
+            width: 58,
+            height: 58,
+            child: Image.asset(
+              'assets/photos/logoandphoto/nways_photo.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.topRight,
+            ),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(record.petName, style: DoctorStyles.cardTitle),
-              Text('Pet Owner: ${record.ownerName}', style: DoctorStyles.body),
-              Text(
-                '${record.time} • ${record.service}',
-                style: DoctorStyles.muted,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  record.petName,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 25,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Pet Owner : ${record.ownerName}',
+                  style: const TextStyle(color: Colors.black, fontSize: 14),
+                ),
               ),
             ],
           ),
         ),
         const SizedBox(width: 8),
-        if (canStart)
-          FilledButton(
-            key: ValueKey('start-consulting-${record.id}'),
-            onPressed: () {
-              DoctorAppointmentStore.instance.updateStatus(
-                record,
-                'In Consultation',
-              );
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => DoctorConsultationPage(record: record),
+        Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(26),
+          elevation: 4,
+          shadowColor: const Color(0x55000000),
+          child: InkWell(
+            key: canStart ? ValueKey('start-consulting-${record.id}') : null,
+            onTap: canStart
+                ? () {
+                    DoctorAppointmentStore.instance.updateStatus(
+                      record,
+                      'In Consultation',
+                    );
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => DoctorConsultationPage(record: record),
+                      ),
+                    );
+                  }
+                : null,
+            borderRadius: BorderRadius.circular(26),
+            child: SizedBox(
+              width: canStart ? 122 : 110,
+              height: 42,
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      canStart ? 'Start Consulting' : 'In Queue',
+                      style: const TextStyle(color: Colors.black, fontSize: 15),
+                    ),
+                  ),
                 ),
-              );
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: DoctorStyles.ink,
+              ),
             ),
-            child: const Text('Start Consulting'),
-          )
-        else
-          const Chip(
-            label: Text('In Queue'),
-            backgroundColor: Colors.white,
-            side: BorderSide.none,
           ),
+        ),
       ],
     ),
   );

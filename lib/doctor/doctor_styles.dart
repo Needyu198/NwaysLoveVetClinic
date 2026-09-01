@@ -5,6 +5,7 @@ class DoctorStyles {
 
   static const page = Color(0xFFF5F8F6);
   static const mint = Color(0xFFA1FDD8);
+  static const emergencyRed = Color(0xFFEF2734);
   static const softMint = Color(0xFFE8FAF2);
   static const green = Color(0xFF15835F);
   static const ink = Color(0xFF17201D);
@@ -18,6 +19,18 @@ class DoctorStyles {
     color: ink,
     fontSize: 19,
     fontWeight: FontWeight.w900,
+  );
+  static const heroSection = TextStyle(
+    color: Colors.black,
+    fontSize: 31,
+    fontWeight: FontWeight.w900,
+    letterSpacing: -0.8,
+  );
+  static const dashboardGreeting = TextStyle(
+    color: Colors.black,
+    fontSize: 31,
+    fontWeight: FontWeight.w900,
+    letterSpacing: -1,
   );
   static const cardTitle = TextStyle(
     color: ink,
@@ -93,6 +106,24 @@ String _fullDate(DateTime date) {
     'December',
   ];
   return '${weekdays[date.weekday - 1]}, ${date.day} ${months[date.month - 1]} ${date.year}';
+}
+
+String _dashboardDate(DateTime date) {
+  const months = [
+    'january',
+    'february',
+    'march',
+    'april',
+    'may',
+    'june',
+    'july',
+    'august',
+    'september',
+    'october',
+    'november',
+    'december',
+  ];
+  return '${date.day}.${months[date.month - 1]}.${date.year}';
 }
 
 String _month(DateTime date) => const [
