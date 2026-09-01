@@ -17,6 +17,7 @@ class DoctorDashboardPage extends StatelessWidget {
         DoctorAppointmentStore.instance,
         AppointmentStore.instance,
         EmergencyRequestStore.instance,
+        DoctorPostStore.instance,
       ]),
       builder: (context, _) {
         final records = DoctorAppointmentStore.instance.appointments;
@@ -149,7 +150,12 @@ class DoctorDashboardPage extends StatelessWidget {
                   const SizedBox(height: 24),
                   const Text('New Feeds', style: DoctorStyles.heroSection),
                   const SizedBox(height: 16),
-                  const _DashboardFeedCard(),
+                  for (final post in DoctorPostStore.instance.posts.take(
+                    3,
+                  )) ...[
+                    _DashboardFeedCard(post: post),
+                    const SizedBox(height: 18),
+                  ],
                   const SizedBox.shrink(child: Text('Doctor Dashboard')),
                 ],
               ),
@@ -328,73 +334,6 @@ class _DashboardMenuButton extends StatelessWidget {
           ),
         ),
       ),
-    ),
-  );
-}
-
-class _DashboardFeedCard extends StatelessWidget {
-  const _DashboardFeedCard();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(13),
-    decoration: BoxDecoration(
-      color: DoctorStyles.mint,
-      borderRadius: BorderRadius.circular(28),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x33000000),
-          blurRadius: 8,
-          offset: Offset(0, 5),
-        ),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Container(
-            height: 215,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF0788CF), Color(0xFFA8E8FF)],
-              ),
-            ),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                const Positioned(
-                  right: 18,
-                  top: 18,
-                  child: Icon(Icons.cloud, size: 86, color: Color(0xCCFFFFFF)),
-                ),
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Image.asset(
-                    'assets/photos/logoandphoto/pets_transparent.png',
-                    width: double.infinity,
-                    fit: BoxFit.fitWidth,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(4, 14, 4, 28),
-          child: Text(
-            '🐶 A Dog’s Love Is Forever',
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 25,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-      ],
     ),
   );
 }

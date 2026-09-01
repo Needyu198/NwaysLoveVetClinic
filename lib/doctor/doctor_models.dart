@@ -57,6 +57,114 @@ class DoctorAppointmentRecord {
   set status(String value) => _status = value;
 }
 
+class DoctorPost {
+  const DoctorPost({
+    required this.id,
+    required this.title,
+    required this.content,
+    required this.coverAsset,
+    required this.attachmentAssets,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String title;
+  final String content;
+  final String coverAsset;
+  final List<String> attachmentAssets;
+  final DateTime createdAt;
+}
+
+class DoctorPostDraft {
+  const DoctorPostDraft({
+    required this.title,
+    required this.content,
+    required this.coverAsset,
+    required this.attachmentAssets,
+  });
+
+  final String title;
+  final String content;
+  final String coverAsset;
+  final List<String> attachmentAssets;
+
+  DoctorPost asPost() => DoctorPost(
+    id: 'draft',
+    title: title.isEmpty ? 'Untitled draft' : title,
+    content: content.isEmpty ? 'No post content yet.' : content,
+    coverAsset: coverAsset,
+    attachmentAssets: attachmentAssets,
+    createdAt: DateTime.now(),
+  );
+}
+
+class DoctorPostStore extends ChangeNotifier {
+  DoctorPostStore._();
+
+  static final instance = DoctorPostStore._();
+
+  static const defaultCover = 'assets/photos/logoandphoto/pets_transparent.png';
+  static const gallery = [
+    'assets/photos/logoandphoto/nways_photo.png',
+    'assets/photos/logoandphoto/pets_row.png',
+    'assets/photos/logoandphoto/nways_pets.png',
+  ];
+
+  final List<DoctorPost> _posts = [
+    DoctorPost(
+      id: 'welcome-post',
+      title: '🐶 A Dog’s Love Is Forever',
+      content:
+          'Dogs are more than just pets—they’re family. ❤️\n'
+          'From the excited tail wags when you come home to the quiet moments by your side, they have a special way of making every day better.\n'
+          'Give your furry friend the love, care, and attention they deserve. 🐾\n'
+          'Because to your dog, you are their whole world. 🐕💛\n'
+          '#DogLove #DogsOfInstagram\n'
+          '#PetLove #DogLife #FurryFriend\n'
+          '#DogsAreFamily',
+      coverAsset: defaultCover,
+      attachmentAssets: gallery,
+      createdAt: DateTime(2026, 6, 12),
+    ),
+  ];
+  DoctorPostDraft? _draft;
+
+  List<DoctorPost> get posts => List.unmodifiable(_posts);
+  DoctorPostDraft? get draft => _draft;
+
+  void saveDraft(DoctorPostDraft draft) {
+    _draft = draft;
+    notifyListeners();
+  }
+
+  DoctorPost publish({
+    required String title,
+    required String content,
+    required String coverAsset,
+    required List<String> attachmentAssets,
+  }) {
+    final post = DoctorPost(
+      id: 'POST-${DateTime.now().microsecondsSinceEpoch}',
+      title: title,
+      content: content,
+      coverAsset: coverAsset,
+      attachmentAssets: List.unmodifiable(attachmentAssets),
+      createdAt: DateTime.now(),
+    );
+    _posts.insert(0, post);
+    _draft = null;
+    notifyListeners();
+    return post;
+  }
+
+  @visibleForTesting
+  void reset() {
+    if (_posts.length > 1) _posts.removeRange(0, _posts.length - 1);
+    _draft = null;
+    notifyListeners();
+  }
+}
+
 class DoctorAppointmentStore extends ChangeNotifier {
   DoctorAppointmentStore._();
 

@@ -247,6 +247,102 @@ void main() {
     expect(find.byKey(const ValueKey('doctor-post-title')), findsOneWidget);
   });
 
+  testWidgets('doctor saves, publishes, and expands a feed post', (
+    WidgetTester tester,
+  ) async {
+    DoctorPostStore.instance.reset();
+    await signInAsDoctor(tester);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('doctor-write-post')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('doctor-write-post')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('doctor-post-cover')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const ValueKey(
+          'doctor-post-asset-assets/photos/logoandphoto/pets_transparent.png',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('doctor-post-title')),
+      'Healthy pets are happy pets',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('doctor-post-content')),
+      'Daily play, fresh water, and regular checkups make a lasting difference.',
+    );
+    await tester.tap(find.byKey(const ValueKey('attach-post-images')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add clinic gallery'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('save-doctor-post-draft')),
+    );
+    await tester.tap(find.byKey(const ValueKey('save-doctor-post-draft')));
+    await tester.pumpAndSettle();
+    expect(DoctorPostStore.instance.draft, isNotNull);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('publish-doctor-post')),
+    );
+    await tester.tap(find.byKey(const ValueKey('publish-doctor-post')));
+    await tester.pumpAndSettle();
+
+    expect(
+      DoctorPostStore.instance.posts.first.title,
+      'Healthy pets are happy pets',
+    );
+    await tester.scrollUntilVisible(
+      find.text('Healthy pets are happy pets'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(
+      find.byKey(
+        ValueKey('open-doctor-post-${DoctorPostStore.instance.posts.first.id}'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(
+        ValueKey(
+          'expand-doctor-post-${DoctorPostStore.instance.posts.first.id}',
+        ),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(
+        ValueKey(
+          'expand-doctor-post-${DoctorPostStore.instance.posts.first.id}',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(
+        ValueKey(
+          'collapse-doctor-post-${DoctorPostStore.instance.posts.first.id}',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      DoctorPostStore.instance.posts.first.content,
+      'Daily play, fresh water, and regular checkups make a lasting difference.',
+    );
+    DoctorPostStore.instance.reset();
+  });
+
   testWidgets('doctor accepts appointments and controls the patient queue', (
     WidgetTester tester,
   ) async {
