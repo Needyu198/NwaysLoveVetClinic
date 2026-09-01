@@ -381,6 +381,37 @@ void main() {
     expect(find.text('Consultation'), findsOneWidget);
   });
 
+  testWidgets('doctor appointments use the ongoing card workflow', (
+    WidgetTester tester,
+  ) async {
+    DoctorAppointmentStore.instance.clearDemoSchedule();
+    EmergencyRequestStore.instance.clear();
+    await signInAsDoctor(tester);
+
+    await tester.tap(find.byKey(const ValueKey('doctor-appointments-tab')));
+    await tester.pumpAndSettle();
+    expect(find.text('Appointments'), findsWidgets);
+    expect(find.text('Ongoing'), findsOneWidget);
+    expect(find.text('Records'), findsOneWidget);
+    expect(find.text('Waiting'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('doctor-appointments-back')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('doctor-dashboard')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('doctor-appointments-tab')));
+    await tester.pumpAndSettle();
+    final confirmed = DoctorAppointmentStore.instance.appointments.firstWhere(
+      (record) => record.status == 'Confirmed',
+    );
+    await tester.tap(
+      find.byKey(ValueKey('doctor-appointment-action-${confirmed.id}')),
+    );
+    await tester.pumpAndSettle();
+    expect(confirmed.status, 'In Consultation');
+    expect(find.text('Consultation'), findsOneWidget);
+  });
+
   testWidgets('doctor dashboard prioritizes active emergency cases', (
     WidgetTester tester,
   ) async {

@@ -1,34 +1,5 @@
 part of 'doctor_portal.dart';
 
-class _DoctorFunctionButton extends StatelessWidget {
-  const _DoctorFunctionButton({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-    super.key,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => OutlinedButton(
-    onPressed: onTap,
-    style: OutlinedButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon),
-        const SizedBox(height: 3),
-        FittedBox(child: Text(label)),
-      ],
-    ),
-  );
-}
-
 class _DashboardStatCard extends StatelessWidget {
   const _DashboardStatCard({
     required this.label,

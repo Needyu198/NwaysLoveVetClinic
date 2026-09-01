@@ -126,21 +126,6 @@ String _dashboardDate(DateTime date) {
   return '${date.day}.${months[date.month - 1]}.${date.year}';
 }
 
-String _month(DateTime date) => const [
-  'JAN',
-  'FEB',
-  'MAR',
-  'APR',
-  'MAY',
-  'JUN',
-  'JUL',
-  'AUG',
-  'SEP',
-  'OCT',
-  'NOV',
-  'DEC',
-][date.month - 1];
-
 int _timeMinutes(String value) {
   final parts = value.split(RegExp(r'[: ]'));
   if (parts.length < 3) return 0;

@@ -40,9 +40,8 @@ class _DoctorPortalPageState extends State<DoctorPortalPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DoctorStyles.page,
-      appBar: _index == 0
-          ? null
-          : AppBar(
+      appBar: _index == 2
+          ? AppBar(
               title: Text(_titles[_index]),
               backgroundColor: DoctorStyles.mint,
               surfaceTintColor: Colors.transparent,
@@ -58,7 +57,8 @@ class _DoctorPortalPageState extends State<DoctorPortalPage> {
                     icon: const Icon(Icons.notifications_none_rounded),
                   ),
               ],
-            ),
+            )
+          : null,
       body: IndexedStack(
         index: _index,
         children: [
@@ -69,6 +69,7 @@ class _DoctorPortalPageState extends State<DoctorPortalPage> {
           DoctorAppointmentsPage(
             key: ValueKey('doctor-appointments-$_appointmentFilter'),
             initialFilter: _appointmentFilter,
+            onBack: () => setState(() => _index = 0),
           ),
           const DoctorProfilePage(),
         ],
