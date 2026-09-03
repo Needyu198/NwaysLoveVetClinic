@@ -22,7 +22,9 @@ import 'pet_owner/pet_add_reminder_page.dart';
 import 'pet_owner/pet_reminder_page.dart';
 import 'system_admin/system_admin_dashboard.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await DoctorProfileRepository.instance.ensureInitialized();
   runApp(const NwayLoveVetClinicApp());
 }
 

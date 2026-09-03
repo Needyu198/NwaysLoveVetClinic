@@ -194,9 +194,10 @@ void main() {
     expect(find.text('doctor@nwaysclinic.com'), findsOneWidget);
     expect(find.text('General Veterinarian'), findsOneWidget);
 
-    await tester.drag(
-      find.byKey(const ValueKey('doctor-profile')),
-      const Offset(0, -1100),
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('doctor-logout')),
+      300,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('doctor-logout')));
@@ -530,10 +531,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('doctor-profile-tab')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('edit-doctor-profile')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('edit-doctor-profile')), findsOneWidget);
-    await tester.drag(
-      find.byKey(const ValueKey('doctor-profile')),
-      const Offset(0, -900),
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('doctor-availability-setting')),
+      300,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
     expect(

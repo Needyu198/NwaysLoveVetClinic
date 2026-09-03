@@ -1,5 +1,13 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../firebase_options.dart';
 import '../login/login_page.dart';
 import '../pet_owner/appointment_booking_page.dart';
 import '../pet_owner/contact_clinic_page.dart';
@@ -20,6 +28,7 @@ part 'doctor_notifications_page.dart';
 part 'doctor_emergency_cases_page.dart';
 part 'doctor_home_visits_page.dart';
 part 'doctor_create_post_page.dart';
+part 'doctor_profile_repository.dart';
 part 'doctor_profile_page.dart';
 part 'doctor_widgets.dart';
 part 'doctor_styles.dart';
