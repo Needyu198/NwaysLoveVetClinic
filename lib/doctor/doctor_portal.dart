@@ -5,11 +5,14 @@ import '../pet_owner/appointment_booking_page.dart';
 import '../pet_owner/contact_clinic_page.dart';
 import '../pet_owner/emergency_service_page.dart';
 import '../pet_owner/home_visit_booking_page.dart';
+import '../pet_owner/profile_flows.dart';
 
 part 'doctor_navigation_bar.dart';
 part 'doctor_models.dart';
 part 'doctor_dashboard_page.dart';
 part 'doctor_appointments_page.dart';
+part 'doctor_pet_details_page.dart';
+part 'doctor_pet_history_page.dart';
 part 'doctor_consultation_page.dart';
 part 'doctor_queue_page.dart';
 part 'doctor_medical_records_page.dart';
@@ -34,31 +37,10 @@ class _DoctorPortalPageState extends State<DoctorPortalPage> {
   var _index = 0;
   var _appointmentFilter = 'All';
 
-  static const _titles = ['Doctor Dashboard', 'Appointments', 'Doctor Profile'];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DoctorStyles.page,
-      appBar: _index == 2
-          ? AppBar(
-              title: Text(_titles[_index]),
-              backgroundColor: DoctorStyles.mint,
-              surfaceTintColor: Colors.transparent,
-              actions: [
-                if (_index != 2)
-                  IconButton(
-                    tooltip: 'Notifications',
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const DoctorNotificationsPage(),
-                      ),
-                    ),
-                    icon: const Icon(Icons.notifications_none_rounded),
-                  ),
-              ],
-            )
-          : null,
       body: IndexedStack(
         index: _index,
         children: [

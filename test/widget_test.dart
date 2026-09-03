@@ -137,6 +137,34 @@ void main() {
     expect(find.byKey(const ValueKey('doctor-appointments')), findsOneWidget);
     expect(find.text('Bruno'), findsWidgets);
 
+    final firstAppointment = DoctorAppointmentStore.instance.appointments.first;
+    await tester.tap(
+      find.byKey(ValueKey('doctor-pet-photo-${firstAppointment.id}')).last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('doctor-pet-details')), findsOneWidget);
+    expect(find.text('Name : ${firstAppointment.petName}'), findsOneWidget);
+    expect(find.text('Allergies'), findsOneWidget);
+    expect(find.text('Clinic History'), findsOneWidget);
+    expect(find.text('Additional Information'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('doctor-open-clinic-history')));
+    await tester.pumpAndSettle();
+    expect(find.text('Medical History'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('doctor-medical-history-list')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('doctor-vaccination-history-tab')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Vaccination History'), findsOneWidget);
+    expect(find.text('No vaccination history yet'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('doctor-pet-history-back')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('doctor-pet-details-back')));
+    await tester.pumpAndSettle();
+
     await tester.tap(
       find
           .byKey(
@@ -156,7 +184,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Checked In'), findsWidgets);
 
-    await tester.pageBack();
+    await tester.tap(
+      find.byKey(const ValueKey('doctor-appointment-details-back')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('doctor-profile-tab')));
     await tester.pumpAndSettle();
@@ -366,7 +396,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(pending.status, 'Confirmed');
 
-    await tester.pageBack();
+    await tester.tap(
+      find.byKey(const ValueKey('doctor-appointment-details-back')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('doctor-open-queue')));
     await tester.pumpAndSettle();
