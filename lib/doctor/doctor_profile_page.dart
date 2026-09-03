@@ -58,115 +58,13 @@ class DoctorProfilePage extends StatelessWidget {
               Expanded(
                 child: ListView(
                   key: const ValueKey('doctor-profile'),
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+                  padding: const EdgeInsets.fromLTRB(28, 14, 28, 30),
                   children: [
                     _DoctorProfileHero(profile: profile),
-                    const SizedBox(height: 18),
-                    _DoctorProfileSection(
-                      title: 'Professional Information',
-                      icon: Icons.badge_outlined,
-                      child: _DoctorDetailsCard(
-                        rows: [
-                          ('License', profile.license),
-                          ('Clinic', "Nway's Love Vet Clinic"),
-                          ('Email', profile.email),
-                          ('Phone', profile.phone),
-                          ('Experience', profile.experience),
-                          ('Biography', profile.biography),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const _DoctorProfileSection(
-                      title: 'Clinic Schedule',
-                      icon: Icons.calendar_month_rounded,
-                      child: _DoctorDetailsCard(
-                        rows: [
-                          ('Monday–Friday', '9:00 AM – 5:00 PM'),
-                          ('Saturday', '9:00 AM – 1:00 PM'),
-                          ('Sunday', 'Off duty'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _DoctorProfileSection(
-                      title: 'Preferences',
-                      icon: Icons.tune_rounded,
-                      child: Column(
-                        children: [
-                          _DoctorProfileSettingTile(
-                            child: SwitchListTile(
-                              key: const ValueKey(
-                                'doctor-availability-setting',
-                              ),
-                              value: profile.acceptingAppointments,
-                              onChanged: profile.setAvailability,
-                              activeThumbColor: DoctorStyles.green,
-                              title: const Text('Accepting appointments'),
-                              subtitle: const Text(
-                                'Allow new bookings in available slots',
-                              ),
-                              secondary: const Icon(
-                                Icons.event_available_rounded,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          _DoctorProfileSettingTile(
-                            child: SwitchListTile(
-                              key: const ValueKey(
-                                'doctor-notification-setting',
-                              ),
-                              value: profile.notificationsEnabled,
-                              onChanged: profile.setNotifications,
-                              activeThumbColor: DoctorStyles.green,
-                              title: const Text('Doctor notifications'),
-                              subtitle: const Text(
-                                'Appointments, emergencies and Home Visits',
-                              ),
-                              secondary: const Icon(
-                                Icons.notifications_none_rounded,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          _DoctorProfileSettingTile(
-                            child: ListTile(
-                              leading: const Icon(Icons.help_outline_rounded),
-                              title: const Text('Help and Support'),
-                              trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: () =>
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Clinic support: 09-5312717',
-                                      ),
-                                    ),
-                                  ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    OutlinedButton.icon(
-                      key: const ValueKey('doctor-logout'),
-                      onPressed: () => _logout(context),
-                      icon: const Icon(Icons.logout_rounded),
-                      label: const Text('Log Out'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFB3261E),
-                        side: const BorderSide(
-                          color: Color(0xFFB3261E),
-                          width: 1.5,
-                        ),
-                        minimumSize: const Size.fromHeight(54),
-                        shape: const StadiumBorder(),
-                        textStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                    const SizedBox(height: 22),
+                    _DoctorAccountSettingsCard(
+                      profile: profile,
+                      onLogout: () => _logout(context),
                     ),
                   ],
                 ),
@@ -211,26 +109,25 @@ class _DoctorProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(28, 24, 28, 22),
+    height: 116,
+    padding: const EdgeInsets.fromLTRB(34, 8, 20, 12),
+    alignment: Alignment.centerLeft,
     decoration: const BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       boxShadow: [
         BoxShadow(
-          color: Color(0x28000000),
-          blurRadius: 7,
+          color: Color(0x38000000),
+          blurRadius: 6,
           offset: Offset(0, 4),
         ),
       ],
     ),
-    child: const Text(
-      'Doctor Profile',
-      style: TextStyle(
-        color: Colors.black,
-        fontSize: 29,
-        fontWeight: FontWeight.w900,
-        letterSpacing: -0.5,
-      ),
+    child: Image.asset(
+      'assets/photos/logoandphoto/nways_love_logo.png',
+      width: 92,
+      height: 92,
+      fit: BoxFit.contain,
     ),
   );
 }
@@ -242,7 +139,7 @@ class _DoctorProfileHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
+    padding: const EdgeInsets.fromLTRB(24, 30, 24, 26),
     decoration: BoxDecoration(
       color: DoctorStyles.mint,
       borderRadius: BorderRadius.circular(30),
@@ -256,61 +153,276 @@ class _DoctorProfileHero extends StatelessWidget {
     ),
     child: Column(
       children: [
-        Container(
-          width: 106,
-          height: 106,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.medical_services_rounded,
-            size: 54,
-            color: DoctorStyles.green,
-          ),
+        Row(
+          children: [
+            InkWell(
+              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Profile photo picker opened.')),
+              ),
+              borderRadius: BorderRadius.circular(58),
+              child: Container(
+                width: 112,
+                height: 112,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person_rounded,
+                  size: 68,
+                  color: Color(0xFF789A93),
+                ),
+              ),
+            ),
+            const SizedBox(width: 24),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 25,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    profile.email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    profile.phone,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        TextButton.icon(
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile photo picker opened.')),
-          ),
-          style: TextButton.styleFrom(foregroundColor: Colors.black),
-          icon: const Icon(Icons.photo_camera_outlined),
-          label: const Text('Change Photo'),
+        const SizedBox(height: 22),
+        _DoctorProfilePill(label: profile.specialty),
+        const SizedBox(height: 12),
+        _DoctorProfilePill(label: 'VET License : ${profile.license}'),
+        const SizedBox(height: 12),
+        const _DoctorShiftPanel(),
+      ],
+    ),
+  );
+}
+
+class _DoctorProfilePill extends StatelessWidget {
+  const _DoctorProfilePill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    constraints: const BoxConstraints(minHeight: 46),
+    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(26),
+    ),
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        label,
+        maxLines: 1,
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
         ),
+      ),
+    ),
+  );
+}
+
+class _DoctorShiftPanel extends StatelessWidget {
+  const _DoctorShiftPanel();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(38, 16, 20, 18),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(30),
+    ),
+    child: const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Text(
-          profile.name,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
+          'Shift',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        ),
+        SizedBox(height: 5),
+        Text(
+          'Mon - (9:00 - 12:00) (13:00 - 16:00)\n'
+          'Tue - (9:00 - 12:00) (13:00 - 16:00)\n'
+          'Wed - (9:00 - 12:00) (13:00 - 16:00)\n'
+          'Fri  - (9:00 - 12:00) (13:00 - 16:00)',
+          style: TextStyle(
             color: Colors.black,
-            fontSize: 27,
-            fontWeight: FontWeight.w900,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            height: 1.45,
           ),
         ),
-        const SizedBox(height: 3),
-        Text(
-          profile.specialty,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.black, fontSize: 15),
+      ],
+    ),
+  );
+}
+
+class _DoctorAccountSettingsCard extends StatelessWidget {
+  const _DoctorAccountSettingsCard({
+    required this.profile,
+    required this.onLogout,
+  });
+
+  final DoctorProfileStore profile;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(28, 26, 28, 26),
+    decoration: BoxDecoration(
+      color: DoctorStyles.mint,
+      borderRadius: BorderRadius.circular(30),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x33000000),
+          blurRadius: 7,
+          offset: Offset(0, 4),
         ),
-        const SizedBox(height: 16),
-        FilledButton.icon(
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Account Setting',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 21,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 18),
+        _DoctorSettingsButton(
           key: const ValueKey('edit-doctor-profile'),
-          onPressed: () => Navigator.of(context).push(
+          label: 'Account',
+          onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => const EditDoctorProfilePage(),
             ),
           ),
-          icon: const Icon(Icons.edit_outlined),
-          label: const Text('Edit Profile'),
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            minimumSize: const Size.fromHeight(50),
-            shape: const StadiumBorder(),
-            textStyle: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 14),
+        _DoctorSettingsButton(
+          key: const ValueKey('doctor-notification-setting'),
+          label: 'Notifications',
+          onTap: () {
+            profile.setNotifications(!profile.notificationsEnabled);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  profile.notificationsEnabled
+                      ? 'Doctor notifications enabled.'
+                      : 'Doctor notifications disabled.',
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 14),
+        _DoctorSettingsButton(
+          key: const ValueKey('doctor-availability-setting'),
+          label: 'Preferences',
+          onTap: () {
+            profile.setAvailability(!profile.acceptingAppointments);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  profile.acceptingAppointments
+                      ? 'New appointments are enabled.'
+                      : 'New appointments are paused.',
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 14),
+        _DoctorSettingsButton(
+          label: 'About',
+          onTap: () => showAboutDialog(
+            context: context,
+            applicationName: "Nway's Love Vet Clinic",
+            applicationVersion: '1.0.0',
           ),
         ),
+        const SizedBox(height: 14),
+        _DoctorSettingsButton(
+          key: const ValueKey('doctor-logout'),
+          label: 'Log Out',
+          color: const Color(0xFFFF1017),
+          onTap: onLogout,
+        ),
       ],
+    ),
+  );
+}
+
+class _DoctorSettingsButton extends StatelessWidget {
+  const _DoctorSettingsButton({
+    required this.label,
+    required this.onTap,
+    this.color = Colors.white,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: color,
+    borderRadius: BorderRadius.circular(22),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: Center(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 19,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
     ),
   );
 }
@@ -363,20 +475,6 @@ class _DoctorProfileSection extends StatelessWidget {
         child,
       ],
     ),
-  );
-}
-
-class _DoctorProfileSettingTile extends StatelessWidget {
-  const _DoctorProfileSettingTile({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(22),
-    clipBehavior: Clip.antiAlias,
-    child: child,
   );
 }
 

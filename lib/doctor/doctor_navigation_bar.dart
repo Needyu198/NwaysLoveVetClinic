@@ -13,7 +13,7 @@ class DoctorNavigationBar extends StatelessWidget {
   static const _items = [
     _DoctorNavigationItem(
       label: 'Dashboard',
-      icon: Icons.desktop_windows_outlined,
+      icon: Icons.pets_rounded,
       keyValue: 'doctor-dashboard-tab',
       color: Color(0xFF789A93),
     ),
