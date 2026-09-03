@@ -15,7 +15,22 @@ class DoctorAppointmentsPage extends StatefulWidget {
 }
 
 class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
-  late final String _filter = widget.initialFilter;
+  late String _filter = widget.initialFilter;
+
+  static const _filterOptions = <String>[
+    'All',
+    'Today',
+    'Waiting',
+    'Pending',
+    'Confirmed',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Rehydrate persisted doctor-side appointment state when the page opens.
+    DoctorAppointmentStore.instance.loadPersistedState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,70 +98,83 @@ class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
                         icon: const Icon(Icons.chevron_left_rounded, size: 28),
                       ),
                       const SizedBox(width: 4),
-                      TextButton(
-                        key: const ValueKey('doctor-open-home-visits'),
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const DoctorHomeVisitsPage(),
-                          ),
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.black,
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Text(
-                          'Appointments',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 29,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.8,
-                          ),
+                      const Text(
+                        'Appointments',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 29,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.8,
                         ),
                       ),
                     ],
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(26, 10, 26, 8),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      TextButton(
-                        key: const ValueKey('doctor-open-queue'),
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const DoctorQueuePage(),
+                      Expanded(
+                        child: _DoctorAppointmentNavCard(
+                          navKey: const ValueKey('doctor-open-queue'),
+                          icon: Icons.groups_2_outlined,
+                          label: 'Queue',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const DoctorQueuePage(),
+                            ),
                           ),
                         ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.black,
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(70, 36),
-                          alignment: Alignment.centerLeft,
-                        ),
-                        child: const Text('Ongoing'),
                       ),
-                      TextButton(
-                        key: const ValueKey('doctor-open-medical-records'),
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const DoctorMedicalRecordsPage(),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _DoctorAppointmentNavCard(
+                          navKey: const ValueKey('doctor-open-medical-records'),
+                          icon: Icons.assignment_outlined,
+                          label: 'Records',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const DoctorMedicalRecordsPage(),
+                            ),
                           ),
                         ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.black,
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(70, 36),
-                          alignment: Alignment.centerRight,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _DoctorAppointmentNavCard(
+                          navKey: const ValueKey('doctor-open-home-visits'),
+                          icon: Icons.home_work_outlined,
+                          label: 'Visits',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const DoctorHomeVisitsPage(),
+                            ),
+                          ),
                         ),
-                        child: const Text('Records'),
                       ),
                     ],
                   ),
                 ),
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    key: const ValueKey('doctor-appointment-filters'),
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: _filterOptions.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final option = _filterOptions[index];
+                      return _DoctorFilterChip(
+                        label: option,
+                        selected: _filter == option,
+                        onTap: () => setState(() => _filter = option),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Expanded(
                   child: records.isEmpty && emergencies.isEmpty
                       ? const _EmptyDoctorState(
@@ -173,7 +201,7 @@ class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
                                 child: Text(
                                   _filter == 'Completed'
                                       ? 'Completed'
-                                      : 'Waiting',
+                                      : 'Waiting Patients',
                                   style: const TextStyle(
                                     color: Colors.black,
                                     fontSize: 14,
@@ -847,6 +875,87 @@ class _DoctorAppointmentDetailsSection extends StatelessWidget {
         const SizedBox(height: 13),
         child,
       ],
+    ),
+  );
+}
+
+class _DoctorAppointmentNavCard extends StatelessWidget {
+  const _DoctorAppointmentNavCard({
+    required this.navKey,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final Key navKey;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    key: navKey,
+    color: DoctorStyles.mint,
+    borderRadius: BorderRadius.circular(22),
+    elevation: 3,
+    shadowColor: const Color(0x44000000),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 28, color: Colors.black),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _DoctorFilterChip extends StatelessWidget {
+  const _DoctorFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: selected ? DoctorStyles.green : DoctorStyles.mint,
+    borderRadius: BorderRadius.circular(20),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      key: ValueKey('doctor-filter-$label'),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.black,
+              fontSize: 14,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
     ),
   );
 }

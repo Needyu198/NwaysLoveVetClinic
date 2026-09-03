@@ -424,8 +424,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('doctor-appointments-tab')));
     await tester.pumpAndSettle();
     expect(find.text('Appointments'), findsWidgets);
-    expect(find.text('Ongoing'), findsOneWidget);
+    expect(find.text('Queue'), findsOneWidget);
     expect(find.text('Records'), findsOneWidget);
+    expect(find.text('Visits'), findsOneWidget);
     expect(find.text('Waiting'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('doctor-appointments-back')));
@@ -443,6 +444,61 @@ void main() {
     await tester.pumpAndSettle();
     expect(confirmed.status, 'In Consultation');
     expect(find.text('Consultation'), findsOneWidget);
+  });
+
+  testWidgets('doctor appointment filter chips narrow the list', (
+    WidgetTester tester,
+  ) async {
+    DoctorAppointmentStore.instance.clearDemoSchedule();
+    EmergencyRequestStore.instance.clear();
+    await signInAsDoctor(tester);
+    await tester.tap(find.byKey(const ValueKey('doctor-appointments-tab')));
+    await tester.pumpAndSettle();
+
+    // The first filters are visible without scrolling.
+    expect(find.byKey(const ValueKey('doctor-filter-All')), findsOneWidget);
+
+    final filterScrollable = find.descendant(
+      of: find.byKey(const ValueKey('doctor-appointment-filters')),
+      matching: find.byType(Scrollable),
+    );
+
+    // The demo schedule has a Pending appointment (Mimi) and Confirmed ones.
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('doctor-filter-Pending')),
+      120,
+      scrollable: filterScrollable,
+    );
+    await tester.tap(find.byKey(const ValueKey('doctor-filter-Pending')));
+    await tester.pumpAndSettle();
+    expect(find.text('Mimi'), findsOneWidget);
+    expect(find.text('Bruno'), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('doctor-filter-Confirmed')),
+      120,
+      scrollable: filterScrollable,
+    );
+    await tester.tap(find.byKey(const ValueKey('doctor-filter-Confirmed')));
+    await tester.pumpAndSettle();
+    expect(find.text('Bruno'), findsWidgets);
+    expect(find.text('Mimi'), findsNothing);
+  });
+
+  test('doctor appointment state round-trips through the map', () {
+    const state = DoctorAppointmentState(
+      status: 'Completed',
+      consultationNotes: 'Stable',
+      diagnosis: 'Mild upset',
+      treatment: 'Rest',
+      followUp: 'One week',
+    );
+    final restored = DoctorAppointmentState.fromMap(state.toMap());
+    expect(restored.status, 'Completed');
+    expect(restored.consultationNotes, 'Stable');
+    expect(restored.diagnosis, 'Mild upset');
+    expect(restored.treatment, 'Rest');
+    expect(restored.followUp, 'One week');
   });
 
   testWidgets('doctor dashboard prioritizes active emergency cases', (

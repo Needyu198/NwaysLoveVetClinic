@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'doctor/doctor_portal.dart';
@@ -25,6 +27,9 @@ import 'system_admin/system_admin_dashboard.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DoctorProfileRepository.instance.ensureInitialized();
+  // Rehydrate persisted doctor-side appointment state (fire-and-forget so it
+  // never blocks first paint; the UI updates when it resolves).
+  unawaited(DoctorAppointmentStore.instance.loadPersistedState());
   runApp(const NwayLoveVetClinicApp());
 }
 

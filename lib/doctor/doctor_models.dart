@@ -173,6 +173,56 @@ class DoctorAppointmentStore extends ChangeNotifier {
 
   final List<DoctorAppointmentRecord> _demoRecords = [];
 
+  final _repository = DoctorAppointmentRepository.instance;
+
+  /// Persisted doctor-side state loaded from Firebase, keyed by appointment id.
+  final Map<String, DoctorAppointmentState> _persisted = {};
+  bool _loaded = false;
+  bool _loading = false;
+
+  bool get isSyncedWithFirebase => _loaded;
+
+  /// Loads persisted appointment state from Firebase and applies it to the
+  /// current records. Safe to call repeatedly; only fetches once per session
+  /// unless [force] is set.
+  Future<void> loadPersistedState({bool force = false}) async {
+    if (_loading || (_loaded && !force)) return;
+    _loading = true;
+    final loaded = await _repository.loadAll();
+    _persisted
+      ..clear()
+      ..addAll(loaded);
+    _loaded = true;
+    _loading = false;
+    if (loaded.isNotEmpty) {
+      _applyPersistedState();
+      notifyListeners();
+    }
+  }
+
+  /// Applies any persisted state onto the live records (demo records get their
+  /// status restored; every record gets its saved clinical notes back).
+  void _applyPersistedState() {
+    for (final record in _demoRecords) {
+      final state = _persisted[record.id];
+      if (state == null) continue;
+      _restore(record, state);
+      if (state.status != null) record.status = state.status!;
+    }
+  }
+
+  void _restore(DoctorAppointmentRecord record, DoctorAppointmentState state) {
+    record
+      ..consultationNotes = state.consultationNotes
+      ..diagnosis = state.diagnosis
+      ..treatment = state.treatment
+      ..prescription = state.prescription
+      ..vaccination = state.vaccination
+      ..nextDoseDate = state.nextDoseDate
+      ..followUp = state.followUp
+      ..rescheduleNote = state.rescheduleNote;
+  }
+
   void ensureDemoSchedule() {
     if (_demoRecords.isNotEmpty) return;
     final today = DateTime.now();
@@ -224,7 +274,15 @@ class DoctorAppointmentStore extends ChangeNotifier {
           (appointment) =>
               !_demoRecords.any((record) => record.id == appointment.id),
         )
-        .map(DoctorAppointmentRecord.fromBooking);
+        .map((booking) {
+          final record = DoctorAppointmentRecord.fromBooking(booking);
+          // Reattach any saved clinical notes to freshly-mapped bookings so a
+          // completed consultation survives a restart. Status stays owned by
+          // AppointmentStore for real bookings.
+          final state = _persisted[record.id];
+          if (state != null) _restore(record, state);
+          return record;
+        });
     final result = [..._demoRecords, ...ownerRecords];
     result.sort((a, b) {
       final dateComparison = a.date.compareTo(b.date);
@@ -242,6 +300,15 @@ class DoctorAppointmentStore extends ChangeNotifier {
       record.status = status;
     }
     notifyListeners();
+    persist(record);
+  }
+
+  /// Persists a record's doctor-side state to Firebase (fire-and-forget). Also
+  /// updates the local cache so it survives list rebuilds within the session.
+  Future<void> persist(DoctorAppointmentRecord record) async {
+    final state = DoctorAppointmentState.fromRecord(record);
+    _persisted[record.id] = state;
+    await _repository.save(record.id, state);
   }
 
   @visibleForTesting

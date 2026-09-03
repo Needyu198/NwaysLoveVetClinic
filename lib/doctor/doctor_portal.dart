@@ -30,6 +30,7 @@ part 'doctor_home_visits_page.dart';
 part 'doctor_create_post_page.dart';
 part 'doctor_profile_repository.dart';
 part 'doctor_profile_page.dart';
+part 'doctor_appointment_repository.dart';
 part 'doctor_widgets.dart';
 part 'doctor_styles.dart';
 

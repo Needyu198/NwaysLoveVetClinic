@@ -351,6 +351,7 @@ class _DoctorConsultationPageState extends State<DoctorConsultationPage> {
       finalized: false,
       testResult: _testResult,
     );
+    DoctorAppointmentStore.instance.persist(widget.record);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Consultation draft saved.')));
