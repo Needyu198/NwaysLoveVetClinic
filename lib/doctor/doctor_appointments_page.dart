@@ -84,27 +84,37 @@ class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 4),
+                  padding: const EdgeInsets.fromLTRB(22, 10, 18, 4),
                   child: Row(
                     children: [
-                      IconButton(
+                      InkWell(
                         key: const ValueKey('doctor-appointments-back'),
-                        onPressed: widget.onBack,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 34,
-                          minHeight: 44,
+                        onTap: widget.onBack,
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(3),
+                          child: Image.asset(
+                            'assets/photos/logoandphoto/nways_love_logo.png',
+                            width: 62,
+                            height: 62,
+                            fit: BoxFit.contain,
+                          ),
                         ),
-                        icon: const Icon(Icons.chevron_left_rounded, size: 28),
                       ),
-                      const SizedBox(width: 4),
-                      const Text(
-                        'Appointments',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 29,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.8,
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Appointments',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 29,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.8,
+                            ),
+                          ),
                         ),
                       ),
                     ],

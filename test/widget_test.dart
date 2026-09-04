@@ -617,6 +617,32 @@ void main() {
     expect(result.message, 'Invalid doctor username or password.');
   });
 
+  testWidgets('doctor availability uses a compact time selector', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(home: EditDoctorAvailabilityPage()),
+    );
+    await tester.tap(find.byType(Switch).at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Start').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select time'), findsOneWidget);
+    expect(find.byKey(const ValueKey('doctor-time-hour')), findsOneWidget);
+    expect(find.byKey(const ValueKey('doctor-time-minute')), findsOneWidget);
+    expect(find.text('Times use the 24-hour format.'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('confirm-doctor-time')));
+    await tester.pumpAndSettle();
+    expect(find.text('Select time'), findsNothing);
+  });
+
   testWidgets('registered administrator email opens the admin dashboard', (
     WidgetTester tester,
   ) async {

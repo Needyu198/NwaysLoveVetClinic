@@ -5,54 +5,111 @@ class DoctorHomeVisitsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: DoctorStyles.page,
-    appBar: AppBar(
-      title: const Text('Home Visits'),
-      backgroundColor: DoctorStyles.mint,
+    backgroundColor: Colors.white,
+    body: SafeArea(
+      bottom: false,
+      child: Column(
+        children: [
+          const _DoctorSubpageHeader(title: 'Home Visits'),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: HomeVisitStore.instance,
+              builder: (context, _) {
+                final visits = HomeVisitStore.instance.visits;
+                if (visits.isEmpty) {
+                  return const _EmptyDoctorState(
+                    icon: Icons.home_work_outlined,
+                    title: 'No Home Visits',
+                    message: 'Assigned and upcoming visits will appear here.',
+                  );
+                }
+                return ListView.separated(
+                  key: const ValueKey('doctor-home-visits'),
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                  itemCount: visits.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 14),
+                  itemBuilder: (context, index) =>
+                      _DoctorHomeVisitCard(visit: visits[index]),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     ),
-    body: AnimatedBuilder(
-      animation: HomeVisitStore.instance,
-      builder: (context, _) {
-        final visits = HomeVisitStore.instance.visits;
-        if (visits.isEmpty) {
-          return const _EmptyDoctorState(
-            icon: Icons.home_work_outlined,
-            title: 'No Home Visits',
-            message: 'Assigned and upcoming visits will appear here.',
-          );
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.all(18),
-          itemCount: visits.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final visit = visits[index];
-            return ListTile(
-              key: ValueKey('doctor-home-visit-${visit.id}'),
-              tileColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-                side: const BorderSide(color: DoctorStyles.border),
+  );
+}
+
+class _DoctorHomeVisitCard extends StatelessWidget {
+  const _DoctorHomeVisitCard({required this.visit});
+
+  final HomeVisit visit;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: DoctorStyles.mint,
+    borderRadius: BorderRadius.circular(30),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      key: ValueKey('doctor-home-visit-${visit.id}'),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => DoctorHomeVisitDetailsPage(visit: visit),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(15),
+        child: Row(
+          children: [
+            const CircleAvatar(
+              radius: 29,
+              backgroundColor: Colors.white,
+              child: Icon(
+                Icons.home_work_outlined,
+                color: DoctorStyles.green,
+                size: 29,
               ),
-              leading: const CircleAvatar(
-                backgroundColor: DoctorStyles.softMint,
-                child: Icon(Icons.home_work_outlined),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    visit.pet.name,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_fullDate(visit.date)} • ${visit.time}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DoctorStyles.body,
+                  ),
+                  Text(
+                    visit.address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DoctorStyles.muted,
+                  ),
+                ],
               ),
-              title: Text(visit.pet.name),
-              subtitle: Text(
-                '${_fullDate(visit.date)} • ${visit.time}\n${_doctorHomeVisitLabel(visit.status)}',
-              ),
-              isThreeLine: true,
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => DoctorHomeVisitDetailsPage(visit: visit),
-                ),
-              ),
-            );
-          },
-        );
-      },
+            ),
+            const SizedBox(width: 8),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _StatusBadge(status: _doctorHomeVisitLabel(visit.status)),
+                const SizedBox(height: 6),
+                const Icon(Icons.chevron_right_rounded),
+              ],
+            ),
+          ],
+        ),
+      ),
     ),
   );
 }
@@ -91,100 +148,187 @@ class _DoctorHomeVisitDetailsPageState
   Widget build(BuildContext context) {
     final visit = widget.visit;
     return Scaffold(
-      backgroundColor: DoctorStyles.page,
-      appBar: AppBar(
-        title: const Text('Home Visit Details'),
-        backgroundColor: DoctorStyles.mint,
-      ),
-      body: AnimatedBuilder(
-        animation: HomeVisitStore.instance,
-        builder: (context, _) => ListView(
-          padding: const EdgeInsets.all(20),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
           children: [
-            _DoctorDetailsCard(
-              rows: [
-                ('Booking ID', '#${visit.id}'),
-                ('Pet', '${visit.pet.name} • ${visit.pet.breed}'),
-                ('Medical history', visit.pet.medicalHistory),
-                ('Date and time', '${_fullDate(visit.date)} • ${visit.time}'),
-                ('Address', visit.address),
-                ('Contact', '${visit.contactPerson} • ${visit.phone}'),
-                ('Reason', visit.reason),
-                ('Symptoms', visit.symptoms),
-                ('Status', _doctorHomeVisitLabel(visit.status)),
-              ],
+            const _DoctorSubpageHeader(title: 'Home Visit Details'),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: HomeVisitStore.instance,
+                builder: (context, _) {
+                  final clinical =
+                      visit.status == HomeVisitStatus.consultation ||
+                      visit.status == HomeVisitStatus.treatmentProposed;
+                  final nextStatus = _nextHomeVisitStatus(visit.status);
+                  return ListView(
+                    key: const ValueKey('doctor-home-visit-details'),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: DoctorStyles.mint,
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: Row(
+                          children: [
+                            const CircleAvatar(
+                              radius: 31,
+                              backgroundColor: Colors.white,
+                              child: Icon(Icons.home_work_outlined, size: 31),
+                            ),
+                            const SizedBox(width: 13),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    visit.pet.name,
+                                    style: DoctorStyles.title,
+                                  ),
+                                  Text(
+                                    '${visit.pet.breed} • ${visit.pet.age}',
+                                    style: DoctorStyles.body,
+                                  ),
+                                  Text(
+                                    'Pet Owner : ${visit.contactPerson}',
+                                    style: DoctorStyles.muted,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _StatusBadge(
+                              status: _doctorHomeVisitLabel(visit.status),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (!clinical && nextStatus != null) ...[
+                        const SizedBox(height: 16),
+                        _homeVisitAdvanceButton(nextStatus),
+                      ],
+                      const SizedBox(height: 18),
+                      _DoctorMintSection(
+                        title: 'Visit Information',
+                        icon: Icons.assignment_outlined,
+                        child: _DoctorDetailsCard(
+                          rows: [
+                            ('Booking ID', '#${visit.id}'),
+                            ('Medical history', visit.pet.medicalHistory),
+                            (
+                              'Date and time',
+                              '${_fullDate(visit.date)} • ${visit.time}',
+                            ),
+                            ('Address', visit.address),
+                            (
+                              'Contact',
+                              '${visit.contactPerson} • ${visit.phone}',
+                            ),
+                            ('Reason', visit.reason),
+                            ('Symptoms', visit.symptoms),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        key: const ValueKey('doctor-home-directions'),
+                        onPressed: () =>
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Opening directions to ${visit.address}',
+                                ),
+                              ),
+                            ),
+                        icon: const Icon(Icons.directions_outlined),
+                        label: const Text('Open Directions'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.black,
+                          side: const BorderSide(color: Colors.black),
+                          minimumSize: const Size.fromHeight(52),
+                          shape: const StadiumBorder(),
+                        ),
+                      ),
+                      if (clinical) ...[
+                        const SizedBox(height: 18),
+                        _DoctorMintSection(
+                          title: 'Clinical Notes',
+                          icon: Icons.medical_information_outlined,
+                          child: Column(
+                            children: [
+                              TextField(
+                                key: const ValueKey('home-visit-findings'),
+                                controller: _findings,
+                                maxLines: 3,
+                                decoration: _homeVisitFieldDecoration(
+                                  'Examination findings',
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                key: const ValueKey('home-visit-treatment'),
+                                controller: _treatment,
+                                maxLines: 3,
+                                decoration: _homeVisitFieldDecoration(
+                                  'Treatment results',
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                controller: _medicines,
+                                decoration: _homeVisitFieldDecoration(
+                                  'Medicines',
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                controller: _recommendations,
+                                maxLines: 2,
+                                decoration: _homeVisitFieldDecoration(
+                                  'Recommendations',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (nextStatus != null) ...[
+                          const SizedBox(height: 16),
+                          _homeVisitAdvanceButton(nextStatus),
+                        ],
+                      ] else if (nextStatus == null) ...[
+                        const SizedBox(height: 16),
+                        const _DoctorNotice(
+                          text:
+                              'This Home Visit and its clinical record are complete.',
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
             ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              key: const ValueKey('doctor-home-directions'),
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Opening directions to ${visit.address}'),
-                ),
-              ),
-              icon: const Icon(Icons.directions_outlined),
-              label: const Text('Open Directions'),
-            ),
-            const SizedBox(height: 16),
-            if (visit.status == HomeVisitStatus.consultation ||
-                visit.status == HomeVisitStatus.treatmentProposed) ...[
-              TextField(
-                key: const ValueKey('home-visit-findings'),
-                controller: _findings,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Examination findings',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                key: const ValueKey('home-visit-treatment'),
-                controller: _treatment,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Treatment results',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _medicines,
-                decoration: const InputDecoration(
-                  labelText: 'Medicines',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _recommendations,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Recommendations',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
-            if (_nextHomeVisitStatus(visit.status) case final nextStatus?)
-              FilledButton.icon(
-                key: const ValueKey('doctor-update-home-visit'),
-                onPressed: () => _advanceVisit(nextStatus),
-                icon: const Icon(Icons.update_rounded),
-                label: Text(_homeVisitAction(nextStatus)),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-              )
-            else
-              const _DoctorNotice(
-                text: 'This Home Visit and its clinical record are complete.',
-              ),
           ],
         ),
       ),
     );
   }
+
+  Widget _homeVisitAdvanceButton(HomeVisitStatus nextStatus) =>
+      FilledButton.icon(
+        key: const ValueKey('doctor-update-home-visit'),
+        onPressed: () => _advanceVisit(nextStatus),
+        icon: const Icon(Icons.update_rounded),
+        label: Text(_homeVisitAction(nextStatus)),
+        style: FilledButton.styleFrom(
+          backgroundColor: DoctorStyles.green,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(54),
+          shape: const StadiumBorder(),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+      );
 
   void _advanceVisit(HomeVisitStatus status) {
     if (status == HomeVisitStatus.completed) {
@@ -203,3 +347,21 @@ class _DoctorHomeVisitDetailsPageState
     }
   }
 }
+
+InputDecoration _homeVisitFieldDecoration(String label) => InputDecoration(
+  labelText: label,
+  filled: true,
+  fillColor: Colors.white,
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(20),
+    borderSide: BorderSide.none,
+  ),
+  enabledBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(20),
+    borderSide: BorderSide.none,
+  ),
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(20),
+    borderSide: const BorderSide(color: DoctorStyles.green, width: 1.6),
+  ),
+);

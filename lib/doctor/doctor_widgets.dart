@@ -1,5 +1,107 @@
 part of 'doctor_portal.dart';
 
+class _DoctorSubpageHeader extends StatelessWidget {
+  const _DoctorSubpageHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(20, 16, 24, 18),
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      boxShadow: [
+        BoxShadow(
+          color: Color(0x28000000),
+          blurRadius: 7,
+          offset: Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        InkWell(
+          onTap: () => Navigator.of(context).pop(),
+          borderRadius: BorderRadius.circular(22),
+          child: const Padding(
+            padding: EdgeInsets.all(7),
+            child: Icon(Icons.chevron_left_rounded, size: 30),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _DoctorMintSection extends StatelessWidget {
+  const _DoctorMintSection({
+    required this.title,
+    required this.icon,
+    required this.child,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+    decoration: BoxDecoration(
+      color: DoctorStyles.mint,
+      borderRadius: BorderRadius.circular(30),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: [
+              Icon(icon, size: 24),
+              const SizedBox(width: 9),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 13),
+        child,
+      ],
+    ),
+  );
+}
+
 class _DashboardStatCard extends StatelessWidget {
   const _DashboardStatCard({
     required this.label,

@@ -1584,9 +1584,12 @@ class _EditDoctorAvailabilityPageState
   late bool _accepting = DoctorProfileStore.instance.data.acceptingAppointments;
   bool _saving = false;
 
-  Future<TimeOfDay?> _pickTime(int minutes) => showTimePicker(
+  Future<TimeOfDay?> _pickTime(int minutes) => showDialog<TimeOfDay>(
     context: context,
-    initialTime: TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60),
+    barrierColor: Colors.black54,
+    builder: (dialogContext) => _DoctorTimePickerDialog(
+      initialTime: TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60),
+    ),
   );
 
   Future<void> _addLeave() async {
@@ -1634,11 +1637,10 @@ class _EditDoctorAvailabilityPageState
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: DoctorStyles.softMint,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
+                Material(
+                  color: DoctorStyles.softMint,
+                  borderRadius: BorderRadius.circular(20),
+                  clipBehavior: Clip.antiAlias,
                   child: SwitchListTile(
                     key: const ValueKey('accepting-appointments-switch'),
                     value: _accepting,
@@ -1781,6 +1783,225 @@ class _EditDoctorAvailabilityPageState
     ),
   );
 }
+
+class _DoctorTimePickerDialog extends StatefulWidget {
+  const _DoctorTimePickerDialog({required this.initialTime});
+
+  final TimeOfDay initialTime;
+
+  @override
+  State<_DoctorTimePickerDialog> createState() =>
+      _DoctorTimePickerDialogState();
+}
+
+class _DoctorTimePickerDialogState extends State<_DoctorTimePickerDialog> {
+  late int _hour = widget.initialTime.hour;
+  late int _minute = widget.initialTime.minute;
+
+  List<int> get _minuteOptions {
+    final values = <int>[for (var minute = 0; minute < 60; minute += 5) minute];
+    if (!values.contains(_minute)) values.add(_minute);
+    values.sort();
+    return values;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 390),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(
+                    Icons.schedule_rounded,
+                    color: DoctorStyles.green,
+                    size: 28,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Select time',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                decoration: BoxDecoration(
+                  color: DoctorStyles.softMint,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Text(
+                  '${_twoDigits(_hour)}:${_twoDigits(_minute)}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 44,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _DoctorTimeDropdown(
+                      key: const ValueKey('doctor-time-hour'),
+                      label: 'Hour',
+                      value: _hour,
+                      values: [for (var hour = 0; hour < 24; hour++) hour],
+                      onChanged: (value) => setState(() => _hour = value),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(10, 35, 10, 0),
+                    child: Text(
+                      ':',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: _DoctorTimeDropdown(
+                      key: const ValueKey('doctor-time-minute'),
+                      label: 'Minute',
+                      value: _minute,
+                      values: _minuteOptions,
+                      onChanged: (value) => setState(() => _minute = value),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Times use the 24-hour format.',
+                style: DoctorStyles.muted,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.black,
+                        side: const BorderSide(color: Colors.black),
+                        minimumSize: const Size.fromHeight(50),
+                        shape: const StadiumBorder(),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      key: const ValueKey('confirm-doctor-time'),
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).pop(TimeOfDay(hour: _hour, minute: _minute)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: DoctorStyles.green,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(50),
+                        shape: const StadiumBorder(),
+                      ),
+                      child: const Text(
+                        'Select',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DoctorTimeDropdown extends StatelessWidget {
+  const _DoctorTimeDropdown({
+    required this.label,
+    required this.value,
+    required this.values,
+    required this.onChanged,
+    super.key,
+  });
+
+  final String label;
+  final int value;
+  final List<int> values;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(left: 4, bottom: 7),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+      ),
+      DropdownButtonFormField<int>(
+        initialValue: value,
+        isExpanded: true,
+        icon: const Icon(Icons.keyboard_arrow_down_rounded),
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: DoctorStyles.softMint,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 15,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        items: [
+          for (final option in values)
+            DropdownMenuItem(
+              value: option,
+              child: Text(
+                _twoDigits(option),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+        ],
+        onChanged: (selected) {
+          if (selected != null) onChanged(selected);
+        },
+      ),
+    ],
+  );
+}
+
+String _twoDigits(int value) => value.toString().padLeft(2, '0');
 
 class _DayScheduleEditor extends StatelessWidget {
   const _DayScheduleEditor({
