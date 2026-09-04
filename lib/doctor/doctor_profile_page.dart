@@ -2607,13 +2607,29 @@ class _DoctorTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: TextFormField(
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      validator: validator,
-      decoration: _doctorProfileFieldDecoration(label, icon: icon),
+    padding: const EdgeInsets.only(bottom: 14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 6, bottom: 6),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF17201D),
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        TextFormField(
+          controller: controller,
+          maxLines: maxLines,
+          keyboardType: keyboardType,
+          validator: validator,
+          decoration: _doctorProfileFieldDecoration(icon: icon),
+        ),
+      ],
     ),
   );
 }
@@ -2703,24 +2719,36 @@ class _EditDoctorProfileHeader extends StatelessWidget {
 bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
-InputDecoration _doctorProfileFieldDecoration(String label, {IconData? icon}) {
+InputDecoration _doctorProfileFieldDecoration({IconData? icon}) {
   const border = OutlineInputBorder(
-    borderRadius: BorderRadius.all(Radius.circular(22)),
+    borderRadius: BorderRadius.all(Radius.circular(20)),
     borderSide: BorderSide(color: Colors.transparent),
   );
   return InputDecoration(
-    labelText: label,
     prefixIcon: icon == null
         ? null
-        : Icon(icon, color: DoctorStyles.green, size: 22),
+        : Padding(
+            padding: const EdgeInsets.only(left: 14, right: 10),
+            child: Icon(icon, color: DoctorStyles.green, size: 22),
+          ),
+    prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+    isDense: true,
     filled: true,
     fillColor: Colors.white,
     border: border,
     enabledBorder: border,
     focusedBorder: const OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(22)),
+      borderRadius: BorderRadius.all(Radius.circular(20)),
       borderSide: BorderSide(color: DoctorStyles.green, width: 1.8),
     ),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+    errorBorder: const OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(20)),
+      borderSide: BorderSide(color: Color(0xFFB3261E), width: 1.4),
+    ),
+    focusedErrorBorder: const OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(20)),
+      borderSide: BorderSide(color: Color(0xFFB3261E), width: 1.8),
+    ),
+    contentPadding: EdgeInsets.fromLTRB(icon == null ? 18 : 4, 16, 18, 16),
   );
 }
