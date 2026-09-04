@@ -149,8 +149,6 @@ class DoctorProfilePage extends StatelessWidget {
                       ),
                     _DoctorProfileHero(profile: profile),
                     const SizedBox(height: 18),
-                    _ProfileCompletenessCard(profile: profile),
-                    const SizedBox(height: 18),
                     _DoctorCredentialsCard(profile: profile),
                     const SizedBox(height: 18),
                     _DoctorAvailabilitySummaryCard(profile: profile),
@@ -519,71 +517,6 @@ class _AvailabilityStatusPill extends StatelessWidget {
       ),
     ),
   );
-}
-
-class _ProfileCompletenessCard extends StatelessWidget {
-  const _ProfileCompletenessCard({required this.profile});
-
-  final DoctorProfileData profile;
-
-  @override
-  Widget build(BuildContext context) {
-    final percent = (profile.completeness * 100).round();
-    final complete = percent >= 100;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: DoctorStyles.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                complete ? Icons.verified_rounded : Icons.donut_large_rounded,
-                color: DoctorStyles.green,
-              ),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Profile completeness',
-                  style: DoctorStyles.cardTitle,
-                ),
-              ),
-              Text(
-                '$percent%',
-                style: const TextStyle(
-                  color: DoctorStyles.green,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: profile.completeness,
-              minHeight: 9,
-              backgroundColor: const Color(0xFFE3EEE9),
-              color: DoctorStyles.green,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            complete
-                ? 'Your profile is complete and ready for pet owners.'
-                : 'Add a photo, credentials, and availability to reach 100%.',
-            style: DoctorStyles.muted,
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _DoctorCredentialsCard extends StatelessWidget {
@@ -1227,33 +1160,43 @@ class _EditDoctorProfilePageState extends State<EditDoctorProfilePage> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
                 children: [
+                  const _EditProfileIntro(),
+                  const SizedBox(height: 18),
                   _DoctorProfileSection(
-                    title: 'Profile Information',
-                    icon: Icons.edit_note_rounded,
+                    title: 'Basic Details',
+                    icon: Icons.badge_outlined,
                     child: Column(
                       children: [
                         _DoctorTextField(
                           controller: _name,
                           label: 'Full name *',
+                          icon: Icons.person_outline_rounded,
                           validator: _requiredValidator('Full name'),
                         ),
                         _DoctorTextField(
                           controller: _specialty,
                           label: 'Specialty *',
+                          icon: Icons.medical_services_outlined,
                           validator: _requiredValidator('Specialty'),
                         ),
                         _DoctorTextField(
                           controller: _experience,
                           label: 'Experience (e.g. 8 years)',
+                          icon: Icons.workspace_premium_outlined,
                         ),
-                        _DoctorTextField(
-                          controller: _biography,
-                          label: 'Biography',
-                          maxLines: 4,
-                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _DoctorProfileSection(
+                    title: 'Contact Details',
+                    icon: Icons.contact_phone_outlined,
+                    child: Column(
+                      children: [
                         _DoctorTextField(
                           controller: _phone,
                           label: 'Phone number *',
+                          icon: Icons.phone_outlined,
                           keyboardType: TextInputType.phone,
                           validator: (value) {
                             if ((value ?? '').trim().isEmpty) {
@@ -1268,6 +1211,7 @@ class _EditDoctorProfilePageState extends State<EditDoctorProfilePage> {
                         _DoctorTextField(
                           controller: _email,
                           label: 'Email *',
+                          icon: Icons.mail_outline_rounded,
                           keyboardType: TextInputType.emailAddress,
                           validator: (value) {
                             if ((value ?? '').trim().isEmpty) {
@@ -1282,6 +1226,28 @@ class _EditDoctorProfilePageState extends State<EditDoctorProfilePage> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 18),
+                  _DoctorProfileSection(
+                    title: 'About You',
+                    icon: Icons.notes_rounded,
+                    child: _DoctorTextField(
+                      controller: _biography,
+                      label: 'Biography',
+                      icon: Icons.edit_note_rounded,
+                      maxLines: 5,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
+                    child: Text(
+                      '* Required fields',
+                      style: TextStyle(
+                        color: Color(0xFF61716B),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   _SaveButton(
                     keyValue: 'save-doctor-profile',
@@ -1294,6 +1260,57 @@ class _EditDoctorProfilePageState extends State<EditDoctorProfilePage> {
           ),
         ],
       ),
+    ),
+  );
+}
+
+class _EditProfileIntro extends StatelessWidget {
+  const _EditProfileIntro();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: DoctorStyles.green,
+      borderRadius: BorderRadius.circular(26),
+    ),
+    child: const Row(
+      children: [
+        CircleAvatar(
+          radius: 25,
+          backgroundColor: Colors.white,
+          child: Icon(
+            Icons.person_outline_rounded,
+            color: DoctorStyles.green,
+            size: 30,
+          ),
+        ),
+        SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Your professional profile',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Keep your details clear and up to date for pet owners.',
+                style: TextStyle(
+                  color: Colors.white,
+                  height: 1.3,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -2575,6 +2592,7 @@ class _DoctorTextField extends StatelessWidget {
   const _DoctorTextField({
     required this.controller,
     required this.label,
+    this.icon,
     this.maxLines = 1,
     this.keyboardType,
     this.validator,
@@ -2582,6 +2600,7 @@ class _DoctorTextField extends StatelessWidget {
 
   final TextEditingController controller;
   final String label;
+  final IconData? icon;
   final int maxLines;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
@@ -2594,7 +2613,7 @@ class _DoctorTextField extends StatelessWidget {
       maxLines: maxLines,
       keyboardType: keyboardType,
       validator: validator,
-      decoration: _doctorProfileFieldDecoration(label),
+      decoration: _doctorProfileFieldDecoration(label, icon: icon),
     ),
   );
 }
@@ -2684,13 +2703,16 @@ class _EditDoctorProfileHeader extends StatelessWidget {
 bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
-InputDecoration _doctorProfileFieldDecoration(String label) {
+InputDecoration _doctorProfileFieldDecoration(String label, {IconData? icon}) {
   const border = OutlineInputBorder(
     borderRadius: BorderRadius.all(Radius.circular(22)),
     borderSide: BorderSide(color: Colors.transparent),
   );
   return InputDecoration(
     labelText: label,
+    prefixIcon: icon == null
+        ? null
+        : Icon(icon, color: DoctorStyles.green, size: 22),
     filled: true,
     fillColor: Colors.white,
     border: border,
