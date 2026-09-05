@@ -14,6 +14,7 @@ import '../pet_owner/contact_clinic_page.dart';
 import '../pet_owner/emergency_service_page.dart';
 import '../pet_owner/home_visit_booking_page.dart';
 import '../pet_owner/profile_flows.dart';
+import '../staff/staff_portal.dart';
 
 part 'doctor_navigation_bar.dart';
 part 'doctor_models.dart';

@@ -1,19 +1,22 @@
 import 'doctor_auth_api.dart';
 import 'pet_owner_auth_api.dart';
 import 'system_admin_auth_api.dart';
+import 'staff_auth_api.dart';
 
-enum AccountRole { petOwner, doctor, systemAdmin }
+enum AccountRole { petOwner, doctor, staff, systemAdmin }
 
 class AccountAuthApi {
   const AccountAuthApi({
     required this.petOwnerAuthApi,
     this.doctorAuthApi = const DoctorAuthApi(),
     this.systemAdminAuthApi = const SystemAdminAuthApi(),
+    this.staffAuthApi = const StaffAuthApi(),
   });
 
   final PetOwnerAuthApi petOwnerAuthApi;
   final DoctorAuthApi doctorAuthApi;
   final SystemAdminAuthApi systemAdminAuthApi;
+  final StaffAuthApi staffAuthApi;
 
   Future<AccountLoginResult> login({
     required String identifier,
@@ -36,6 +39,16 @@ class AccountAuthApi {
       );
       return result.isSuccess
           ? const AccountLoginResult.success(AccountRole.systemAdmin)
+          : AccountLoginResult.failure(result.message);
+    }
+
+    if (StaffAuthApi.handlesIdentifier(identifier)) {
+      final result = await staffAuthApi.login(
+        username: identifier,
+        password: password,
+      );
+      return result.isSuccess
+          ? const AccountLoginResult.success(AccountRole.staff)
           : AccountLoginResult.failure(result.message);
     }
 

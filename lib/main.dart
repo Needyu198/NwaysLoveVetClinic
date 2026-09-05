@@ -7,6 +7,8 @@ import 'login/doctor_auth_api.dart';
 import 'login/login_page.dart';
 import 'login/pet_owner_auth_api.dart';
 import 'login/system_admin_auth_api.dart';
+import 'login/staff_auth_api.dart';
+import 'staff/staff_portal.dart';
 import 'pet_owner/appointment_booking_page.dart';
 import 'pet_owner/contact_clinic_page.dart';
 import 'pet_owner/emergency_service_page.dart';
@@ -38,12 +40,14 @@ class NwayLoveVetClinicApp extends StatelessWidget {
     this.authApi = const PetOwnerAuthApi(),
     this.doctorAuthApi = const DoctorAuthApi(),
     this.systemAdminAuthApi = const SystemAdminAuthApi(),
+    this.staffAuthApi = const StaffAuthApi(),
     super.key,
   });
 
   final PetOwnerAuthApi authApi;
   final DoctorAuthApi doctorAuthApi;
   final SystemAdminAuthApi systemAdminAuthApi;
+  final StaffAuthApi staffAuthApi;
 
   @override
   Widget build(BuildContext context) {
@@ -66,10 +70,12 @@ class NwayLoveVetClinicApp extends StatelessWidget {
           authApi: authApi,
           doctorAuthApi: doctorAuthApi,
           systemAdminAuthApi: systemAdminAuthApi,
+          staffAuthApi: staffAuthApi,
         ),
         DoctorPortalPage.routeName: (context) => const DoctorPortalPage(),
         SystemAdminDashboardPage.routeName: (context) =>
             const SystemAdminDashboardPage(),
+        StaffPortalPage.routeName: (context) => const StaffPortalPage(),
         PetOwnerClinicPage.routeName: (context) => const PetOwnerClinicPage(),
         PetOwnerHomePage.routeName: (context) => const PetOwnerHomePage(),
         PetOwnerProfilePage.routeName: (context) => const PetOwnerProfilePage(),

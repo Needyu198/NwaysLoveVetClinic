@@ -5,7 +5,9 @@ import 'package:senior_project/doctor/doctor_portal.dart';
 import 'package:senior_project/login/doctor_auth_api.dart';
 import 'package:senior_project/login/pet_owner_auth_api.dart';
 import 'package:senior_project/login/system_admin_auth_api.dart';
+import 'package:senior_project/login/staff_auth_api.dart';
 import 'package:senior_project/main.dart';
+import 'package:senior_project/staff/staff_portal.dart';
 import 'package:senior_project/pet_owner/appointment_booking_page.dart';
 import 'package:senior_project/pet_owner/contact_clinic_page.dart';
 import 'package:senior_project/pet_owner/emergency_service_page.dart';
@@ -112,7 +114,7 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('Appointments'), findsOneWidget);
+    expect(find.text('Appointments'), findsWidgets);
   });
 
   testWidgets('doctor credentials open the three-page doctor portal', (
@@ -671,6 +673,93 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('System Administrator'), findsOneWidget);
+  });
+
+  testWidgets('registered staff email opens the connected staff portal', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.tap(find.text('Log in'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-field')),
+      StaffAuthApi.demoEmail,
+    );
+    await tester.enterText(
+      find.byType(TextField).last,
+      StaffAuthApi.demoPassword,
+    );
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('staff-dashboard')), findsOneWidget);
+    expect(find.textContaining(', Mya'), findsOneWidget);
+    expect(find.text('Clinic overview'), findsOneWidget);
+    expect(find.text('Doctor availability'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('staff-management-tab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('staff-management-menu')), findsOneWidget);
+    expect(find.text('Appointments'), findsOneWidget);
+    expect(find.text('Queue'), findsOneWidget);
+    expect(find.text('Messages'), findsOneWidget);
+    expect(find.text('Inventory'), findsOneWidget);
+    expect(find.text('Medical Records'), findsOneWidget);
+    expect(find.text('Emergency Cases'), findsOneWidget);
+    expect(find.text('Home Visits'), findsOneWidget);
+    expect(find.text('Health Posts'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('staff-inventory-card')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('staff-inventory-list')), findsOneWidget);
+    expect(find.text('Amoxicillin 250 mg'), findsOneWidget);
+    expect(find.text('Low stock'), findsWidgets);
+    expect(find.text('Expired'), findsWidgets);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('staff-inventory-search')),
+      'Amoxicillin',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Amoxicillin 250 mg'), findsOneWidget);
+    expect(find.text('Sterile Examination Gloves'), findsNothing);
+
+    final item = StaffOperationsStore.instance.inventory.first;
+    await tester.tap(find.byKey(ValueKey('adjust-stock-${item.id}')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('inventory-quantity-field')),
+      '24',
+    );
+    await tester.enterText(find.byType(TextField).last, 'Stock count');
+    await tester.tap(find.byKey(const ValueKey('confirm-stock-adjustment')));
+    await tester.pumpAndSettle();
+    expect(item.quantity, 24);
+    expect(item.lastAudit, contains('Stock count'));
+  });
+
+  testWidgets('doctor inventory is view and restock only', (
+    WidgetTester tester,
+  ) async {
+    await signInAsDoctor(tester);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('doctor-inventory')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('doctor-inventory')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('staff-inventory-list')), findsOneWidget);
+    expect(find.text('Amoxicillin 250 mg'), findsOneWidget);
+    expect(find.text('Request restock'), findsWidgets);
+    expect(find.text('Adjust stock'), findsNothing);
   });
 
   testWidgets('bottom navigation opens main pet owner sections', (

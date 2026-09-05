@@ -430,7 +430,7 @@ class BookedAppointment {
   final DateTime createdAt;
   final BookingPet pet;
   final BookingService service;
-  final String veterinarian;
+  String veterinarian;
   DateTime date;
   String time;
   final String symptoms;

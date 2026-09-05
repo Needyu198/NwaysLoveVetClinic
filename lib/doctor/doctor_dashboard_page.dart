@@ -136,11 +136,13 @@ class DoctorDashboardPage extends StatelessWidget {
                       const SizedBox(width: 24),
                       Expanded(
                         child: _DashboardMenuButton(
-                          key: const ValueKey('doctor-medical-records'),
-                          label: 'NA',
+                          key: const ValueKey('doctor-inventory'),
+                          label: 'Inventory',
                           onPressed: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (_) => const DoctorMedicalRecordsPage(),
+                              builder: (_) => const StaffInventoryPage(
+                                canAdjustStock: false,
+                              ),
                             ),
                           ),
                         ),
