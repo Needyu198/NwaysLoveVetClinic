@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'owner_shared_stores.dart';
 import 'pet_add_reminder_page.dart';
 import 'pet_reminder_styles.dart';
 
@@ -14,62 +15,105 @@ class PetReminderPage extends StatelessWidget {
       backgroundColor: const Color(0xFFF7FAF8),
       body: SafeArea(
         bottom: false,
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            const SliverToBoxAdapter(child: _ReminderHeader()),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(22, 18, 22, 36),
-              sliver: SliverList.list(
-                children: const [
-                  _ReminderSummary(),
-                  SizedBox(height: 20),
-                  _ReminderSectionLabel(title: 'Upcoming'),
-                  SizedBox(height: 12),
-                  _ReminderCard(
-                    icon: Icons.vaccines_rounded,
-                    iconColor: Color(0xFF1F63FF),
-                    title: 'Annual Rabies Vaccination',
-                    date: 'Apr 04, 2026',
-                    time: '10:00 AM',
-                    category: 'Vaccine',
-                    categoryIcon: Icons.vaccines_rounded,
-                    note: 'Bring previous vaccination records',
+        child: AnimatedBuilder(
+          animation: ReminderStore.instance,
+          builder: (context, _) {
+            final upcoming = ReminderStore.instance.upcoming;
+            final completed = ReminderStore.instance.completed;
+            return CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                const SliverToBoxAdapter(child: _ReminderHeader()),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 36),
+                  sliver: SliverList.list(
+                    key: const ValueKey('owner-reminder-list'),
+                    children: [
+                      _ReminderSummary(
+                        upcomingCount: upcoming.length,
+                        completedCount: completed.length,
+                      ),
+                      const SizedBox(height: 20),
+                      const _ReminderSectionLabel(title: 'Upcoming'),
+                      const SizedBox(height: 12),
+                      if (upcoming.isEmpty)
+                        const _ReminderEmpty(text: 'No upcoming reminders')
+                      else
+                        for (final reminder in upcoming) ...[
+                          _ReminderCard.fromModel(reminder),
+                          const SizedBox(height: 16),
+                        ],
+                      const SizedBox(height: 8),
+                      const _ReminderSectionLabel(title: 'Completed'),
+                      const SizedBox(height: 12),
+                      if (completed.isEmpty)
+                        const _ReminderEmpty(text: 'No completed reminders')
+                      else
+                        for (final reminder in completed) ...[
+                          _ReminderCard.fromModel(reminder),
+                          const SizedBox(height: 16),
+                        ],
+                      const SizedBox(height: 28),
+                    ],
                   ),
-                  SizedBox(height: 16),
-                  _ReminderCard(
-                    icon: Icons.medical_services_rounded,
-                    iconColor: Color(0xFFB23CFF),
-                    title: 'General Health Checkup',
-                    date: 'Apr 15, 2026',
-                    time: '2:30 PM',
-                    category: 'Check-up',
-                    categoryIcon: Icons.local_hospital_rounded,
-                    note: 'Follow-up for grain-free diet assessment',
-                  ),
-                  SizedBox(height: 22),
-                  _ReminderSectionLabel(title: 'Completed'),
-                  SizedBox(height: 12),
-                  _ReminderCard(
-                    icon: Icons.vaccines_rounded,
-                    iconColor: Color(0xFF69AEF4),
-                    title: 'Bordetella Vaccine',
-                    date: 'Mar 02, 2026',
-                    time: '9:00 AM',
-                    category: 'Vaccine',
-                    categoryIcon: Icons.vaccines_rounded,
-                    note: 'Completed successfully',
-                    isCompleted: true,
-                  ),
-                  SizedBox(height: 28),
-                ],
-              ),
-            ),
-          ],
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
+}
+
+class _ReminderEmpty extends StatelessWidget {
+  const _ReminderEmpty({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFFE2F4EC)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.event_note_rounded, color: Color(0xFF69717F)),
+        const SizedBox(width: 10),
+        Text(text, style: const TextStyle(color: Color(0xFF69717F))),
+      ],
+    ),
+  );
+}
+
+String _reminderDate(DateTime value) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final day = value.day.toString().padLeft(2, '0');
+  return '${months[value.month - 1]} $day, ${value.year}';
+}
+
+String _reminderTime(DateTime value) {
+  final hour = value.hour == 0
+      ? 12
+      : (value.hour > 12 ? value.hour - 12 : value.hour);
+  final minute = value.minute.toString().padLeft(2, '0');
+  final period = value.hour >= 12 ? 'PM' : 'AM';
+  return '$hour:$minute $period';
 }
 
 class _ReminderHeader extends StatelessWidget {
@@ -126,7 +170,13 @@ class _ReminderHeader extends StatelessWidget {
 }
 
 class _ReminderSummary extends StatelessWidget {
-  const _ReminderSummary();
+  const _ReminderSummary({
+    required this.upcomingCount,
+    required this.completedCount,
+  });
+
+  final int upcomingCount;
+  final int completedCount;
 
   @override
   Widget build(BuildContext context) {
@@ -144,20 +194,20 @@ class _ReminderSummary extends StatelessWidget {
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         children: [
           _SummaryTile(
             icon: Icons.notifications_active_rounded,
             label: 'Upcoming',
-            value: '2',
-            color: Color(0xFF16785B),
+            value: '$upcomingCount',
+            color: const Color(0xFF16785B),
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           _SummaryTile(
             icon: Icons.check_circle_rounded,
             label: 'Completed',
-            value: '1',
-            color: Color(0xFF69717F),
+            value: '$completedCount',
+            color: const Color(0xFF69717F),
           ),
         ],
       ),
@@ -230,7 +280,46 @@ class _ReminderCard extends StatelessWidget {
     required this.categoryIcon,
     required this.note,
     this.isCompleted = false,
+    this.reminder,
   });
+
+  factory _ReminderCard.fromModel(PetReminder reminder) {
+    final (iconColor, category, categoryIcon) = switch (reminder.type) {
+      ReminderType.vaccine => (
+        const Color(0xFF1F63FF),
+        'Vaccine',
+        Icons.vaccines_rounded,
+      ),
+      ReminderType.medicine => (
+        const Color(0xFF6B7280),
+        'Medicine',
+        Icons.medication_rounded,
+      ),
+      ReminderType.checkup => (
+        const Color(0xFFB23CFF),
+        'Check-up',
+        Icons.local_hospital_rounded,
+      ),
+    };
+    return _ReminderCard(
+      icon: reminder.type.icon,
+      iconColor: reminder.completed
+          ? iconColor.withValues(alpha: 0.6)
+          : iconColor,
+      title: reminder.title,
+      date: _reminderDate(reminder.dateTime),
+      time: _reminderTime(reminder.dateTime),
+      category: category,
+      categoryIcon: categoryIcon,
+      note: reminder.note.isEmpty
+          ? (reminder.createdByStaff
+                ? 'Scheduled by clinic staff'
+                : 'No additional notes')
+          : reminder.note,
+      isCompleted: reminder.completed,
+      reminder: reminder,
+    );
+  }
 
   final IconData icon;
   final Color iconColor;
@@ -241,6 +330,7 @@ class _ReminderCard extends StatelessWidget {
   final IconData categoryIcon;
   final String note;
   final bool isCompleted;
+  final PetReminder? reminder;
 
   @override
   Widget build(BuildContext context) {
@@ -337,7 +427,7 @@ class _ReminderCard extends StatelessWidget {
           const SizedBox(height: 14),
           _NoteBox(note: note, isCompleted: isCompleted),
           const SizedBox(height: 16),
-          _CompleteButton(isCompleted: isCompleted),
+          _CompleteButton(isCompleted: isCompleted, reminder: reminder),
         ],
       ),
     );
@@ -445,9 +535,10 @@ class _NoteBox extends StatelessWidget {
 }
 
 class _CompleteButton extends StatelessWidget {
-  const _CompleteButton({required this.isCompleted});
+  const _CompleteButton({required this.isCompleted, this.reminder});
 
   final bool isCompleted;
+  final PetReminder? reminder;
 
   @override
   Widget build(BuildContext context) {
@@ -455,7 +546,9 @@ class _CompleteButton extends StatelessWidget {
       width: double.infinity,
       height: 54,
       child: FilledButton.icon(
-        onPressed: () {},
+        onPressed: reminder == null
+            ? null
+            : () => ReminderStore.instance.toggleCompleted(reminder!),
         icon: const Icon(Icons.check_circle_outline_rounded, size: 22),
         label: Text(isCompleted ? 'Mark Incomplete' : 'Complete'),
         style: FilledButton.styleFrom(

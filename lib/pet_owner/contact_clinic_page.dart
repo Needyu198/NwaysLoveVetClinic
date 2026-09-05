@@ -241,6 +241,23 @@ class ContactClinicStore extends ChangeNotifier {
 
   List<ClinicContactMessage> get messages => List.unmodifiable(_messages);
 
+  /// Owner messages the clinic has not marked as read yet.
+  int get staffUnreadCount => _messages
+      .where((m) => !m.isFromStaff && m.status != ContactMessageStatus.read)
+      .length;
+
+  /// Marks every owner message as read (called when staff open Messages).
+  void markAllReadByStaff() {
+    var changed = false;
+    for (final message in _messages) {
+      if (!message.isFromStaff && message.status != ContactMessageStatus.read) {
+        message.status = ContactMessageStatus.read;
+        changed = true;
+      }
+    }
+    if (changed) notifyListeners();
+  }
+
   void send({
     required String text,
     required ContactCategory category,

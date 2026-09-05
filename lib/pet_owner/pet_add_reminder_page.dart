@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'owner_shared_stores.dart';
 import 'pet_add_reminder_styles.dart';
 
 class PetAddReminderPage extends StatefulWidget {
@@ -204,6 +205,21 @@ class _PetAddReminderPageState extends State<PetAddReminderPage> {
     setState(() => _showErrors = true);
 
     if (!_canSubmit) return;
+
+    final date = _selectedDate!;
+    final time = _selectedTime!;
+    ReminderStore.instance.addNew(
+      title: _titleController.text.trim(),
+      type: _selectedType,
+      dateTime: DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      ),
+      note: _notesController.text.trim(),
+    );
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

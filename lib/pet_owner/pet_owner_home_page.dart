@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'owner_shared_stores.dart';
 import 'pet_owner_clinic_page.dart';
 import 'pet_owner_nav_bar.dart';
 import 'pet_owner_profile_page.dart';
@@ -175,6 +176,8 @@ class _HeroPetSection extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
+                  const _NotificationBell(),
+                  const SizedBox(width: 12),
                   const _ProfilePhoto(),
                 ],
               ),
@@ -522,6 +525,194 @@ class _HomeMessageCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NotificationBell extends StatelessWidget {
+  const _NotificationBell();
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: OwnerNotificationStore.instance,
+      builder: (context, _) {
+        final count = OwnerNotificationStore.instance.unreadCount;
+        return Material(
+          color: Colors.white.withValues(alpha: 0.9),
+          shape: const CircleBorder(),
+          child: InkWell(
+            key: const ValueKey('owner-notifications-bell'),
+            customBorder: const CircleBorder(),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const OwnerNotificationsPage(),
+              ),
+            ),
+            child: SizedBox(
+              width: 56,
+              height: 56,
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(
+                    Icons.notifications_rounded,
+                    color: PetOwnerHomePage.inkColor,
+                    size: 30,
+                  ),
+                  if (count > 0)
+                    Positioned(
+                      right: 12,
+                      top: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        constraints: const BoxConstraints(minWidth: 18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF1E17),
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: Text(
+                          count > 99 ? '99+' : '$count',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class OwnerNotificationsPage extends StatefulWidget {
+  const OwnerNotificationsPage({super.key});
+
+  static const String routeName = '/owner-notifications';
+
+  @override
+  State<OwnerNotificationsPage> createState() => _OwnerNotificationsPageState();
+}
+
+class _OwnerNotificationsPageState extends State<OwnerNotificationsPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => OwnerNotificationStore.instance.markAllRead(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F8F7),
+      appBar: AppBar(
+        title: const Text('Notifications'),
+        backgroundColor: const Color(0xFFA1FDD8),
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: AnimatedBuilder(
+        animation: OwnerNotificationStore.instance,
+        builder: (context, _) {
+          final items = OwnerNotificationStore.instance.notifications;
+          if (items.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.notifications_none_rounded,
+                      size: 54,
+                      color: Color(0xFF60756E),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'No notifications yet',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Clinic updates about your bookings will show up here.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xFF60756E)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          return ListView.separated(
+            key: const ValueKey('owner-notifications-list'),
+            padding: const EdgeInsets.all(18),
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final n = items[index];
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFD9E6E1)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const CircleAvatar(
+                      backgroundColor: Color(0xFFE6FAF2),
+                      child: Icon(
+                        Icons.event_note_rounded,
+                        color: Color(0xFF147D5B),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            n.title,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            n.message,
+                            style: const TextStyle(
+                              color: Color(0xFF60756E),
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }

@@ -12,6 +12,7 @@ class StaffDashboardPage extends StatelessWidget {
         AppointmentStore.instance,
         EmergencyRequestStore.instance,
         HomeVisitStore.instance,
+        ContactClinicStore.instance,
       ]),
       builder: (context, _) {
         final items = StaffOperationsStore.instance.appointments;
@@ -126,6 +127,7 @@ class StaffDashboardPage extends StatelessWidget {
                     SizedBox(
                       height: 116,
                       child: ListView(
+                        key: const ValueKey('staff-quick-actions'),
                         scrollDirection: Axis.horizontal,
                         children: [
                           _QuickAction(
@@ -150,9 +152,19 @@ class StaffDashboardPage extends StatelessWidget {
                           ),
                           _QuickAction(
                             icon: Icons.person_search_rounded,
-                            label: 'Patients',
+                            label: 'Pet Owners',
                             onTap: () =>
                                 _push(context, const StaffPatientsPage()),
+                          ),
+                          _QuickAction(
+                            icon: Icons.forum_rounded,
+                            label: 'Messages',
+                            badgeCount:
+                                ContactClinicStore.instance.staffUnreadCount,
+                            onTap: () => _push(
+                              context,
+                              const StaffMessagesPage(standalone: true),
+                            ),
                           ),
                           _QuickAction(
                             icon: Icons.bar_chart_rounded,
@@ -418,10 +430,12 @@ class _QuickAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.badgeCount = 0,
   });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final int badgeCount;
   @override
   Widget build(BuildContext context) => SizedBox(
     width: 98,
@@ -430,15 +444,46 @@ class _QuickAction extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       child: Column(
         children: [
-          Container(
-            width: 66,
-            height: 66,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.grey),
-            ),
-            child: Icon(icon, color: const Color(0xFF00EF92), size: 34),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 66,
+                height: 66,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.grey),
+                ),
+                child: Icon(icon, color: const Color(0xFF00EF92), size: 34),
+              ),
+              if (badgeCount > 0)
+                Positioned(
+                  right: -4,
+                  top: -4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    constraints: const BoxConstraints(minWidth: 20),
+                    decoration: BoxDecoration(
+                      color: _red,
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: Text(
+                      badgeCount > 99 ? '99+' : '$badgeCount',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 6),
           Text(

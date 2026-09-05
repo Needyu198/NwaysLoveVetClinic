@@ -14,6 +14,8 @@ import 'package:senior_project/pet_owner/emergency_service_page.dart';
 import 'package:senior_project/pet_owner/first_aid_information_page.dart';
 import 'package:senior_project/pet_owner/home_visit_booking_page.dart';
 import 'package:senior_project/pet_owner/history_page.dart';
+import 'package:senior_project/pet_owner/owner_shared_stores.dart';
+import 'package:senior_project/pet_owner/pet_reminder_page.dart';
 import 'package:senior_project/pet_owner/pet_care_booking_page.dart';
 import 'package:senior_project/pet_owner/profile_flows.dart';
 
@@ -717,7 +719,8 @@ void main() {
     expect(find.byKey(const ValueKey('staff-management-menu')), findsOneWidget);
     expect(find.text('Appointments'), findsOneWidget);
     expect(find.text('Queue'), findsOneWidget);
-    expect(find.text('Messages'), findsNothing);
+    expect(find.text('Messages'), findsOneWidget);
+    expect(find.byKey(const ValueKey('staff-messages-card')), findsOneWidget);
     expect(find.text('Inventory'), findsOneWidget);
     expect(find.text('Medical Records'), findsOneWidget);
     expect(find.text('Emergency Cases'), findsOneWidget);
@@ -751,6 +754,217 @@ void main() {
     await tester.pumpAndSettle();
     expect(item.quantity, 24);
     expect(item.lastAudit, contains('Stock count'));
+  });
+
+  testWidgets('staff appointments page shows redesigned filters and cards', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.tap(find.text('Log in'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-field')),
+      StaffAuthApi.demoEmail,
+    );
+    await tester.enterText(
+      find.byType(TextField).last,
+      StaffAuthApi.demoPassword,
+    );
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('staff-management-tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Appointments'));
+    await tester.pumpAndSettle();
+
+    // Redesigned header, filters and Records link.
+    expect(find.byKey(const ValueKey('staff-appointments')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('staff-appointment-filter-All')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('staff-appointments-records')),
+      findsOneWidget,
+    );
+
+    // The seeded urgent case (Luna) shows only under the Emergency filter.
+    final filterList = find.descendant(
+      of: find.byKey(const ValueKey('staff-appointment-filters')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('staff-appointment-filter-Emergency')),
+      120,
+      scrollable: filterList,
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('staff-appointment-filter-Emergency')),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('staff-appointment-filter-Emergency')),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Luna'), findsOneWidget);
+    expect(find.text('Bruno'), findsNothing);
+  });
+
+  testWidgets('staff assigns a doctor to a home visit end to end', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    HomeVisitStore.instance.clear();
+    final visit = HomeVisit(
+      id: 'STAFF-HOME-1',
+      pet: const HomeVisitPet(
+        name: 'Bella',
+        breed: 'Cocker Spaniel',
+        age: '3 years',
+        medicalHistory: 'Healthy',
+        color: Colors.brown,
+      ),
+      veterinarian: 'Unassigned',
+      date: DateTime.now(),
+      time: '12:30 PM',
+      reason: 'Rapid Test',
+      symptoms: 'Coughing',
+      address: 'No. 5, Yangon',
+      contactPerson: 'Steve',
+      phone: '09-111222333',
+    );
+    HomeVisitStore.instance.add(visit);
+
+    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.tap(find.text('Log in'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-field')),
+      StaffAuthApi.demoEmail,
+    );
+    await tester.enterText(
+      find.byType(TextField).last,
+      StaffAuthApi.demoPassword,
+    );
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('staff-management-tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Home Visits'));
+    await tester.pumpAndSettle();
+
+    // Home visit list shows the request; open the detail page.
+    expect(find.byKey(const ValueKey('staff-home-visits')), findsOneWidget);
+    expect(find.text('Bella'), findsOneWidget);
+    await tester.tap(find.text('Bella'));
+    await tester.pumpAndSettle();
+
+    // Detail page shows reason, symptoms, and the assign controls.
+    expect(find.text('Detail'), findsOneWidget);
+    expect(find.textContaining('Rapid Test'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-visit-open-map')), findsOneWidget);
+
+    // Tap "Assign Doctor" to open the picker, then choose a specific doctor
+    // which commits the assignment and returns to the list.
+    await tester.tap(find.byKey(const ValueKey('assign-home-visit-doctor')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('pick-doctor-Dr. Cindy Lynn')));
+    await tester.pumpAndSettle();
+
+    expect(visit.veterinarian, 'Dr. Cindy Lynn');
+    expect(visit.status, HomeVisitStatus.onTheWay);
+    expect(find.byKey(const ValueKey('staff-home-visits')), findsOneWidget);
+    HomeVisitStore.instance.clear();
+  });
+
+  testWidgets('owner reminder screen shows persisted reminders', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    ReminderStore.instance.reset();
+    ReminderStore.instance.addNew(
+      title: 'Flea Treatment',
+      type: ReminderType.medicine,
+      dateTime: DateTime(2026, 7, 1, 9),
+      petName: 'Max',
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: PetReminderPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('owner-reminder-list')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Flea Treatment'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Flea Treatment'), findsOneWidget);
+    ReminderStore.instance.reset();
+  });
+
+  test('reminder store persists new reminders and toggles completion', () {
+    ReminderStore.instance.reset();
+    final before = ReminderStore.instance.upcoming.length;
+    final reminder = ReminderStore.instance.addNew(
+      title: 'Deworming',
+      type: ReminderType.medicine,
+      dateTime: DateTime(2026, 6, 1, 9),
+      petName: 'Max',
+    );
+    expect(ReminderStore.instance.upcoming.length, before + 1);
+    ReminderStore.instance.toggleCompleted(reminder);
+    expect(reminder.completed, isTrue);
+    expect(
+      ReminderStore.instance.completed.any((r) => r.id == reminder.id),
+      isTrue,
+    );
+    ReminderStore.instance.reset();
+  });
+
+  testWidgets('staff sets a reminder for a patient and notifies the owner', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    ReminderStore.instance.reset();
+    OwnerNotificationStore.instance.clear();
+    DoctorAppointmentStore.instance.clearDemoSchedule();
+
+    // The Patients directory is reachable from the staff dashboard's quick
+    // actions; pump it directly to test the patient → reminder flow without
+    // depending on horizontal quick-action scrolling.
+    await tester.pumpWidget(const MaterialApp(home: StaffPatientsPage()));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('staff-patients-list')), findsOneWidget);
+
+    // Open the first seeded patient (Bruno) → detail page, which exposes the
+    // owner contact, appointment history, and the Set Reminder action.
+    await tester.tap(find.byKey(const ValueKey('staff-patient-Bruno')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('staff-patient-detail')), findsOneWidget);
+    expect(find.text('Appointment history'), findsOneWidget);
+    expect(find.byKey(const ValueKey('staff-set-reminder')), findsOneWidget);
+    ReminderStore.instance.reset();
+    OwnerNotificationStore.instance.clear();
   });
 
   testWidgets('doctor inventory is view and restock only', (

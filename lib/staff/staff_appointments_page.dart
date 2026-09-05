@@ -13,94 +13,260 @@ class StaffAppointmentsPage extends StatefulWidget {
 }
 
 class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
-  late String _filter = widget.initialFilter ?? 'All';
-  String _query = '';
+  late String _filter = _normalizeFilter(widget.initialFilter);
+
+  static const _filters = ['All', 'Consulting', 'In Queue', 'Emergency'];
+
+  static String _normalizeFilter(String? value) =>
+      _filters.contains(value) ? value! : 'All';
+
+  bool _matchesFilter(StaffAppointment a) => switch (_filter) {
+    'Consulting' => a.status == 'In Consultation',
+    'In Queue' =>
+      a.priority != 'Urgent' &&
+          const {
+            'Pending',
+            'Confirmed',
+            'Checked In',
+            'Called',
+            'Waiting',
+          }.contains(a.status),
+    'Emergency' => a.priority == 'Urgent',
+    _ => true,
+  };
+
+  bool _matchesLabel(StaffAppointment a, String filter) => switch (filter) {
+    'Consulting' => a.status == 'In Consultation',
+    'In Queue' =>
+      a.priority != 'Urgent' &&
+          const {
+            'Pending',
+            'Confirmed',
+            'Checked In',
+            'Called',
+            'Waiting',
+          }.contains(a.status),
+    'Emergency' => a.priority == 'Urgent',
+    _ => true,
+  };
+
   @override
-  Widget build(BuildContext context) => _StaffScaffold(
-    title: 'Appointments',
-    onBack: widget.standalone ? () => Navigator.pop(context) : null,
-    child: AnimatedBuilder(
-      animation: Listenable.merge([
-        StaffOperationsStore.instance,
-        AppointmentStore.instance,
-      ]),
-      builder: (context, _) {
-        var items = StaffOperationsStore.instance.appointments;
-        items = items.where((a) {
-          final matchesQuery =
-              '${a.id} ${a.pet} ${a.owner} ${a.doctor} ${a.service}'
-                  .toLowerCase()
-                  .contains(_query.toLowerCase());
-          final matchesFilter =
-              _filter == 'All' ||
-              (_filter == 'Today'
-                  ? DateUtils.isSameDay(a.date, DateTime.now())
-                  : a.status == _filter);
-          return matchesQuery && matchesFilter;
-        }).toList();
-        return Column(
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.white,
+    body: SafeArea(
+      child: AnimatedBuilder(
+        animation: Listenable.merge([
+          StaffOperationsStore.instance,
+          AppointmentStore.instance,
+        ]),
+        builder: (context, _) {
+          final all = StaffOperationsStore.instance.appointments;
+          final items = all.where(_matchesFilter).toList();
+          return Column(
+            children: [
+              _StaffAppointmentsHeader(
+                onBack: widget.standalone ? () => Navigator.pop(context) : null,
+                onRecords: () =>
+                    _push(context, const StaffMedicalRecordsPage()),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 6),
+                child: SizedBox(
+                  height: 42,
+                  child: ListView.separated(
+                    key: const ValueKey('staff-appointment-filters'),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _filters.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      final value = _filters[index];
+                      final count = all
+                          .where((a) => _matchesLabel(a, value))
+                          .length;
+                      return _AppointmentFilterChip(
+                        label: value,
+                        count: count,
+                        selected: _filter == value,
+                        onTap: () => setState(() => _filter = value),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 2, 20, 6),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    items.length == 1
+                        ? '1 appointment'
+                        : '${items.length} appointments',
+                    style: const TextStyle(
+                      color: _muted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: items.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(28),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.event_busy_rounded,
+                                size: 52,
+                                color: _muted,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No ${_filter.toLowerCase()} appointments',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: _ink,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'They will appear here once available.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: _muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        key: const ValueKey('staff-appointments'),
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                        itemCount: items.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 14),
+                        itemBuilder: (context, index) => _AppointmentTile(
+                          item: items[index],
+                          onTap: () => _push(
+                            context,
+                            StaffAppointmentDetailsPage(item: items[index]),
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    ),
+  );
+}
+
+class _StaffAppointmentsHeader extends StatelessWidget {
+  const _StaffAppointmentsHeader({this.onBack, required this.onRecords});
+
+  final VoidCallback? onBack;
+  final VoidCallback onRecords;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(8, 10, 16, 6),
+    child: Row(
+      children: [
+        IconButton(
+          tooltip: 'Back',
+          onPressed: onBack ?? () => Navigator.maybePop(context),
+          icon: const Icon(Icons.chevron_left_rounded, size: 30),
+        ),
+        const Expanded(
+          child: Text(
+            'Appointments',
+            style: TextStyle(
+              fontSize: 27,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.8,
+              color: _ink,
+            ),
+          ),
+        ),
+        TextButton.icon(
+          key: const ValueKey('staff-appointments-records'),
+          onPressed: onRecords,
+          icon: const Icon(Icons.folder_shared_outlined, size: 18),
+          label: const Text('Records'),
+          style: TextButton.styleFrom(
+            foregroundColor: _green,
+            textStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _AppointmentFilterChip extends StatelessWidget {
+  const _AppointmentFilterChip({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: selected ? const Color(0xFFF5C518) : _mint,
+    borderRadius: BorderRadius.circular(20),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      key: ValueKey('staff-appointment-filter-$label'),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
-              child: TextField(
-                key: const ValueKey('staff-appointment-search'),
-                onChanged: (value) => setState(() => _query = value),
-                decoration: _input(
-                  'Search ID, owner, pet or doctor',
-                  Icons.search_rounded,
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 15,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 7),
+            Container(
+              constraints: const BoxConstraints(minWidth: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: selected
+                    ? Colors.black.withValues(alpha: 0.16)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Text(
+                '$count',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
-            SizedBox(
-              height: 46,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                children:
-                    [
-                          'All',
-                          'Today',
-                          'Pending',
-                          'Confirmed',
-                          'Waiting',
-                          'Completed',
-                          'Cancelled',
-                        ]
-                        .map(
-                          (value) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(value),
-                              selected: _filter == value,
-                              selectedColor: _mint,
-                              onSelected: (_) =>
-                                  setState(() => _filter = value),
-                            ),
-                          ),
-                        )
-                        .toList(),
-              ),
-            ),
-            Expanded(
-              child: items.isEmpty
-                  ? const Center(child: Text('No matching appointments'))
-                  : ListView.separated(
-                      key: const ValueKey('staff-appointments'),
-                      padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
-                      itemCount: items.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (_, index) => _AppointmentTile(
-                        item: items[index],
-                        onTap: () => _push(
-                          context,
-                          StaffAppointmentDetailsPage(item: items[index]),
-                        ),
-                      ),
-                    ),
-            ),
           ],
-        );
-      },
+        ),
+      ),
     ),
   );
 }
@@ -181,76 +347,140 @@ class _AppointmentTile extends StatelessWidget {
   const _AppointmentTile({required this.item, required this.onTap});
   final StaffAppointment item;
   final VoidCallback onTap;
+
+  String get _statusLabel {
+    if (item.priority == 'Urgent') return 'Emergency';
+    return switch (item.status) {
+      'In Consultation' => 'Consulting',
+      'Completed' => 'Completed',
+      'Cancelled' => 'Cancelled',
+      'Missed' => 'Missed',
+      _ => 'In Queue',
+    };
+  }
+
   @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(17),
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(17),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: _cardDecoration(),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: item.priority == 'Urgent'
-                    ? const Color(0xFFFFE4E5)
-                    : const Color(0xFFE6FAF2),
-                borderRadius: BorderRadius.circular(14),
+  Widget build(BuildContext context) {
+    final emergency = item.priority == 'Urgent';
+    final consulting = !emergency && item.status == 'In Consultation';
+    final cardColor = emergency ? const Color(0xFFFF1919) : _mint;
+    final onCard = emergency ? Colors.white : Colors.black;
+    return Material(
+      color: cardColor,
+      borderRadius: BorderRadius.circular(34),
+      clipBehavior: Clip.antiAlias,
+      elevation: 2,
+      shadowColor: const Color(0x33000000),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: Colors.white,
+                backgroundImage: const AssetImage(
+                  'assets/photos/logoandphoto/nways_pets.png',
+                ),
               ),
-              child: Icon(
-                item.priority == 'Urgent'
-                    ? Icons.emergency_rounded
-                    : Icons.pets_rounded,
-                color: item.priority == 'Urgent' ? _red : _green,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.schedule_rounded, size: 15, color: onCard),
+                        const SizedBox(width: 4),
+                        Text(
+                          item.time,
+                          style: TextStyle(
+                            color: onCard,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.pet,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: onCard,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${item.owner} • ${item.service}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: emergency ? Colors.white70 : _muted,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(width: 8),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    '${item.time} • ${item.pet}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
+                  Container(
+                    constraints: const BoxConstraints(minWidth: 100),
+                    height: 38,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: consulting
+                          ? const Color(0xFFF5C518)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: Text(
+                      _statusLabel,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${item.owner} • ${item.service}\n${item.doctor}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _muted, fontSize: 12),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Details',
+                        style: TextStyle(
+                          color: emergency ? Colors.white70 : _muted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 16,
+                        color: emergency ? Colors.white70 : _muted,
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  item.status,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    color: _statusColor(item.status),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Icon(Icons.chevron_right_rounded, color: _muted),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _StatusBanner extends StatelessWidget {

@@ -173,6 +173,49 @@ class StaffOperationsStore extends ChangeNotifier {
       }
     }
     notifyListeners();
+    _notifyOwner(
+      item,
+      status: status,
+      doctor: doctor,
+      rescheduled: date != null,
+    );
+  }
+
+  /// Sends the pet owner a notification reflecting a staff change so the owner
+  /// sees clinic-side updates to their booking.
+  void _notifyOwner(
+    StaffAppointment item, {
+    String? status,
+    String? doctor,
+    bool rescheduled = false,
+  }) {
+    final pet = item.pet;
+    if (rescheduled) {
+      OwnerNotificationStore.instance.push(
+        'Appointment rescheduled',
+        '$pet is now booked for ${item.time}. Please review the new time.',
+      );
+      return;
+    }
+    if (status != null) {
+      final message = switch (status) {
+        'Confirmed' => 'Your appointment for $pet has been confirmed.',
+        'Cancelled' => 'Your appointment for $pet was cancelled.',
+        'Checked In' => '$pet has been checked in at the clinic.',
+        'Called' => 'It is $pet\u2019s turn. Please proceed to the room.',
+        'In Consultation' => '$pet\u2019s consultation has started.',
+        'Completed' => '$pet\u2019s visit is complete.',
+        _ => '$pet\u2019s appointment is now "$status".',
+      };
+      OwnerNotificationStore.instance.push('Appointment update', message);
+      return;
+    }
+    if (doctor != null) {
+      OwnerNotificationStore.instance.push(
+        'Doctor assigned',
+        '$doctor has been assigned to $pet.',
+      );
+    }
   }
 
   void addWalkIn({

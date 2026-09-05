@@ -9,6 +9,16 @@ class StaffMessagesPage extends StatefulWidget {
 
 class _StaffMessagesPageState extends State<StaffMessagesPage> {
   final _reply = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Opening the inbox clears the staff unread badge.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => ContactClinicStore.instance.markAllReadByStaff(),
+    );
+  }
+
   @override
   void dispose() {
     _reply.dispose();

@@ -92,12 +92,6 @@ String _fullDate(DateTime value) {
 
 String _shortDate(DateTime value) =>
     '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}';
-Color _statusColor(String value) => switch (value) {
-  'Completed' => _green,
-  'Cancelled' || 'Missed' => _red,
-  'Waiting' || 'Called' || 'In Consultation' => const Color(0xFFB06B00),
-  _ => const Color(0xFF245DA8),
-};
 String _emergencyLabel(EmergencyStatus value) => switch (value) {
   EmergencyStatus.submitted => 'Submitted',
   EmergencyStatus.underReview => 'Reviewing',

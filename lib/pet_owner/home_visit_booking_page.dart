@@ -118,6 +118,11 @@ class HomeVisitStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  void assignDoctor(HomeVisit visit, String veterinarian) {
+    visit.veterinarian = veterinarian;
+    notifyListeners();
+  }
+
   void completeVisit(HomeVisit visit) {
     visit.status = HomeVisitStatus.completed;
     visit.findings =
@@ -170,7 +175,7 @@ class HomeVisit {
 
   final String id;
   final HomeVisitPet pet;
-  final String veterinarian;
+  String veterinarian;
   final DateTime date;
   final String time;
   final String reason;

@@ -166,6 +166,7 @@ class _QueueCard extends StatelessWidget {
               Expanded(
                 child: FilledButton.icon(
                   onPressed: () {
+                    // update(status: 'Called') already notifies the owner.
                     StaffOperationsStore.instance.update(
                       item,
                       status: 'Called',

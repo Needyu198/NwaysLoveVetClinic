@@ -73,6 +73,19 @@ class StaffManagementPage extends StatelessWidget {
                 color: const Color(0xFFD6E8FF),
                 onTap: () => _push(context, const StaffHealthPostsPage()),
               ),
+              AnimatedBuilder(
+                animation: ContactClinicStore.instance,
+                builder: (context, _) => _ManagementCard(
+                  key: const ValueKey('staff-messages-card'),
+                  title: 'Messages',
+                  subtitle: 'Answer pet owner questions',
+                  icon: Icons.forum_rounded,
+                  color: const Color(0xFFB6E3FF),
+                  badgeCount: ContactClinicStore.instance.staffUnreadCount,
+                  onTap: () =>
+                      _push(context, const StaffMessagesPage(standalone: true)),
+                ),
+              ),
             ],
           ),
         ),
@@ -88,6 +101,7 @@ class _ManagementCard extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    this.badgeCount = 0,
     super.key,
   });
   final String title;
@@ -95,6 +109,7 @@ class _ManagementCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -109,14 +124,45 @@ class _ManagementCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: _ink),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: _ink),
+                ),
+                if (badgeCount > 0)
+                  Positioned(
+                    right: -6,
+                    top: -6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 20),
+                      decoration: BoxDecoration(
+                        color: _red,
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      child: Text(
+                        badgeCount > 99 ? '99+' : '$badgeCount',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const Spacer(),
             Text(
