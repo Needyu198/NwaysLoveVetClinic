@@ -1,4 +1,4 @@
-part of 'system_admin_dashboard.dart';
+part of 'system_admin_portal.dart';
 
 class SystemAdminNavigationBar extends StatelessWidget {
   const SystemAdminNavigationBar({
