@@ -25,6 +25,7 @@ part 'doctor_pet_history_page.dart';
 part 'doctor_consultation_page.dart';
 part 'doctor_queue_page.dart';
 part 'doctor_medical_records_page.dart';
+part 'doctor_inventory_page.dart';
 part 'doctor_notifications_page.dart';
 part 'doctor_emergency_cases_page.dart';
 part 'doctor_home_visits_page.dart';

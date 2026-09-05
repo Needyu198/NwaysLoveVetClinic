@@ -140,9 +140,7 @@ class DoctorDashboardPage extends StatelessWidget {
                           label: 'Inventory',
                           onPressed: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (_) => const StaffInventoryPage(
-                                canAdjustStock: false,
-                              ),
+                              builder: (_) => const DoctorInventoryPage(),
                             ),
                           ),
                         ),

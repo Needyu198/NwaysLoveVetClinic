@@ -756,9 +756,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('doctor-inventory')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('staff-inventory-list')), findsOneWidget);
+    expect(find.byKey(const ValueKey('doctor-inventory-list')), findsOneWidget);
     expect(find.text('Amoxicillin 250 mg'), findsOneWidget);
-    expect(find.text('Request restock'), findsWidgets);
+    expect(find.text('Request Restock'), findsWidgets);
     expect(find.text('Adjust stock'), findsNothing);
   });
 
