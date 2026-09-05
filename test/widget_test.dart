@@ -667,12 +667,22 @@ void main() {
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
 
-    expect(find.text('System Administration'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('system-admin-dashboard')),
       findsOneWidget,
     );
+    expect(find.textContaining('Mr.Admin'), findsOneWidget);
+    expect(find.text('Quick Actions'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('system-admin-navigation-bar')),
+      findsOneWidget,
+    );
+
+    // Account tab still exposes the administrator identity and logout.
+    await tester.tap(find.byKey(const ValueKey('system-admin-account-tab')));
+    await tester.pumpAndSettle();
     expect(find.text('System Administrator'), findsOneWidget);
+    expect(find.byKey(const ValueKey('system-admin-logout')), findsOneWidget);
   });
 
   testWidgets('registered staff email opens the connected staff portal', (
