@@ -709,15 +709,15 @@ void main() {
 
     expect(find.byKey(const ValueKey('staff-dashboard')), findsOneWidget);
     expect(find.textContaining(', Mya'), findsOneWidget);
-    expect(find.text('Clinic overview'), findsOneWidget);
-    expect(find.text('Doctor availability'), findsOneWidget);
+    expect(find.text('Quick Actions'), findsOneWidget);
+    expect(find.text('Doctor Availability'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('staff-management-tab')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('staff-management-menu')), findsOneWidget);
     expect(find.text('Appointments'), findsOneWidget);
     expect(find.text('Queue'), findsOneWidget);
-    expect(find.text('Messages'), findsOneWidget);
+    expect(find.text('Messages'), findsNothing);
     expect(find.text('Inventory'), findsOneWidget);
     expect(find.text('Medical Records'), findsOneWidget);
     expect(find.text('Emergency Cases'), findsOneWidget);
