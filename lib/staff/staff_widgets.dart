@@ -16,6 +16,74 @@ class _StaffScaffold extends StatelessWidget {
   );
 }
 
+/// Shared mint rounded page header (back arrow + title/subtitle + clinic logo)
+/// used across staff subpages so they all match.
+class _StaffMintHeader extends StatelessWidget {
+  const _StaffMintHeader({required this.title, this.subtitle, this.icon});
+
+  final String title;
+  final String? subtitle;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    decoration: const BoxDecoration(
+      color: _mint,
+      borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+    ),
+    child: SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 18, 20),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: 'Back',
+              onPressed: () => Navigator.maybePop(context),
+              icon: const Icon(Icons.chevron_left_rounded, size: 28),
+            ),
+            if (icon != null) ...[
+              Icon(icon, size: 24, color: _ink),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.6,
+                      color: _ink,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        color: Color(0xFF3B5249),
+                        fontSize: 13,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Image.asset(
+              'assets/photos/logoandphoto/nways_love_logo.png',
+              width: 52,
+              height: 52,
+              fit: BoxFit.contain,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 class _InlineHeader extends StatelessWidget {
   const _InlineHeader({required this.title, this.subtitle, this.onBack});
   final String title;

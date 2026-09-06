@@ -40,7 +40,8 @@ class _DoctorInventoryPageState extends State<DoctorInventoryPage> {
                   final matchesFilter = switch (_filter) {
                     'Low Stock' => item.isLowStock,
                     'Expired' => item.isExpired,
-                    'Medicine' || 'Supply' => item.category == _filter,
+                    'Medicine' ||
+                    'Medical Supplies' => item.category == _filter,
                     _ => true,
                   };
                   return matchesQuery && matchesFilter;
@@ -120,7 +121,7 @@ class _DoctorInventoryPageState extends State<DoctorInventoryPage> {
                             [
                                   'All',
                                   'Medicine',
-                                  'Supply',
+                                  'Medical Supplies',
                                   'Low Stock',
                                   'Expired',
                                 ]

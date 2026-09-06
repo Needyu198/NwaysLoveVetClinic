@@ -32,12 +32,51 @@ class StaffOperationsStore extends ChangeNotifier {
   ];
   final List<InventoryItem> inventory = [
     InventoryItem(
+      id: 'FOOD-0010',
+      name: 'Dog Food 01',
+      category: 'Pet Food',
+      quantity: 10,
+      reorderLevel: 8,
+      unit: 'bags',
+      sellingPrice: 4000,
+      purchasePrice: 3200,
+      supplier: 'Pedigree Distributor',
+      expiresOn: DateTime.now().add(const Duration(days: 300)),
+    ),
+    InventoryItem(
+      id: 'FOOD-0011',
+      name: 'Cat Food 01',
+      category: 'Pet Food',
+      quantity: 11,
+      reorderLevel: 8,
+      unit: 'bags',
+      sellingPrice: 4500,
+      purchasePrice: 3600,
+      supplier: 'Meow Mix Supplier',
+      expiresOn: DateTime.now().add(const Duration(days: 320)),
+    ),
+    InventoryItem(
+      id: 'FOOD-0013',
+      name: 'Dog Food 02',
+      category: 'Pet Food',
+      quantity: 13,
+      reorderLevel: 8,
+      unit: 'bags',
+      sellingPrice: 4700,
+      purchasePrice: 3800,
+      supplier: 'Rabbit Food Co.',
+      expiresOn: DateTime.now().add(const Duration(days: 280)),
+    ),
+    InventoryItem(
       id: 'MED-001',
       name: 'Amoxicillin 250 mg',
       category: 'Medicine',
       quantity: 18,
       reorderLevel: 20,
       unit: 'capsules',
+      sellingPrice: 1200,
+      purchasePrice: 800,
+      supplier: 'PharmaVet',
       expiresOn: DateTime.now().add(const Duration(days: 180)),
     ),
     InventoryItem(
@@ -47,31 +86,146 @@ class StaffOperationsStore extends ChangeNotifier {
       quantity: 7,
       reorderLevel: 10,
       unit: 'bottles',
+      sellingPrice: 6500,
+      purchasePrice: 4800,
+      supplier: 'PharmaVet',
       expiresOn: DateTime.now().add(const Duration(days: 75)),
     ),
     InventoryItem(
       id: 'SUP-008',
       name: 'Sterile Examination Gloves',
-      category: 'Supply',
+      category: 'Medical Supplies',
       quantity: 240,
       reorderLevel: 100,
       unit: 'pairs',
+      sellingPrice: 300,
+      purchasePrice: 180,
+      supplier: 'ClinicPro',
       expiresOn: DateTime.now().add(const Duration(days: 700)),
     ),
     InventoryItem(
       id: 'SUP-021',
       name: 'Wound Dressing 10 cm',
-      category: 'Supply',
+      category: 'Medical Supplies',
       quantity: 0,
       reorderLevel: 25,
       unit: 'packs',
+      sellingPrice: 900,
+      purchasePrice: 600,
+      supplier: 'ClinicPro',
       expiresOn: DateTime.now().subtract(const Duration(days: 12)),
     ),
   ];
 
+  /// All inventory categories used by the product catalog and filters.
+  static const inventoryCategories = [
+    'Pet Food',
+    'Medicine',
+    'Vaccines',
+    'Medical Supplies',
+    'Cleaning Supplies',
+    'Accessories',
+    'Other',
+  ];
+
+  List<InventoryItem> get activeInventory =>
+      inventory.where((item) => !item.archived).toList();
+  List<InventoryItem> get archivedInventory =>
+      inventory.where((item) => item.archived).toList();
+
+  bool isDuplicateSku(String sku) => inventory.any(
+    (item) => item.id.toLowerCase() == sku.trim().toLowerCase(),
+  );
+
+  void addItem(InventoryItem item) {
+    inventory.add(item);
+    _record(
+      item,
+      type: 'Stock In',
+      quantity: item.quantity,
+      previous: 0,
+      next: item.quantity,
+      reason: 'Initial stock',
+    );
+    notifyListeners();
+  }
+
+  /// Receive stock (Stock In). Adds [quantity] to the item's balance.
+  void stockIn(
+    InventoryItem item,
+    int quantity, {
+    String reason = 'Delivery received',
+    String reference = '',
+  }) {
+    if (quantity <= 0) return;
+    final previous = item.quantity;
+    item.quantity = previous + quantity;
+    _record(
+      item,
+      type: 'Stock In',
+      quantity: quantity,
+      previous: previous,
+      next: item.quantity,
+      reason: reason,
+      reference: reference,
+    );
+    item.lastAudit =
+        'Stock In +$quantity • Mya Thu • ${_shortDate(DateTime.now())}';
+    if (!item.isLowStock) {
+      item.restockRequested = false;
+      item.restockStatus = item.restockStatus.isEmpty ? '' : 'Received';
+    }
+    notifyListeners();
+  }
+
+  /// Issue/use stock (Stock Out). Never allows the balance to go negative.
+  /// Returns false when there is not enough stock.
+  bool stockOut(
+    InventoryItem item,
+    int quantity, {
+    required String reason,
+    String reference = '',
+  }) {
+    if (quantity <= 0 || quantity > item.quantity) return false;
+    final previous = item.quantity;
+    item.quantity = previous - quantity;
+    _record(
+      item,
+      type: 'Stock Out',
+      quantity: quantity,
+      previous: previous,
+      next: item.quantity,
+      reason: reason,
+      reference: reference,
+    );
+    item.lastAudit =
+        'Stock Out -$quantity ($reason) • Mya Thu • ${_shortDate(DateTime.now())}';
+    notifyListeners();
+    return true;
+  }
+
   void adjustStock(InventoryItem item, int quantity, String reason) {
+    final previous = item.quantity;
     item.quantity = quantity.clamp(0, 999999);
+    _record(
+      item,
+      type: 'Adjustment',
+      quantity: (item.quantity - previous).abs(),
+      previous: previous,
+      next: item.quantity,
+      reason: reason,
+    );
     item.lastAudit = '$reason • Mya Thu • ${_shortDate(DateTime.now())}';
+    notifyListeners();
+  }
+
+  /// Notifies listeners after an in-place edit of an existing item's fields.
+  void notifyChanged() => notifyListeners();
+
+  void archiveItem(InventoryItem item, String reason) {
+    item.archived = true;
+    item.lastAudit =
+        'Archived ($reason) • Mya Thu • ${_shortDate(DateTime.now())}';
     notifyListeners();
   }
 
@@ -79,7 +233,32 @@ class StaffOperationsStore extends ChangeNotifier {
     item.restockRequested = true;
     item.restockQuantity = quantity;
     item.restockNote = note;
+    item.restockStatus = 'Pending Approval';
     notifyListeners();
+  }
+
+  void _record(
+    InventoryItem item, {
+    required String type,
+    required int quantity,
+    required int previous,
+    required int next,
+    required String reason,
+    String reference = '',
+  }) {
+    item.movements.add(
+      StockMovement(
+        id: 'MOV-${DateTime.now().microsecondsSinceEpoch}',
+        type: type,
+        quantity: quantity,
+        previousBalance: previous,
+        newBalance: next,
+        reason: reason,
+        staff: 'Mya Thu',
+        at: DateTime.now(),
+        reference: reference,
+      ),
+    );
   }
 
   List<StaffAppointment> get appointments {
@@ -313,6 +492,32 @@ class StaffPayment {
   String status;
 }
 
+/// A single recorded stock movement (Stock In / Stock Out / adjustment) that
+/// keeps the inventory auditable per the spec's Stock History requirement.
+class StockMovement {
+  StockMovement({
+    required this.id,
+    required this.type,
+    required this.quantity,
+    required this.previousBalance,
+    required this.newBalance,
+    required this.reason,
+    required this.staff,
+    required this.at,
+    this.reference = '',
+  });
+
+  final String id;
+  final String type; // 'Stock In', 'Stock Out', 'Adjustment'
+  final int quantity;
+  final int previousBalance;
+  final int newBalance;
+  final String reason;
+  final String staff;
+  final DateTime at;
+  final String reference;
+}
+
 class InventoryItem {
   InventoryItem({
     required this.id,
@@ -322,20 +527,124 @@ class InventoryItem {
     required this.reorderLevel,
     required this.unit,
     required this.expiresOn,
+    this.sellingPrice = 0,
+    this.purchasePrice = 0,
+    this.supplier = '',
+    this.batchNumber = '',
+    this.imageAsset,
   });
 
   final String id;
-  final String name;
-  final String category;
+  String name;
+  String category;
   int quantity;
-  final int reorderLevel;
-  final String unit;
-  final DateTime expiresOn;
+  int reorderLevel;
+  String unit;
+  DateTime expiresOn;
+  int sellingPrice;
+  int purchasePrice;
+  String supplier;
+  String batchNumber;
+  String? imageAsset;
+
   bool restockRequested = false;
   int restockQuantity = 0;
   String restockNote = '';
+  String restockStatus = '';
   String lastAudit = 'No stock changes recorded';
+  bool archived = false;
+  final List<StockMovement> movements = [];
 
+  bool get isOutOfStock => quantity <= 0;
   bool get isLowStock => quantity <= reorderLevel;
   bool get isExpired => expiresOn.isBefore(DateTime.now());
+  bool get isNearExpiry =>
+      !isExpired &&
+      expiresOn.isBefore(DateTime.now().add(const Duration(days: 90)));
+
+  String get stockStatus {
+    if (isOutOfStock) return 'Out of Stock';
+    if (isLowStock) return 'Low Stock';
+    return 'In Stock';
+  }
+}
+
+/// Editable profile of the signed-in clinic staff member. In-memory only
+/// (resets on restart) but reactive so the whole app reflects changes.
+class StaffProfileStore extends ChangeNotifier {
+  StaffProfileStore._();
+
+  static final StaffProfileStore instance = StaffProfileStore._();
+
+  // Editable by staff.
+  String name = 'Mya Thu';
+  String phone = '09 781 220 118';
+  String email = 'staff@nwaysclinic.com';
+  String shift = 'Morning • 8:00 AM–4:00 PM';
+  bool onShift = true;
+  String? photoPath;
+
+  // Administrator-controlled (read-only for staff).
+  final String role = 'Clinic Operations Staff';
+  final String employeeId = 'STF-018';
+  final String clinic = "Nway's Love Vet Clinic";
+
+  // Notification preferences.
+  bool appointmentAlerts = true;
+  bool emergencyAlerts = true;
+  bool queueAlerts = true;
+  bool paymentAlerts = true;
+
+  /// First name used for the dashboard greeting ("Good Morning, Mya").
+  String get firstName => name.trim().split(' ').first;
+
+  void save({
+    required String name,
+    required String phone,
+    required String email,
+    required String shift,
+    required bool onShift,
+    String? photoPath,
+  }) {
+    this.name = name;
+    this.phone = phone;
+    this.email = email;
+    this.shift = shift;
+    this.onShift = onShift;
+    this.photoPath = photoPath;
+    notifyListeners();
+  }
+
+  void setOnShift(bool value) {
+    onShift = value;
+    notifyListeners();
+  }
+
+  void updateNotifications({
+    bool? appointment,
+    bool? emergency,
+    bool? queue,
+    bool? payment,
+  }) {
+    if (appointment != null) appointmentAlerts = appointment;
+    if (emergency != null) emergencyAlerts = emergency;
+    if (queue != null) queueAlerts = queue;
+    if (payment != null) paymentAlerts = payment;
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void reset() {
+    name = 'Mya Thu';
+    phone = '09 781 220 118';
+    email = 'staff@nwaysclinic.com';
+    shift = 'Morning • 8:00 AM–4:00 PM';
+    onShift = true;
+    photoPath = null;
+    appointmentAlerts = true;
+    emergencyAlerts = true;
+    queueAlerts = true;
+    paymentAlerts = true;
+    notifyListeners();
+  }
 }

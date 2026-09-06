@@ -12,7 +12,7 @@ class StaffDashboardPage extends StatelessWidget {
         AppointmentStore.instance,
         EmergencyRequestStore.instance,
         HomeVisitStore.instance,
-        ContactClinicStore.instance,
+        StaffProfileStore.instance,
       ]),
       builder: (context, _) {
         final items = StaffOperationsStore.instance.appointments;
@@ -32,8 +32,16 @@ class StaffDashboardPage extends StatelessWidget {
                       r.status != EmergencyStatus.declined,
                 )
                 .length;
-        final pendingPayments = StaffOperationsStore.instance.payments
-            .where((p) => p.status != 'Paid')
+        final queueCount = StaffOperationsStore.instance.appointments
+            .where(
+              (a) =>
+                  a.queueNumber.isNotEmpty &&
+                  !const {
+                    'Completed',
+                    'Missed',
+                    'Cancelled',
+                  }.contains(a.status),
+            )
             .length;
         return CustomScrollView(
           key: const ValueKey('staff-dashboard'),
@@ -106,12 +114,12 @@ class StaffDashboardPage extends StatelessWidget {
                                 Expanded(
                                   flex: 2,
                                   child: _DashboardMetric(
-                                    value: '$pendingPayments',
-                                    label: 'Pending Payments',
+                                    value: '$queueCount',
+                                    label: 'Queue',
                                     horizontal: true,
                                     onTap: () => _push(
                                       context,
-                                      const StaffPaymentsPage(),
+                                      const StaffQueueStandalonePage(),
                                     ),
                                   ),
                                 ),
@@ -155,16 +163,6 @@ class StaffDashboardPage extends StatelessWidget {
                             label: 'Pet Owners',
                             onTap: () =>
                                 _push(context, const StaffPatientsPage()),
-                          ),
-                          _QuickAction(
-                            icon: Icons.forum_rounded,
-                            label: 'Messages',
-                            badgeCount:
-                                ContactClinicStore.instance.staffUnreadCount,
-                            onTap: () => _push(
-                              context,
-                              const StaffMessagesPage(standalone: true),
-                            ),
                           ),
                           _QuickAction(
                             icon: Icons.bar_chart_rounded,
@@ -265,7 +263,7 @@ class _DashboardHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${_greeting()}, Mya',
+                '${_greeting()}, ${StaffProfileStore.instance.firstName}',
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -354,67 +352,163 @@ class _DashboardAppointment extends StatelessWidget {
   const _DashboardAppointment({required this.item, required this.onTap});
   final StaffAppointment item;
   final VoidCallback onTap;
+
+  (String, Color) get _statusStyle {
+    if (item.priority == 'Urgent') {
+      return ('Emergency', const Color(0xFFE11D1D));
+    }
+    return switch (item.status) {
+      'In Consultation' => ('Consulting', const Color(0xFF2358A5)),
+      'Completed' => ('Completed', _green),
+      'Cancelled' || 'Missed' => (item.status, _red),
+      'Waiting' ||
+      'Called' ||
+      'Checked In' => (item.status, const Color(0xFF9A5B00)),
+      _ => (item.status, _green),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final urgent = item.priority == 'Urgent';
+    final (statusLabel, statusColor) = _statusStyle;
     return Material(
-      color: urgent ? const Color(0xFFFF0000) : const Color(0xFFB0FCE0),
-      borderRadius: BorderRadius.circular(30),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      elevation: 1.5,
+      shadowColor: const Color(0x22000000),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(30),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: IntrinsicHeight(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const CircleAvatar(
-                radius: 27,
-                backgroundColor: Colors.white,
-                backgroundImage: AssetImage(
-                  'assets/photos/logoandphoto/nways_pets.png',
-                ),
-              ),
-              const SizedBox(width: 14),
+              // Colored accent bar signals urgency at a glance.
+              Container(width: 6, color: statusColor),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${item.time.replaceAll(' AM', '').replaceAll(' PM', '')} . ${item.pet}',
-                      style: const TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.black,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                  child: Row(
+                    children: [
+                      Stack(
+                        children: [
+                          const CircleAvatar(
+                            radius: 26,
+                            backgroundColor: Color(0xFFE6FAF2),
+                            backgroundImage: AssetImage(
+                              'assets/photos/logoandphoto/nways_pets.png',
+                            ),
+                          ),
+                          if (urgent)
+                            Positioned(
+                              right: -1,
+                              bottom: -1,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.emergency_rounded,
+                                  size: 15,
+                                  color: _red,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ),
-                    Text(
-                      '${item.owner} . ${item.service}',
-                      style: const TextStyle(fontSize: 12, color: Colors.black),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      item.doctor,
-                      style: const TextStyle(fontSize: 12, color: Colors.black),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Column(
-                  children: [
-                    Text(
-                      item.status,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: urgent ? Colors.yellow : const Color(0xFF493CFF),
-                        height: 1.2,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.schedule_rounded,
+                                  size: 14,
+                                  color: statusColor,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  item.time,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: statusColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.pet,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w900,
+                                color: _ink,
+                                height: 1.05,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${item.owner} • ${item.service}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: _muted,
+                              ),
+                            ),
+                            Text(
+                              item.doctor,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: _muted,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const Icon(Icons.chevron_right, color: Colors.black),
-                  ],
+                      const SizedBox(width: 8),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              statusLabel,
+                              style: TextStyle(
+                                color: statusColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: _muted,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -430,12 +524,10 @@ class _QuickAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.badgeCount = 0,
   });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final int badgeCount;
   @override
   Widget build(BuildContext context) => SizedBox(
     width: 98,
@@ -444,46 +536,15 @@ class _QuickAction extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       child: Column(
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 66,
-                height: 66,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.grey),
-                ),
-                child: Icon(icon, color: const Color(0xFF00EF92), size: 34),
-              ),
-              if (badgeCount > 0)
-                Positioned(
-                  right: -4,
-                  top: -4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    constraints: const BoxConstraints(minWidth: 20),
-                    decoration: BoxDecoration(
-                      color: _red,
-                      borderRadius: BorderRadius.circular(11),
-                      border: Border.all(color: Colors.white, width: 1.5),
-                    ),
-                    child: Text(
-                      badgeCount > 99 ? '99+' : '$badgeCount',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+          Container(
+            width: 66,
+            height: 66,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey),
+            ),
+            child: Icon(icon, color: const Color(0xFF00EF92), size: 34),
           ),
           const SizedBox(height: 6),
           Text(

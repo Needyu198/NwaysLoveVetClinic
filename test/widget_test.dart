@@ -719,41 +719,56 @@ void main() {
     expect(find.byKey(const ValueKey('staff-management-menu')), findsOneWidget);
     expect(find.text('Appointments'), findsOneWidget);
     expect(find.text('Queue'), findsOneWidget);
-    expect(find.text('Messages'), findsOneWidget);
-    expect(find.byKey(const ValueKey('staff-messages-card')), findsOneWidget);
+    expect(find.text('Messages'), findsNothing);
+    expect(find.text('Health Posts'), findsNothing);
     expect(find.text('Inventory'), findsOneWidget);
     expect(find.text('Medical Records'), findsOneWidget);
     expect(find.text('Emergency Cases'), findsOneWidget);
     expect(find.text('Home Visits'), findsOneWidget);
-    expect(find.text('Health Posts'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('staff-inventory-card')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('staff-inventory-list')), findsOneWidget);
-    expect(find.text('Amoxicillin 250 mg'), findsOneWidget);
-    expect(find.text('Low stock'), findsWidgets);
-    expect(find.text('Expired'), findsWidgets);
+    expect(find.textContaining('Dog Food 01'), findsWidgets);
 
+    // Search narrows the catalog.
     await tester.enterText(
       find.byKey(const ValueKey('staff-inventory-search')),
       'Amoxicillin',
     );
     await tester.pumpAndSettle();
-    expect(find.text('Amoxicillin 250 mg'), findsOneWidget);
-    expect(find.text('Sterile Examination Gloves'), findsNothing);
+    expect(find.textContaining('Amoxicillin 250 mg'), findsOneWidget);
+    expect(find.textContaining('Dog Food 01'), findsNothing);
 
-    final item = StaffOperationsStore.instance.inventory.first;
-    await tester.tap(find.byKey(ValueKey('adjust-stock-${item.id}')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('inventory-quantity-field')),
-      '24',
+    // Open the item detail and receive stock (Stock In).
+    final item = StaffOperationsStore.instance.inventory.firstWhere(
+      (i) => i.id == 'MED-001',
     );
-    await tester.enterText(find.byType(TextField).last, 'Stock count');
-    await tester.tap(find.byKey(const ValueKey('confirm-stock-adjustment')));
+    final startQty = item.quantity;
+    await tester.tap(find.byKey(const ValueKey('inventory-card-MED-001')));
     await tester.pumpAndSettle();
-    expect(item.quantity, 24);
-    expect(item.lastAudit, contains('Stock count'));
+    expect(
+      find.byKey(const ValueKey('staff-inventory-detail')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('stock-in-MED-001')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('stock-in-qty')), '10');
+    await tester.tap(find.byKey(const ValueKey('confirm-stock-in')));
+    await tester.pumpAndSettle();
+    expect(item.quantity, startQty + 10);
+
+    // Issue stock (Stock Out).
+    await tester.ensureVisible(find.byKey(const ValueKey('stock-out-MED-001')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('stock-out-MED-001')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('stock-out-qty')), '4');
+    await tester.tap(find.byKey(const ValueKey('confirm-stock-out')));
+    await tester.pumpAndSettle();
+    expect(item.quantity, startQty + 6);
+    expect(item.movements.length, greaterThanOrEqualTo(2));
   });
 
   testWidgets('staff appointments page shows redesigned filters and cards', (
@@ -967,6 +982,132 @@ void main() {
     OwnerNotificationStore.instance.clear();
   });
 
+  testWidgets('staff live queue shows filters and calls a waiting patient', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: StaffQueuePage()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Live Queue'), findsOneWidget);
+    expect(find.byKey(const ValueKey('staff-queue')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('staff-queue-filter-All')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('staff-queue-filter-Urgent')),
+      findsOneWidget,
+    );
+
+    // Seed: Luna (E01) is Waiting/Urgent and sorts first, so its Call button
+    // is on screen. Calling it moves the patient to 'Called'.
+    final waiting = StaffOperationsStore.instance.appointments.firstWhere(
+      (a) => a.queueNumber.isNotEmpty && a.status == 'Waiting',
+    );
+    await tester.tap(find.byKey(ValueKey('queue-call-${waiting.id}')));
+    await tester.pumpAndSettle();
+    expect(waiting.status, 'Called');
+  });
+
+  testWidgets('staff edits profile name and phone and it persists', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    StaffProfileStore.instance.reset();
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: StaffProfilePage())),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('staff-profile')), findsOneWidget);
+    expect(find.text('Mya Thu'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Edit Profile'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Edit Profile'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('staff-edit-name')),
+      'Mya Thida',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('staff-edit-phone')),
+      '09 999 000 111',
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('save-staff-profile')),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('save-staff-profile')));
+    await tester.pumpAndSettle();
+
+    expect(StaffProfileStore.instance.name, 'Mya Thida');
+    expect(StaffProfileStore.instance.phone, '09 999 000 111');
+    expect(find.text('Mya Thida'), findsOneWidget);
+    StaffProfileStore.instance.reset();
+  });
+
+  testWidgets('staff adds a new inventory item and it appears in the catalog', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: StaffInventoryPage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Add New Items'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add New Item'), findsWidgets);
+
+    Future<void> fill(String label, String value) async {
+      final field = find.widgetWithText(TextFormField, label);
+      await tester.scrollUntilVisible(
+        field,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(field, value);
+    }
+
+    await fill('Item name', 'Cat Litter 5kg');
+    await fill('Item ID / SKU', 'ACC-9001');
+    await fill('Initial quantity', '20');
+    await fill('Unit', 'bags');
+    await fill('Low-stock threshold', '5');
+    await fill('Purchase price', '2000');
+    await fill('Selling price', '3000');
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('save-inventory-item')),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('save-inventory-item')));
+    await tester.pumpAndSettle();
+
+    expect(
+      StaffOperationsStore.instance.inventory.any((i) => i.id == 'ACC-9001'),
+      isTrue,
+    );
+  });
+
   testWidgets('doctor inventory is view and restock only', (
     WidgetTester tester,
   ) async {
@@ -981,6 +1122,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('doctor-inventory-list')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Amoxicillin 250 mg'),
+      300,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('doctor-inventory-list')),
+        matching: find.byType(Scrollable),
+      ),
+    );
     expect(find.text('Amoxicillin 250 mg'), findsOneWidget);
     expect(find.text('Request Restock'), findsWidgets);
     expect(find.text('Adjust stock'), findsNothing);

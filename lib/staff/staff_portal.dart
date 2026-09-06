@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../doctor/doctor_portal.dart';
 import '../login/login_page.dart';
@@ -20,6 +23,8 @@ part 'staff_emergency_page.dart';
 part 'staff_home_visits_page.dart';
 part 'staff_payments_page.dart';
 part 'staff_inventory_page.dart';
+part 'staff_inventory_detail_page.dart';
+part 'staff_add_inventory_page.dart';
 part 'staff_medical_records_page.dart';
 part 'staff_health_posts_page.dart';
 part 'staff_patients_page.dart';
