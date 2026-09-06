@@ -716,6 +716,206 @@ void main() {
     expect(find.byKey(const ValueKey('system-admin-logout')), findsOneWidget);
   });
 
+  testWidgets('admin approves a doctor verification end to end', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.tap(find.text('Log in'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-field')),
+      SystemAdminAuthApi.demoEmail,
+    );
+    await tester.enterText(
+      find.byType(TextField).last,
+      SystemAdminAuthApi.demoPassword,
+    );
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    // Go to Management -> Doctor Verification.
+    await tester.tap(find.byKey(const ValueKey('system-admin-bookings-tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('admin-menu-verification')));
+    await tester.pumpAndSettle();
+
+    // Open the first pending application.
+    await tester.tap(find.text('Dr. Myat Noe').first);
+    await tester.pumpAndSettle();
+
+    // Scroll the detail page until the approve button is visible.
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('admin-approve-doctor')),
+      250,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('admin-approve-doctor')), findsOneWidget);
+
+    // Approve requires a reason before it takes effect.
+    await tester.tap(find.byKey(const ValueKey('admin-approve-doctor')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'Credentials verified');
+    await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
+    await tester.pumpAndSettle();
+
+    // Back on the verification list, then return to the portal and open the
+    // dashboard to confirm the action was recorded in Recent Activity.
+    expect(
+      find.byKey(const ValueKey('admin-verification-list')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('system-admin-dashboard-tab')));
+    await tester.pumpAndSettle();
+    expect(find.text('Recent Activity'), findsOneWidget);
+    expect(find.textContaining('Approved doctor'), findsWidgets);
+  });
+
+  testWidgets('admin approves a restock request end to end', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.tap(find.text('Log in'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-field')),
+      SystemAdminAuthApi.demoEmail,
+    );
+    await tester.enterText(
+      find.byType(TextField).last,
+      SystemAdminAuthApi.demoPassword,
+    );
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('system-admin-bookings-tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('admin-menu-inventory')));
+    await tester.pumpAndSettle();
+
+    // The seeded pending restock request is visible.
+    expect(find.byKey(const ValueKey('admin-inventory-list')), findsOneWidget);
+    await tester.tap(find.text('Wound Dressing 10 cm').first);
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('admin-approve-restock')),
+      250,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('admin-approve-restock')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'Approved by admin');
+    await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
+    await tester.pumpAndSettle();
+
+    // Back on the list, the request now reads Approved.
+    expect(find.byKey(const ValueKey('admin-inventory-list')), findsOneWidget);
+    expect(find.text('Approved'), findsWidgets);
+  });
+
+  testWidgets('admin profile edit and security flows work end to end', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.tap(find.text('Log in'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-field')),
+      SystemAdminAuthApi.demoEmail,
+    );
+    await tester.enterText(
+      find.byType(TextField).last,
+      SystemAdminAuthApi.demoPassword,
+    );
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    // Open the Profile tab.
+    await tester.tap(find.byKey(const ValueKey('system-admin-account-tab')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('admin-edit-profile')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('admin-edit-profile')), findsOneWidget);
+
+    // Edit profile: change the name and save.
+    await tester.tap(find.byKey(const ValueKey('admin-edit-profile')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('admin-edit-name')),
+      'Admin Supervisor',
+    );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('save-admin-profile')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('save-admin-profile')));
+    await tester.pumpAndSettle();
+    // The profile tab now shows the updated name (scroll back to the top).
+    await tester.dragUntilVisible(
+      find.text('Admin Supervisor'),
+      find.byKey(const ValueKey('system-admin-account')),
+      const Offset(0, 200),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Admin Supervisor'), findsWidgets);
+
+    // Change password.
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('admin-change-password')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('admin-change-password')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('admin-current-password')),
+      'admin1234',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('admin-new-password')),
+      'newpass1',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('admin-confirm-password')),
+      'newpass1',
+    );
+    await tester.tap(find.byKey(const ValueKey('submit-admin-password')));
+    await tester.pumpAndSettle();
+    // Returned to the profile tab.
+    expect(find.byKey(const ValueKey('admin-edit-profile')), findsOneWidget);
+
+    // Security: toggle two-factor on.
+    await tester.ensureVisible(find.byKey(const ValueKey('admin-security')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('admin-security')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('admin-2fa-switch')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('admin-2fa-switch')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
+    // The Security tile now reflects the On state.
+    expect(find.text('On'), findsOneWidget);
+  });
+
   testWidgets('registered staff email opens the connected staff portal', (
     WidgetTester tester,
   ) async {

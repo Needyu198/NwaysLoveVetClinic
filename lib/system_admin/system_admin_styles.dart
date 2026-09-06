@@ -26,6 +26,35 @@ void _adminNotice(BuildContext context, String message) {
     ..showSnackBar(SnackBar(content: Text(message)));
 }
 
+InputDecoration _adminInput(String label, IconData icon) => InputDecoration(
+  labelText: label,
+  prefixIcon: Icon(icon),
+  filled: true,
+  fillColor: _adminSoftMint,
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(16),
+    borderSide: BorderSide.none,
+  ),
+);
+
+Future<void> _adminShowInfo(
+  BuildContext context,
+  String title,
+  String message,
+) => showDialog<void>(
+  context: context,
+  builder: (dialogContext) => AlertDialog(
+    title: Text(title),
+    content: Text(message),
+    actions: [
+      FilledButton(
+        onPressed: () => Navigator.of(dialogContext).pop(),
+        child: const Text('Got it'),
+      ),
+    ],
+  ),
+);
+
 String _shortDay(DateTime date) {
   const months = [
     'Jan',

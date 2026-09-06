@@ -329,6 +329,18 @@ class StaffOperationsStore extends ChangeNotifier {
         priority: 'Normal',
       ),
     ]);
+
+    // Seed a pending restock request so the admin Inventory Approval flow
+    // has data to review on a fresh start (the item is out of stock).
+    final restockItem = inventory.firstWhere(
+      (item) => item.id == 'SUP-021',
+      orElse: () => inventory.first,
+    );
+    restockItem.restockRequested = true;
+    restockItem.restockQuantity = 50;
+    restockItem.restockNote =
+        'Out of stock. Needed for daily wound care and surgeries.';
+    restockItem.restockStatus = 'Pending Approval';
   }
 
   void update(

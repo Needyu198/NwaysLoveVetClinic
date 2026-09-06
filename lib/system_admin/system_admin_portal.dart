@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../login/login_page.dart';
 import '../pet_owner/appointment_booking_page.dart';
@@ -8,7 +11,6 @@ import '../staff/staff_portal.dart';
 part 'system_admin_navigation_bar.dart';
 part 'system_admin_dashboard_page.dart';
 part 'system_admin_management_page.dart';
-part 'system_admin_account_page.dart';
 part 'system_admin_widgets.dart';
 part 'system_admin_styles.dart';
 part 'system_admin_models.dart';
@@ -16,6 +18,7 @@ part 'system_admin_users_page.dart';
 part 'system_admin_verification_page.dart';
 part 'system_admin_inventory_page.dart';
 part 'system_admin_audit_page.dart';
+part 'system_admin_profile_page.dart';
 
 class SystemAdminDashboardPage extends StatefulWidget {
   const SystemAdminDashboardPage({super.key});
@@ -39,7 +42,7 @@ class _SystemAdminDashboardPageState extends State<SystemAdminDashboardPage> {
         children: [
           const _AdminDashboardTab(),
           const _AdminManagementTab(),
-          _AdminAccountTab(onLogout: () => _logout(context)),
+          AdminProfileTab(onLogout: () => _logout(context)),
         ],
       ),
       bottomNavigationBar: SystemAdminNavigationBar(

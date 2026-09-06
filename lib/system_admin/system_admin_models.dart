@@ -326,10 +326,7 @@ class DoctorVerificationStore extends ChangeNotifier {
         licenseNumber: 'VET-MM-2023-0450',
         licenseExpiry: DateTime.now().add(const Duration(days: 40)),
         qualifications: 'DVM, MSc Dermatology',
-        documents: [
-          'Veterinary License.pdf',
-          'Dermatology Certificate.pdf',
-        ],
+        documents: ['Veterinary License.pdf', 'Dermatology Certificate.pdf'],
         status: VerificationStatus.underReview,
       ),
     ]);
@@ -451,6 +448,129 @@ class AuditLogStore extends ChangeNotifier {
         reason: reason,
       ),
     );
+    notifyListeners();
+  }
+}
+
+/// A signed-in device/session shown under the admin Security screen.
+class AdminSession {
+  const AdminSession({
+    required this.device,
+    required this.location,
+    required this.lastActive,
+    this.current = false,
+  });
+
+  final String device;
+  final String location;
+  final String lastActive;
+  final bool current;
+}
+
+/// Editable profile of the signed-in administrator. In-memory only (resets on
+/// restart) but reactive so the whole profile UI reflects changes.
+class AdminProfileStore extends ChangeNotifier {
+  AdminProfileStore._();
+
+  static final AdminProfileStore instance = AdminProfileStore._();
+
+  // Editable by the admin.
+  String name = 'Mr. Admin';
+  String email = 'admin@nwaysclinic.com';
+  String phone = '09 400 000 001';
+  String? photoPath;
+
+  // Fixed / managed identity.
+  final String role = 'System Administrator';
+  final String adminId = 'ADM-9001';
+
+  // Security.
+  bool twoFactorEnabled = false;
+  String _password = 'admin1234';
+
+  // Notification preferences.
+  bool approvalAlerts = true;
+  bool emergencyAlerts = true;
+  bool systemAlerts = true;
+  bool reportAlerts = false;
+
+  final List<AdminSession> sessions = const [
+    AdminSession(
+      device: 'This device • Web',
+      location: 'Yangon, MM',
+      lastActive: 'Active now',
+      current: true,
+    ),
+    AdminSession(
+      device: 'iPhone 14 • PawCare app',
+      location: 'Yangon, MM',
+      lastActive: '2 days ago',
+    ),
+    AdminSession(
+      device: 'Windows PC • Chrome',
+      location: 'Mandalay, MM',
+      lastActive: '1 week ago',
+    ),
+  ];
+
+  bool get passwordIsSet => _password.isNotEmpty;
+
+  void save({
+    required String name,
+    required String email,
+    required String phone,
+    required String? photoPath,
+  }) {
+    this.name = name;
+    this.email = email;
+    this.phone = phone;
+    this.photoPath = photoPath;
+    AuditLogStore.instance.record(
+      action: 'Updated profile',
+      module: 'Admin Profile',
+      record: '$name ($adminId)',
+      newValue: '$email • $phone',
+      reason: 'Self-service profile edit',
+    );
+    notifyListeners();
+  }
+
+  void setTwoFactor(bool enabled) {
+    twoFactorEnabled = enabled;
+    AuditLogStore.instance.record(
+      action: enabled ? 'Enabled two-factor auth' : 'Disabled two-factor auth',
+      module: 'Admin Profile',
+      record: '$name ($adminId)',
+      newValue: enabled ? 'Two-factor ON' : 'Two-factor OFF',
+      reason: 'Security preference change',
+    );
+    notifyListeners();
+  }
+
+  bool changePassword(String current, String next) {
+    if (current != _password) return false;
+    _password = next;
+    AuditLogStore.instance.record(
+      action: 'Changed password',
+      module: 'Admin Profile',
+      record: '$name ($adminId)',
+      newValue: 'Password updated',
+      reason: 'Self-service password change',
+    );
+    notifyListeners();
+    return true;
+  }
+
+  void updateNotifications({
+    bool? approvals,
+    bool? emergency,
+    bool? system,
+    bool? report,
+  }) {
+    if (approvals != null) approvalAlerts = approvals;
+    if (emergency != null) emergencyAlerts = emergency;
+    if (system != null) systemAlerts = system;
+    if (report != null) reportAlerts = report;
     notifyListeners();
   }
 }
