@@ -593,7 +593,6 @@ class StaffProfileStore extends ChangeNotifier {
   bool appointmentAlerts = true;
   bool emergencyAlerts = true;
   bool queueAlerts = true;
-  bool paymentAlerts = true;
 
   /// First name used for the dashboard greeting ("Good Morning, Mya").
   String get firstName => name.trim().split(' ').first;
@@ -620,16 +619,10 @@ class StaffProfileStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateNotifications({
-    bool? appointment,
-    bool? emergency,
-    bool? queue,
-    bool? payment,
-  }) {
+  void updateNotifications({bool? appointment, bool? emergency, bool? queue}) {
     if (appointment != null) appointmentAlerts = appointment;
     if (emergency != null) emergencyAlerts = emergency;
     if (queue != null) queueAlerts = queue;
-    if (payment != null) paymentAlerts = payment;
     notifyListeners();
   }
 
@@ -644,7 +637,6 @@ class StaffProfileStore extends ChangeNotifier {
     appointmentAlerts = true;
     emergencyAlerts = true;
     queueAlerts = true;
-    paymentAlerts = true;
     notifyListeners();
   }
 }

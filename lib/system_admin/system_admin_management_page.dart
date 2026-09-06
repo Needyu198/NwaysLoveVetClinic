@@ -1,5 +1,6 @@
 part of 'system_admin_portal.dart';
 
+/// The Management tab is a menu that routes into each admin capability.
 class _AdminManagementTab extends StatelessWidget {
   const _AdminManagementTab();
 
@@ -10,24 +11,54 @@ class _AdminManagementTab extends StatelessWidget {
         const _AdminSimpleHeader(title: 'Management'),
         Expanded(
           child: AnimatedBuilder(
-            animation: AppointmentStore.instance,
+            animation: Listenable.merge([
+              UserAccountStore.instance,
+              DoctorVerificationStore.instance,
+              StaffOperationsStore.instance,
+            ]),
             builder: (context, _) {
-              final appointments = AppointmentStore.instance.appointments;
-              if (appointments.isEmpty) {
-                return const _AdminEmptyState(
-                  icon: Icons.event_busy_outlined,
-                  title: 'No bookings yet',
-                  message: 'Bookings across the clinic will appear here.',
-                );
-              }
-              return ListView.separated(
-                key: const ValueKey('system-admin-bookings'),
+              final pendingUsers = UserAccountStore.instance.pendingCount;
+              final pendingDoctors =
+                  DoctorVerificationStore.instance.pendingCount;
+              final pendingRequests = StaffOperationsStore.instance.inventory
+                  .where((item) => item.restockRequested)
+                  .length;
+              return ListView(
+                key: const ValueKey('system-admin-management'),
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
-                itemCount: appointments.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 12),
-                itemBuilder: (context, index) =>
-                    _AdminAppointmentCard(appointment: appointments[index]),
+                children: [
+                  _AdminMenuTile(
+                    icon: Icons.groups_rounded,
+                    title: 'Users and Roles',
+                    subtitle: 'Accounts, roles and status',
+                    badge: pendingUsers,
+                    keyValue: 'admin-menu-users',
+                    onTap: () => _open(context, const AdminUsersPage()),
+                  ),
+                  _AdminMenuTile(
+                    icon: Icons.verified_user_rounded,
+                    title: 'Doctor Verification',
+                    subtitle: 'Review applications and licenses',
+                    badge: pendingDoctors,
+                    keyValue: 'admin-menu-verification',
+                    onTap: () => _open(context, const AdminVerificationPage()),
+                  ),
+                  _AdminMenuTile(
+                    icon: Icons.inventory_2_rounded,
+                    title: 'Inventory Approval',
+                    subtitle: 'Restock and adjustment requests',
+                    badge: pendingRequests,
+                    keyValue: 'admin-menu-inventory',
+                    onTap: () => _open(context, const AdminInventoryPage()),
+                  ),
+                  _AdminMenuTile(
+                    icon: Icons.receipt_long_rounded,
+                    title: 'Audit Logs',
+                    subtitle: 'Sensitive actions and changes',
+                    keyValue: 'admin-menu-audit',
+                    onTap: () => _open(context, const AdminAuditPage()),
+                  ),
+                ],
               );
             },
           ),
@@ -35,110 +66,98 @@ class _AdminManagementTab extends StatelessWidget {
       ],
     );
   }
+
+  void _open(BuildContext context, Widget page) =>
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
 }
 
-class _AdminAppointmentCard extends StatelessWidget {
-  const _AdminAppointmentCard({required this.appointment});
+class _AdminMenuTile extends StatelessWidget {
+  const _AdminMenuTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.keyValue,
+    required this.onTap,
+    this.badge = 0,
+  });
 
-  final BookedAppointment appointment;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String keyValue;
+  final VoidCallback onTap;
+  final int badge;
 
   @override
-  Widget build(BuildContext context) {
-    final emergency = appointment.status == 'Waiting';
-    final cardColor = emergency ? _adminEmergencyRed : _adminSoftMint;
-    final primaryText = emergency ? Colors.white : Colors.black;
-    final subText = emergency ? Colors.white70 : _adminMuted;
-    return Material(
-      color: cardColor,
-      borderRadius: BorderRadius.circular(26),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: Material(
+      key: ValueKey(keyValue),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(26),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _adminBorder),
+          ),
           child: Row(
             children: [
-              ClipOval(
-                child: Image.asset(
-                  'assets/photos/logoandphoto/nways_photo.png',
-                  width: 52,
-                  height: 52,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topRight,
-                ),
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: _adminSoftMint,
+                foregroundColor: _adminGreen,
+                child: Icon(icon),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${appointment.time} . ${appointment.pet.name}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: primaryText,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Lynn Htet . ${appointment.service.name}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: subText, fontSize: 12),
-                    ),
-                    Text(
-                      appointment.veterinarian,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: subText, fontSize: 12),
+                      subtitle,
+                      style: const TextStyle(color: _adminMuted, fontSize: 12),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _statusLabel(appointment.status),
-                    style: TextStyle(
-                      color: emergency
-                          ? const Color(0xFFFFE14D)
-                          : _statusColor(appointment.status),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+              if (badge > 0) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFB3261E),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$badge',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: primaryText,
-                    size: 22,
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              const Icon(Icons.chevron_right_rounded, color: _adminMuted),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  String _statusLabel(String status) => switch (status) {
-    'Checked In' => 'Checked in',
-    'In Consultation' => 'In consult',
-    _ => status,
-  };
-
-  Color _statusColor(String status) => switch (status) {
-    'Pending' => const Color(0xFF9A5B00),
-    'Confirmed' => const Color(0xFF2358A5),
-    'Checked In' || 'Called' || 'In Consultation' => const Color(0xFF2358A5),
-    'Completed' => const Color(0xFF4D625A),
-    _ => _adminGreen,
-  };
+    ),
+  );
 }

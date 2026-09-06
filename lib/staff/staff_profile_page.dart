@@ -559,13 +559,6 @@ class StaffNotificationSettingsPage extends StatelessWidget {
                     value: p.queueAlerts,
                     onChanged: (v) => p.updateNotifications(queue: v),
                   ),
-                  _NotifSwitch(
-                    icon: Icons.payments_outlined,
-                    title: 'Payment alerts',
-                    subtitle: 'Invoices and payment confirmations.',
-                    value: p.paymentAlerts,
-                    onChanged: (v) => p.updateNotifications(payment: v),
-                  ),
                 ],
               );
             },

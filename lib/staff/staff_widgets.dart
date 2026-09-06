@@ -180,6 +180,44 @@ class _Callout extends StatelessWidget {
   );
 }
 
+/// A centered empty-state (icon + title + message) shared across staff pages.
+class _StaffEmptyState extends StatelessWidget {
+  const _StaffEmptyState({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 52, color: _muted),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: _muted),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _EmptyCard extends StatelessWidget {
   const _EmptyCard({required this.icon, required this.text});
   final IconData icon;

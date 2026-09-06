@@ -3,7 +3,6 @@ part of 'system_admin_portal.dart';
 const _adminMint = Color(0xFFA1FDD8);
 const _adminSoftMint = Color(0xFFCFFBE8);
 const _adminGreen = Color(0xFF15835F);
-const _adminEmergencyRed = Color(0xFFEF2734);
 const _adminMuted = Color(0xFF62716C);
 const _adminBorder = Color(0xFFD7E5DF);
 
@@ -19,6 +18,30 @@ String _greeting() {
   if (hour < 12) return 'Good Morning';
   if (hour < 17) return 'Good Afternoon';
   return 'Good Evening';
+}
+
+void _adminNotice(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}
+
+String _shortDay(DateTime date) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${date.day} ${months[date.month - 1]} ${date.year}';
 }
 
 String _dashboardDate(DateTime date) {

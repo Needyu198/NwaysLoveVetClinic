@@ -674,16 +674,45 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('Mr.Admin'), findsOneWidget);
-    expect(find.text('Quick Actions'), findsOneWidget);
+    expect(find.text('System Overview'), findsOneWidget);
+    expect(find.text('Pending Approvals'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('system-admin-navigation-bar')),
       findsOneWidget,
     );
 
-    // Account tab still exposes the administrator identity and logout.
+    // Management tab routes into the admin capabilities.
+    await tester.tap(find.byKey(const ValueKey('system-admin-bookings-tab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('admin-menu-users')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('admin-menu-verification')),
+      findsOneWidget,
+    );
+
+    // Users and Roles list opens with search + filters.
+    await tester.tap(find.byKey(const ValueKey('admin-menu-users')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('admin-users-list')), findsOneWidget);
+    expect(find.byKey(const ValueKey('admin-users-search')), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
+
+    // Doctor Verification shows pending applications.
+    await tester.tap(find.byKey(const ValueKey('admin-menu-verification')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('admin-verification-list')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
+
+    // Profile tab still exposes the administrator identity and logout.
     await tester.tap(find.byKey(const ValueKey('system-admin-account-tab')));
     await tester.pumpAndSettle();
-    expect(find.text('System Administrator'), findsOneWidget);
+    expect(find.text('System Administrator'), findsWidgets);
+    expect(find.text('Mr. Admin'), findsWidgets);
     expect(find.byKey(const ValueKey('system-admin-logout')), findsOneWidget);
   });
 
@@ -980,6 +1009,53 @@ void main() {
     expect(find.byKey(const ValueKey('staff-set-reminder')), findsOneWidget);
     ReminderStore.instance.reset();
     OwnerNotificationStore.instance.clear();
+  });
+
+  testWidgets('staff emergency page filters and advances a case', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    EmergencyRequestStore.instance.clear();
+    final request = EmergencyRequest(
+      id: 'STAFF-EMG-1',
+      createdAt: DateTime.now(),
+      pet: const EmergencyPet(
+        name: 'Rocky',
+        breed: 'Beagle',
+        age: '2 years',
+        medicalHistory: 'None',
+        color: Colors.red,
+      ),
+      symptoms: const ['Vomiting'],
+      description: 'Sudden vomiting',
+      contactPerson: 'Owner',
+      phone: '09-123',
+    );
+    EmergencyRequestStore.instance.add(request);
+
+    await tester.pumpWidget(const MaterialApp(home: StaffEmergencyPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Emergency Cases'), findsOneWidget);
+    expect(find.byKey(const ValueKey('staff-emergency-list')), findsOneWidget);
+    expect(find.text('Rocky'), findsOneWidget);
+
+    // Start review, then assign & accept.
+    await tester.tap(
+      find.byKey(const ValueKey('emergency-review-STAFF-EMG-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(request.status, EmergencyStatus.underReview);
+    await tester.tap(
+      find.byKey(const ValueKey('emergency-accept-STAFF-EMG-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(request.status, EmergencyStatus.accepted);
+    EmergencyRequestStore.instance.clear();
   });
 
   testWidgets('staff live queue shows filters and calls a waiting patient', (
