@@ -134,7 +134,6 @@ class _HeroPetSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 520,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -153,6 +152,7 @@ class _HeroPetSection extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
@@ -209,8 +209,9 @@ class _HeroPetSection extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 22),
-            const SizedBox(height: 224, child: _PetCarousel()),
+            const SizedBox(height: 18),
+            const SizedBox(height: 200, child: _PetCarousel()),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -287,10 +288,10 @@ class _PetCarousel extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.only(left: 28, right: 28, bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 4),
       children: [
         for (final pet in _pets) ...[
-          _PetCard(profile: pet),
+          Center(child: _PetCard(profile: pet)),
           if (pet != _pets.last) const SizedBox(width: 16),
         ],
       ],
@@ -316,6 +317,7 @@ class _PetCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         child: Ink(
           width: 174,
+          height: 168,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(28),

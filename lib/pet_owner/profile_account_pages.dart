@@ -188,7 +188,7 @@ class VaccinationSummaryPage extends StatefulWidget {
 }
 
 class _VaccinationSummaryPageState extends State<VaccinationSummaryPage> {
-  late String _petName = ProfilePetStore.instance.pets.first.name;
+  late String _petName = ProfilePetStore.instance.firstPetName;
   final Set<String> _reminders = {};
 
   @override
@@ -268,7 +268,7 @@ class TreatmentHistoryPage extends StatefulWidget {
 }
 
 class _TreatmentHistoryPageState extends State<TreatmentHistoryPage> {
-  late String _petName = ProfilePetStore.instance.pets.first.name;
+  late String _petName = ProfilePetStore.instance.firstPetName;
 
   @override
   Widget build(BuildContext context) {
@@ -327,7 +327,7 @@ class ProfileMedicalRecordsPage extends StatefulWidget {
 }
 
 class _ProfileMedicalRecordsPageState extends State<ProfileMedicalRecordsPage> {
-  late String _petName = ProfilePetStore.instance.pets.first.name;
+  late String _petName = ProfilePetStore.instance.firstPetName;
   MedicalRecordCategory _category = MedicalRecordCategory.all;
   String _query = '';
   String _dateFilter = 'All dates';
@@ -1375,25 +1375,32 @@ class _PetSelector extends StatelessWidget {
   final String value;
   final ValueChanged<String> onChanged;
   @override
-  Widget build(BuildContext context) => DropdownButtonFormField<String>(
-    key: const ValueKey('medical-pet-selector'),
-    initialValue: value,
-    decoration: const InputDecoration(
-      labelText: 'Select Pet',
-      border: OutlineInputBorder(),
-    ),
-    items: ProfilePetStore.instance.pets
-        .map(
-          (pet) => DropdownMenuItem(
-            value: pet.name,
-            child: Text('${pet.name} • ${pet.type}'),
-          ),
-        )
-        .toList(),
-    onChanged: (selected) {
-      if (selected != null) onChanged(selected);
-    },
-  );
+  Widget build(BuildContext context) {
+    final pets = ProfilePetStore.instance.pets;
+    // Only use the current value if it matches an existing pet, otherwise the
+    // dropdown asserts. Empty/unknown selections fall back to a null value.
+    final hasValue = pets.any((pet) => pet.name == value);
+    return DropdownButtonFormField<String>(
+      key: const ValueKey('medical-pet-selector'),
+      initialValue: hasValue ? value : null,
+      decoration: const InputDecoration(
+        labelText: 'Select Pet',
+        border: OutlineInputBorder(),
+      ),
+      hint: const Text('Select Pet'),
+      items: pets
+          .map(
+            (pet) => DropdownMenuItem(
+              value: pet.name,
+              child: Text('${pet.name} • ${pet.type}'),
+            ),
+          )
+          .toList(),
+      onChanged: (selected) {
+        if (selected != null) onChanged(selected);
+      },
+    );
+  }
 }
 
 class _ReadOnlyNotice extends StatelessWidget {

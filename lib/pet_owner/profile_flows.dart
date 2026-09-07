@@ -254,6 +254,10 @@ class ProfilePetStore extends ChangeNotifier {
 
   List<ProfilePet> get pets => List.unmodifiable(_pets);
 
+  /// First pet's name, or an empty string when there are no pets yet.
+  /// Used to seed pet-selector screens without crashing on an empty list.
+  String get firstPetName => _pets.isEmpty ? '' : _pets.first.name;
+
   bool isDuplicate(ProfilePet pet) => _pets.any(
     (item) =>
         item.name.toLowerCase() == pet.name.toLowerCase() &&
@@ -288,6 +292,12 @@ class _EditOwnerProfilePageState extends State<EditOwnerProfilePage> {
   late final TextEditingController _address;
   late DateTime _dateOfBirth;
   late String _gender;
+  static const _genderOptions = [
+    'Female',
+    'Male',
+    'Other',
+    'Prefer not to say',
+  ];
   String? _photoSource;
   late final OwnerProfileData _original;
 
@@ -390,12 +400,13 @@ class _EditOwnerProfilePageState extends State<EditOwnerProfilePage> {
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 key: const ValueKey('edit-owner-gender'),
-                initialValue: _gender,
+                initialValue: _genderOptions.contains(_gender) ? _gender : null,
                 decoration: const InputDecoration(
                   labelText: 'Gender *',
                   border: OutlineInputBorder(),
                 ),
-                items: const ['Female', 'Male', 'Other', 'Prefer not to say']
+                hint: const Text('Select gender'),
+                items: _genderOptions
                     .map(
                       (value) =>
                           DropdownMenuItem(value: value, child: Text(value)),

@@ -9,13 +9,15 @@ class DatabaseStatus extends StatelessWidget {
     animation: DatabaseSync.instance,
     builder: (context, _) {
       final sync = DatabaseSync.instance;
+      // Only surface the status bar when there is a real sync error the user
+      // needs to act on. The routine "Changes saved / Refresh" banner is
+      // hidden to keep the top of every page clean.
+      final showBar = sync.active && sync.error != null;
       return Column(
         children: [
-          if (sync.active)
+          if (showBar)
             Material(
-              color: sync.error != null
-                  ? const Color(0xFFFFE3DF)
-                  : const Color(0xFFEAF8F0),
+              color: const Color(0xFFFFE3DF),
               child: SafeArea(
                 bottom: false,
                 child: Padding(
@@ -24,10 +26,7 @@ class DatabaseStatus extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          sync.error ??
-                              (sync.pending
-                                  ? 'Saving changes…'
-                                  : 'Changes saved'),
+                          sync.error ?? '',
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
@@ -71,7 +70,7 @@ class DatabaseStatus extends StatelessWidget {
                             /* State displays the error. */
                           }
                         },
-                        child: Text(sync.error != null ? 'Retry' : 'Refresh'),
+                        child: const Text('Retry'),
                       ),
                     ],
                   ),

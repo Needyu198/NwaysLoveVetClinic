@@ -37,6 +37,7 @@ class PetOwnerNavBar extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: _NavTabButton(
@@ -103,6 +104,8 @@ class _NavTabButton extends StatelessWidget {
     if (!selected) {
       return IconButton(
         onPressed: onTap,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
         icon: Image.asset(
           assetPath,
           width: iconSize,
@@ -218,6 +221,8 @@ class _NavIconButton extends StatelessWidget {
     return Expanded(
       child: IconButton(
         onPressed: onTap,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
         icon: Image.asset(
           assetPath,
           width: size,

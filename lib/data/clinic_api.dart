@@ -14,10 +14,17 @@ class ClinicApi {
   ClinicApi._();
   static final instance = ClinicApi._();
   static const configuredUrl = String.fromEnvironment('API_BASE_URL');
+  // LAN IP of the machine running the backend. Used by physical iOS/Android
+  // devices, which cannot reach the host via 127.0.0.1.
+  static const lanUrl = 'http://10.120.209.24:5050';
   String get baseUrl => configuredUrl.isNotEmpty
       ? configuredUrl.replaceAll(RegExp(r'/$'), '')
       : !kIsWeb && defaultTargetPlatform == TargetPlatform.android
       ? 'http://10.0.2.2:5050'
+      : !kIsWeb &&
+            (defaultTargetPlatform == TargetPlatform.iOS ||
+                defaultTargetPlatform == TargetPlatform.android)
+      ? lanUrl
       : 'http://127.0.0.1:5050';
   @visibleForTesting
   http.Client Function()? clientFactory;
