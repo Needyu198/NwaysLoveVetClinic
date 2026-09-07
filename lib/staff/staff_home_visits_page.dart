@@ -318,6 +318,7 @@ class _StaffHomeVisitDetailPageState extends State<StaffHomeVisitDetailPage> {
     }
     OwnerNotificationStore.instance.push(
       'Home visit doctor assigned',
+      ownerId: databaseOwnerOf(widget.visit),
       '$_doctor is assigned to ${widget.visit.pet.name}\u2019s home visit and is on the way.',
     );
     Navigator.pop(context);

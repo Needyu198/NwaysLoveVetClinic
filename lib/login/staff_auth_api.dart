@@ -1,3 +1,5 @@
+import '../data/clinic_api.dart';
+
 class StaffAuthApi {
   const StaffAuthApi();
 
@@ -14,10 +16,16 @@ class StaffAuthApi {
     required String username,
     required String password,
   }) async {
-    if (handlesIdentifier(username) && password == demoPassword) {
-      return const StaffLoginResult.success();
+    try {
+      final role = await ClinicApi.instance.login(username, password);
+      if (role == 'staff') return const StaffLoginResult.success();
+      await ClinicApi.instance.logout();
+      return const StaffLoginResult.failure(
+        'This account has a different role.',
+      );
+    } catch (e) {
+      return StaffLoginResult.failure(e.toString());
     }
-    return const StaffLoginResult.failure('Invalid staff email or password.');
   }
 }
 

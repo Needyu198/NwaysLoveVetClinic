@@ -1,3 +1,4 @@
+import '../data/database_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -404,6 +405,21 @@ class SavedFirstAidGuidesPage extends StatelessWidget {
 }
 
 class FirstAidSavedStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'saved_first_aid_guides',
+      this,
+      () => {
+        for (final id in _savedIds) id: {'id': id},
+      },
+      (rows) {
+        _savedIds
+          ..clear()
+          ..addAll(rows.keys);
+      },
+    );
+  }
+
   FirstAidSavedStore._();
 
   static final instance = FirstAidSavedStore._();

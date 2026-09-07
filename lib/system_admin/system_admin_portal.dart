@@ -1,3 +1,5 @@
+import 'dart:convert';
+import '../data/database_sync.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -72,6 +74,17 @@ class _SystemAdminDashboardPageState extends State<SystemAdminDashboardPage> {
       ),
     );
     if (confirmed == true && context.mounted) {
+      try {
+        await DatabaseSync.instance.stop();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.toString())));
+        }
+        return;
+      }
+      if (!context.mounted) return;
       Navigator.of(
         context,
       ).pushNamedAndRemoveUntil(LoginPage.routeName, (_) => false);

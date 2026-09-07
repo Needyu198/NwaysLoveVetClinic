@@ -1,3 +1,6 @@
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:senior_project/data/clinic_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -47,7 +50,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.pumpWidget(
+      const NwayLoveVetClinicApp(
+        doctorAuthApi: _TestDoctorAuthApi(),
+        staffAuthApi: _TestStaffAuthApi(),
+        systemAdminAuthApi: _TestAdminAuthApi(),
+      ),
+    );
     await tester.tap(find.text('Log in'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -64,13 +73,25 @@ void main() {
   }
 
   testWidgets('shows login screen', (WidgetTester tester) async {
-    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.pumpWidget(
+      const NwayLoveVetClinicApp(
+        doctorAuthApi: _TestDoctorAuthApi(),
+        staffAuthApi: _TestStaffAuthApi(),
+        systemAdminAuthApi: _TestAdminAuthApi(),
+      ),
+    );
 
     expect(find.text('Log in'), findsOneWidget);
   });
 
   testWidgets('login button opens sign in panel', (WidgetTester tester) async {
-    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.pumpWidget(
+      const NwayLoveVetClinicApp(
+        doctorAuthApi: _TestDoctorAuthApi(),
+        staffAuthApi: _TestStaffAuthApi(),
+        systemAdminAuthApi: _TestAdminAuthApi(),
+      ),
+    );
 
     await tester.tap(find.text('Log in'));
     await tester.pumpAndSettle();
@@ -87,7 +108,13 @@ void main() {
   testWidgets('phone icon switches contact field mode', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.pumpWidget(
+      const NwayLoveVetClinicApp(
+        doctorAuthApi: _TestDoctorAuthApi(),
+        staffAuthApi: _TestStaffAuthApi(),
+        systemAdminAuthApi: _TestAdminAuthApi(),
+      ),
+    );
 
     await tester.tap(find.text('Log in'));
     await tester.pumpAndSettle();
@@ -612,13 +639,18 @@ void main() {
   });
 
   test('doctor authentication rejects incorrect credentials', () async {
+    ClinicApi.instance.clientFactory = () => MockClient(
+      (_) async =>
+          http.Response('{"message":"Invalid username or password."}', 401),
+    );
+    addTearDown(() => ClinicApi.instance.clientFactory = null);
     const api = DoctorAuthApi();
     final result = await api.login(
       username: DoctorAuthApi.demoEmail,
       password: 'wrong-password',
     );
     expect(result.isSuccess, isFalse);
-    expect(result.message, 'Invalid doctor username or password.');
+    expect(result.message, 'Invalid username or password.');
   });
 
   testWidgets('doctor availability uses a compact time selector', (
@@ -655,7 +687,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.pumpWidget(
+      const NwayLoveVetClinicApp(
+        doctorAuthApi: _TestDoctorAuthApi(),
+        staffAuthApi: _TestStaffAuthApi(),
+        systemAdminAuthApi: _TestAdminAuthApi(),
+      ),
+    );
     await tester.tap(find.text('Log in'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -724,7 +762,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.pumpWidget(
+      const NwayLoveVetClinicApp(
+        doctorAuthApi: _TestDoctorAuthApi(),
+        staffAuthApi: _TestStaffAuthApi(),
+        systemAdminAuthApi: _TestAdminAuthApi(),
+      ),
+    );
     await tester.tap(find.text('Log in'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -785,7 +829,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.pumpWidget(
+      const NwayLoveVetClinicApp(
+        doctorAuthApi: _TestDoctorAuthApi(),
+        staffAuthApi: _TestStaffAuthApi(),
+        systemAdminAuthApi: _TestAdminAuthApi(),
+      ),
+    );
     await tester.tap(find.text('Log in'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -833,7 +883,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.pumpWidget(
+      const NwayLoveVetClinicApp(
+        doctorAuthApi: _TestDoctorAuthApi(),
+        staffAuthApi: _TestStaffAuthApi(),
+        systemAdminAuthApi: _TestAdminAuthApi(),
+      ),
+    );
     await tester.tap(find.text('Log in'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -924,7 +980,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.pumpWidget(
+      const NwayLoveVetClinicApp(
+        doctorAuthApi: _TestDoctorAuthApi(),
+        staffAuthApi: _TestStaffAuthApi(),
+        systemAdminAuthApi: _TestAdminAuthApi(),
+      ),
+    );
     await tester.tap(find.text('Log in'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -1008,7 +1070,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.pumpWidget(
+      const NwayLoveVetClinicApp(
+        doctorAuthApi: _TestDoctorAuthApi(),
+        staffAuthApi: _TestStaffAuthApi(),
+        systemAdminAuthApi: _TestAdminAuthApi(),
+      ),
+    );
     await tester.tap(find.text('Log in'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -1090,7 +1158,13 @@ void main() {
     );
     HomeVisitStore.instance.add(visit);
 
-    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    await tester.pumpWidget(
+      const NwayLoveVetClinicApp(
+        doctorAuthApi: _TestDoctorAuthApi(),
+        staffAuthApi: _TestStaffAuthApi(),
+        systemAdminAuthApi: _TestAdminAuthApi(),
+      ),
+    );
     await tester.tap(find.text('Log in'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -2902,7 +2976,13 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(const NwayLoveVetClinicApp());
+      await tester.pumpWidget(
+        const NwayLoveVetClinicApp(
+          doctorAuthApi: _TestDoctorAuthApi(),
+          staffAuthApi: _TestStaffAuthApi(),
+          systemAdminAuthApi: _TestAdminAuthApi(),
+        ),
+      );
 
       expect(find.text('Log in'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -2920,4 +3000,33 @@ class _SuccessfulPetOwnerAuthApi extends PetOwnerAuthApi {
   }) async {
     return const PetOwnerLoginResult.success();
   }
+}
+
+// Widget navigation tests inject authentication; PostgreSQL auth is covered by
+// the backend integration suite and transport rejection test above.
+class _TestDoctorAuthApi extends DoctorAuthApi {
+  const _TestDoctorAuthApi();
+  @override
+  Future<DoctorLoginResult> login({
+    required String username,
+    required String password,
+  }) async => const DoctorLoginResult.success();
+}
+
+class _TestStaffAuthApi extends StaffAuthApi {
+  const _TestStaffAuthApi();
+  @override
+  Future<StaffLoginResult> login({
+    required String username,
+    required String password,
+  }) async => const StaffLoginResult.success();
+}
+
+class _TestAdminAuthApi extends SystemAdminAuthApi {
+  const _TestAdminAuthApi();
+  @override
+  Future<SystemAdminLoginResult> login({
+    required String username,
+    required String password,
+  }) async => const SystemAdminLoginResult.success();
 }

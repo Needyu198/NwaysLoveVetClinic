@@ -1,3 +1,4 @@
+import '../data/database_sync.dart';
 import 'package:flutter/material.dart';
 
 import 'pet_add_reminder_page.dart' show ReminderType;
@@ -5,6 +6,30 @@ export 'pet_add_reminder_page.dart' show ReminderType;
 
 /// A pet-care reminder, created either by the pet owner or by clinic staff.
 class PetReminder {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'title': title,
+    'type': type.name,
+    'dateTime': dateTime.toIso8601String(),
+    'note': note,
+    'petName': petName,
+    'createdByStaff': createdByStaff,
+    'completed': completed,
+  };
+  static PetReminder fromDb(Map<String, dynamic> data) {
+    final value = PetReminder(
+      id: data['id'] as String,
+      title: data['title'] as String,
+      type: ReminderType.values.byName(data['type'] as String),
+      dateTime: DateTime.parse(data['dateTime'] as String),
+      note: data['note'] as String,
+      petName: data['petName'] == null ? null : data['petName'] as String,
+      createdByStaff: data['createdByStaff'] as bool,
+      completed: data['completed'] as bool,
+    );
+    return value;
+  }
+
   PetReminder({
     required this.id,
     required this.title,
@@ -29,6 +54,26 @@ class PetReminder {
 /// Shared reminder store used by both the pet-owner reminder screens and the
 /// staff side (staff can schedule follow-up reminders for an owner).
 class ReminderStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'reminders',
+      this,
+      () => {
+        for (final item in _reminders)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _reminders
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(PetReminder.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   ReminderStore._() {
     _seed();
   }
@@ -57,6 +102,7 @@ class ReminderStore extends ChangeNotifier {
     String note = '',
     String? petName,
     bool createdByStaff = false,
+    String? ownerId,
   }) {
     final reminder = PetReminder(
       id: 'REM-${DateTime.now().microsecondsSinceEpoch}',
@@ -67,6 +113,7 @@ class ReminderStore extends ChangeNotifier {
       petName: petName,
       createdByStaff: createdByStaff,
     );
+    databaseAssignOwner(reminder, reminder.id, ownerId);
     add(reminder);
     return reminder;
   }
@@ -117,6 +164,24 @@ class ReminderStore extends ChangeNotifier {
 /// A notification shown to the pet owner, typically raised by staff actions
 /// (appointment confirmed/rescheduled/cancelled, doctor assigned, queue call).
 class OwnerNotification {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'title': title,
+    'message': message,
+    'createdAt': createdAt.toIso8601String(),
+    'read': read,
+  };
+  static OwnerNotification fromDb(Map<String, dynamic> data) {
+    final value = OwnerNotification(
+      id: data['id'] as String,
+      title: data['title'] as String,
+      message: data['message'] as String,
+      createdAt: DateTime.parse(data['createdAt'] as String),
+      read: data['read'] as bool,
+    );
+    return value;
+  }
+
   OwnerNotification({
     required this.id,
     required this.title,
@@ -135,6 +200,27 @@ class OwnerNotification {
 /// Shared owner-facing notification feed. Staff actions push into it; the pet
 /// owner reads it from their notifications screen.
 class OwnerNotificationStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'owner_notifications',
+      this,
+      () => {
+        for (final item in _items)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _items
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) =>
+                  databaseRestoreKey(OwnerNotification.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   OwnerNotificationStore._();
 
   static final OwnerNotificationStore instance = OwnerNotificationStore._();
@@ -145,15 +231,14 @@ class OwnerNotificationStore extends ChangeNotifier {
       List.unmodifiable(_items.reversed);
   int get unreadCount => _items.where((n) => !n.read).length;
 
-  void push(String title, String message) {
-    _items.add(
-      OwnerNotification(
-        id: 'NOTIF-${DateTime.now().microsecondsSinceEpoch}',
-        title: title,
-        message: message,
-        createdAt: DateTime.now(),
-      ),
+  void push(String title, String message, {String? ownerId}) {
+    final notification = OwnerNotification(
+      id: 'NOTIF-${DateTime.now().microsecondsSinceEpoch}',
+      title: title,
+      message: message,
+      createdAt: DateTime.now(),
     );
+    _items.add(databaseAssignOwner(notification, notification.id, ownerId));
     notifyListeners();
   }
 

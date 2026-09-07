@@ -57,7 +57,7 @@ class AccountAuthApi {
       password: password,
     );
     return result.isSuccess
-        ? const AccountLoginResult.success(AccountRole.petOwner)
+        ? AccountLoginResult.success(AccountRole.values.byName(result.role))
         : AccountLoginResult.failure(result.message);
   }
 }

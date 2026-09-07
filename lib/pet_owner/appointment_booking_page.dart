@@ -1,3 +1,7 @@
+import '../data/clinic_api.dart';
+import '../data/clinic_directory.dart';
+import 'profile_flows.dart';
+import '../data/database_sync.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -97,6 +101,28 @@ class MyAppointmentsPage extends StatelessWidget {
 }
 
 class AppointmentStore extends ChangeNotifier {
+  void databaseChanged() => notifyListeners();
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'appointments',
+      this,
+      () => {
+        for (final item in _appointments)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _appointments
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) =>
+                  databaseRestoreKey(BookedAppointment.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   AppointmentStore._();
 
   static final instance = AppointmentStore._();
@@ -273,6 +299,41 @@ class AppointmentStore extends ChangeNotifier {
 enum QueueStatus { waiting, almostTurn, called, inConsultation, completed }
 
 class QueueEntry {
+  Map<String, dynamic> toDb() => {
+    'appointment': appointment.toDb(),
+    'queueNumber': queueNumber,
+    'status': status.name,
+    'petsAhead': petsAhead,
+    'estimatedWaitMinutes': estimatedWaitMinutes,
+    'room': room,
+    'consultationSummary': consultationSummary,
+    'diagnosis': diagnosis,
+    'treatment': treatment,
+    'prescription': prescription,
+    'recommendations': recommendations,
+  };
+  static QueueEntry fromDb(Map<String, dynamic> data) {
+    final value = QueueEntry(
+      appointment: AppointmentStore.instance.appointments.firstWhere(
+        (a) => a.id == (data['appointment'] as Map)['id'],
+        orElse: () => BookedAppointment.fromDb(
+          Map<String, dynamic>.from(data['appointment'] as Map),
+        ),
+      ),
+      queueNumber: data['queueNumber'] as String,
+      status: QueueStatus.values.byName(data['status'] as String),
+      petsAhead: data['petsAhead'] as int,
+      estimatedWaitMinutes: data['estimatedWaitMinutes'] as int,
+      room: data['room'] as String,
+    );
+    value.consultationSummary = data['consultationSummary'] as String;
+    value.diagnosis = data['diagnosis'] as String;
+    value.treatment = data['treatment'] as String;
+    value.prescription = data['prescription'] as String;
+    value.recommendations = data['recommendations'] as String;
+    return value;
+  }
+
   QueueEntry({
     required this.appointment,
     required this.queueNumber,
@@ -296,6 +357,26 @@ class QueueEntry {
 }
 
 class QueueStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'queue_entries',
+      this,
+      () => {
+        for (final item in _entries)
+          databaseRecordKey(item, item.appointment.id): item.toDb(),
+      },
+      (rows) {
+        _entries
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(QueueEntry.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   QueueStore._();
 
   static final instance = QueueStore._();
@@ -311,6 +392,7 @@ class QueueStore extends ChangeNotifier {
   );
 
   void syncConfirmedAppointments(Iterable<BookedAppointment> appointments) {
+    final before = _entries.length;
     for (final appointment in appointments) {
       if (appointment.service.homeVisit ||
           !const {'Pending', 'Confirmed'}.contains(appointment.status) ||
@@ -324,6 +406,7 @@ class QueueStore extends ChangeNotifier {
         ),
       );
     }
+    if (_entries.length != before) scheduleMicrotask(notifyListeners);
   }
 
   QueueEntry? entryFor(BookedAppointment appointment) {
@@ -410,6 +493,46 @@ class QueueStore extends ChangeNotifier {
 }
 
 class BookedAppointment {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'createdAt': createdAt.toIso8601String(),
+    'pet': pet.toDb(),
+    'service': service.toDb(),
+    'veterinarian': veterinarian,
+    'date': date.toIso8601String(),
+    'time': time,
+    'symptoms': symptoms,
+    'reason': reason,
+    'notes': notes,
+    'address': address,
+    'status': status,
+    'cancellation': cancellation?.toDb(),
+  };
+  static BookedAppointment fromDb(Map<String, dynamic> data) {
+    final value = BookedAppointment(
+      id: data['id'] as String,
+      createdAt: DateTime.parse(data['createdAt'] as String),
+      pet: BookingPet.fromDb(Map<String, dynamic>.from(data['pet'] as Map)),
+      service: BookingService.fromDb(
+        Map<String, dynamic>.from(data['service'] as Map),
+      ),
+      veterinarian: data['veterinarian'] as String,
+      date: DateTime.parse(data['date'] as String),
+      time: data['time'] as String,
+      symptoms: data['symptoms'] as String,
+      reason: data['reason'] as String,
+      notes: data['notes'] as String,
+      address: data['address'] as String,
+      status: data['status'] as String,
+      cancellation: data['cancellation'] == null
+          ? null
+          : BookingCancellation.fromDb(
+              Map<String, dynamic>.from(data['cancellation'] as Map),
+            ),
+    );
+    return value;
+  }
+
   BookedAppointment({
     required this.id,
     required this.createdAt,
@@ -446,6 +569,34 @@ enum CancellationInitiator { owner, staff }
 enum RefundStatus { notApplicable, pending, completed, failed }
 
 class BookingCancellation {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'reason': reason,
+    'additionalReason': additionalReason,
+    'cancelledAt': cancelledAt.toIso8601String(),
+    'cancellationFee': cancellationFee,
+    'refundAmount': refundAmount,
+    'refundStatus': refundStatus.name,
+    'initiatedBy': initiatedBy.name,
+    'notificationsSent': notificationsSent,
+  };
+  static BookingCancellation fromDb(Map<String, dynamic> data) {
+    final value = BookingCancellation(
+      id: data['id'] as String,
+      reason: data['reason'] as String,
+      additionalReason: data['additionalReason'] as String,
+      cancelledAt: DateTime.parse(data['cancelledAt'] as String),
+      cancellationFee: data['cancellationFee'] as int,
+      refundAmount: data['refundAmount'] as int,
+      refundStatus: RefundStatus.values.byName(data['refundStatus'] as String),
+      initiatedBy: CancellationInitiator.values.byName(
+        data['initiatedBy'] as String,
+      ),
+      notificationsSent: data['notificationsSent'] as bool,
+    );
+    return value;
+  }
+
   const BookingCancellation({
     required this.id,
     required this.reason,
@@ -482,6 +633,26 @@ class CancellationEligibility {
 }
 
 class BookingPet {
+  Map<String, dynamic> toDb() => {
+    'name': name,
+    'species': species,
+    'breed': breed,
+    'age': age,
+    'icon': icon.codePoint,
+    'color': color.toARGB32(),
+  };
+  static BookingPet fromDb(Map<String, dynamic> data) {
+    final value = BookingPet(
+      name: data['name'] as String,
+      species: data['species'] as String,
+      breed: data['breed'] as String,
+      age: data['age'] as String,
+      icon: databaseIcon(data['icon'] as int),
+      color: Color(data['color'] as int),
+    );
+    return value;
+  }
+
   const BookingPet({
     required this.name,
     required this.species,
@@ -500,6 +671,24 @@ class BookingPet {
 }
 
 class BookingService {
+  Map<String, dynamic> toDb() => {
+    'name': name,
+    'description': description,
+    'icon': icon.codePoint,
+    'homeVisit': homeVisit,
+    'doctors': doctors.map((v) => v).toList(),
+  };
+  static BookingService fromDb(Map<String, dynamic> data) {
+    final value = BookingService(
+      name: data['name'] as String,
+      description: data['description'] as String,
+      icon: databaseIcon(data['icon'] as int),
+      homeVisit: data['homeVisit'] as bool,
+      doctors: (data['doctors'] as List).map((v) => v as String).toList(),
+    );
+    return value;
+  }
+
   const BookingService({
     required this.name,
     required this.description,
@@ -1250,7 +1439,21 @@ class _EmptyQueue extends StatelessWidget {
 }
 
 class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
-  static const _pets = [
+  List<BookingPet> get _pets => ClinicApi.instance.token == null
+      ? _demoPets
+      : ProfilePetStore.instance.pets
+            .map(
+              (p) => BookingPet(
+                name: p.name,
+                species: p.type,
+                breed: p.breed,
+                age: '${p.ageYears} years',
+                icon: Icons.pets_rounded,
+                color: const Color(0xFF2F80FF),
+              ),
+            )
+            .toList();
+  static const _demoPets = [
     BookingPet(
       name: 'Max',
       species: 'Dog',
@@ -1277,7 +1480,20 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
     ),
   ];
 
-  static const _services = [
+  List<BookingService> get _services => ClinicApi.instance.token == null
+      ? _demoServices
+      : _demoServices
+            .map(
+              (s) => BookingService(
+                name: s.name,
+                description: s.description,
+                icon: s.icon,
+                homeVisit: s.homeVisit,
+                doctors: ClinicDirectory.instance.doctors,
+              ),
+            )
+            .toList();
+  static const _demoServices = [
     BookingService(
       name: 'General Checkup',
       description: 'Routine examination and health consultation.',
@@ -1885,9 +2101,8 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       return;
     }
 
-    final suffix = DateTime.now().millisecondsSinceEpoch.toString();
     final appointment = BookedAppointment(
-      id: 'NWAY${suffix.substring(suffix.length - 7)}',
+      id: 'NWAY${DateTime.now().microsecondsSinceEpoch}',
       createdAt: DateTime.now(),
       pet: _pet!,
       service: _service!,

@@ -1,3 +1,4 @@
+import '../data/database_sync.dart';
 import 'package:flutter/material.dart';
 
 import '../doctor/doctor_portal.dart';
@@ -62,6 +63,29 @@ class HistoryRecord {
 }
 
 class HistoryReviewStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'history_reviews',
+      this,
+      () => {
+        for (final e in _reviews.entries)
+          e.key: {'rating': e.value.rating, 'review': e.value.review},
+      },
+      (rows) {
+        _reviews
+          ..clear()
+          ..addAll(
+            rows.map(
+              (key, value) => MapEntry(key, (
+                rating: value['rating'] as int,
+                review: value['review'] as String,
+              )),
+            ),
+          );
+      },
+    );
+  }
+
   HistoryReviewStore._();
 
   static final instance = HistoryReviewStore._();

@@ -231,6 +231,21 @@ class StaffPatientDetailPage extends StatelessWidget {
   );
 
   Future<void> _setReminder(BuildContext context, String owner) async {
+    final matches = StaffOperationsStore.instance.appointments
+        .where((a) => a.pet == petName && a.source != null)
+        .toList();
+    final ownerIds = matches
+        .map((a) => databaseOwnerOf(a.source))
+        .whereType<String>()
+        .toSet();
+    if (DatabaseSync.instance.active && ownerIds.length != 1) {
+      _notice(
+        context,
+        'Select a patient with one linked owner account before creating a reminder.',
+      );
+      return;
+    }
+    final ownerId = ownerIds.isEmpty ? null : ownerIds.single;
     final title = TextEditingController();
     var type = ReminderType.checkup;
     var date = DateTime.now().add(const Duration(days: 7));
@@ -308,9 +323,11 @@ class StaffPatientDetailPage extends StatelessWidget {
         dateTime: DateTime(date.year, date.month, date.day, 10),
         petName: petName,
         createdByStaff: true,
+        ownerId: ownerId,
       );
       OwnerNotificationStore.instance.push(
         'New reminder from the clinic',
+        ownerId: ownerId,
         '${title.text.trim()} scheduled for $petName on ${_shortDate(date)}.',
       );
       if (context.mounted) {

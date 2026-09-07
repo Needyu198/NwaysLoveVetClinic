@@ -1,3 +1,5 @@
+import '../data/database_sync.dart';
+import '../data/clinic_api.dart';
 import 'package:flutter/material.dart';
 
 import '../doctor/doctor_portal.dart';
@@ -295,17 +297,28 @@ class _SignInFormState extends State<SignInForm> {
       return;
     }
 
-    setState(() {
-      _isSigningIn = false;
-    });
-
     if (!result.isSuccess) {
       setState(() {
+        _isSigningIn = false;
         _errorMessage = result.message;
       });
       return;
     }
 
+    if (ClinicApi.instance.token != null) {
+      try {
+        await DatabaseSync.instance.start();
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isSigningIn = false;
+            _errorMessage = e.toString();
+          });
+        }
+        return;
+      }
+      if (!mounted) return;
+    }
     final navigator = Navigator.of(context, rootNavigator: true);
     Navigator.of(context).pop();
     final destination = switch (result.role!) {

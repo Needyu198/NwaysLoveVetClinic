@@ -1,4 +1,5 @@
-import 'dart:async';
+import 'data/database_stores.dart';
+import 'data/database_status.dart';
 
 import 'package:flutter/material.dart';
 
@@ -28,10 +29,7 @@ import 'system_admin/system_admin_portal.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await DoctorProfileRepository.instance.ensureInitialized();
-  // Rehydrate persisted doctor-side appointment state (fire-and-forget so it
-  // never blocks first paint; the UI updates when it resolves).
-  unawaited(DoctorAppointmentStore.instance.loadPersistedState());
+  registerDatabaseStores();
   runApp(const NwayLoveVetClinicApp());
 }
 
@@ -52,6 +50,8 @@ class NwayLoveVetClinicApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      builder: (context, child) =>
+          DatabaseStatus(child: child ?? const SizedBox()),
       title: "Nway's Love Vet Clinic",
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

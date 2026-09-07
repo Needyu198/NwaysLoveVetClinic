@@ -1,3 +1,5 @@
+import '../data/clinic_api.dart';
+
 class SystemAdminAuthApi {
   const SystemAdminAuthApi();
 
@@ -14,12 +16,16 @@ class SystemAdminAuthApi {
     required String username,
     required String password,
   }) async {
-    if (handlesIdentifier(username) && password == demoPassword) {
-      return const SystemAdminLoginResult.success();
+    try {
+      final role = await ClinicApi.instance.login(username, password);
+      if (role == 'systemAdmin') return const SystemAdminLoginResult.success();
+      await ClinicApi.instance.logout();
+      return const SystemAdminLoginResult.failure(
+        'This account has a different role.',
+      );
+    } catch (e) {
+      return SystemAdminLoginResult.failure(e.toString());
     }
-    return const SystemAdminLoginResult.failure(
-      'Invalid system administrator username or password.',
-    );
   }
 }
 

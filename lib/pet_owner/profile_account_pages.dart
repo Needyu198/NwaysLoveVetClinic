@@ -1,3 +1,4 @@
+import '../data/database_sync.dart';
 import 'package:flutter/material.dart';
 
 import '../login/login_page.dart';
@@ -532,6 +533,36 @@ class MedicalDocumentPage extends StatelessWidget {
 }
 
 class SavedAddress {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'label': label,
+    'recipient': recipient,
+    'phone': phone,
+    'house': house,
+    'street': street,
+    'district': district,
+    'province': province,
+    'postalCode': postalCode,
+    'landmark': landmark,
+    'isDefault': isDefault,
+  };
+  static SavedAddress fromDb(Map<String, dynamic> data) {
+    final value = SavedAddress(
+      id: data['id'] as String,
+      label: data['label'] as String,
+      recipient: data['recipient'] as String,
+      phone: data['phone'] as String,
+      house: data['house'] as String,
+      street: data['street'] as String,
+      district: data['district'] as String,
+      province: data['province'] as String,
+      postalCode: data['postalCode'] as String,
+      landmark: data['landmark'] as String,
+      isDefault: data['isDefault'] as bool,
+    );
+    return value;
+  }
+
   SavedAddress({
     required this.id,
     required this.label,
@@ -562,6 +593,26 @@ class SavedAddress {
 }
 
 class SavedAddressStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'saved_addresses',
+      this,
+      () => {
+        for (final item in _addresses)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _addresses
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(SavedAddress.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   SavedAddressStore._();
   static final instance = SavedAddressStore._();
   final List<SavedAddress> _addresses = [
@@ -803,6 +854,27 @@ class _AddressFormPageState extends State<AddressFormPage> {
 }
 
 class NotificationPreferences {
+  Map<String, dynamic> toDb() => {
+    'enabled': enabled,
+    'appointments': appointments,
+    'queue': queue,
+    'medical': medical,
+    'services': services,
+    'messages': messages,
+    'promotions': promotions,
+  };
+  static NotificationPreferences fromDb(Map<String, dynamic> data) {
+    final value = NotificationPreferences();
+    value.enabled = data['enabled'] as bool;
+    value.appointments = data['appointments'] as bool;
+    value.queue = data['queue'] as bool;
+    value.medical = data['medical'] as bool;
+    value.services = data['services'] as bool;
+    value.messages = data['messages'] as bool;
+    value.promotions = data['promotions'] as bool;
+    return value;
+  }
+
   NotificationPreferences();
 
   NotificationPreferences.copy(NotificationPreferences other)
@@ -824,6 +896,19 @@ class NotificationPreferences {
 }
 
 class NotificationSettingsStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'notification_settings',
+      this,
+      () => {'preferences': preferences.toDb()},
+      (rows) {
+        preferences = rows.isEmpty
+            ? NotificationPreferences()
+            : NotificationPreferences.fromDb(rows.values.first);
+      },
+    );
+  }
+
   NotificationSettingsStore._();
 
   static final instance = NotificationSettingsStore._();
@@ -933,6 +1018,28 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
 enum SupportStatus { submitted, reviewing, inProgress, resolved, closed }
 
 class SupportTicket {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'category': category,
+    'subject': subject,
+    'description': description,
+    'hasAttachment': hasAttachment,
+    'status': status.name,
+    'staffReply': staffReply,
+  };
+  static SupportTicket fromDb(Map<String, dynamic> data) {
+    final value = SupportTicket(
+      id: data['id'] as String,
+      category: data['category'] as String,
+      subject: data['subject'] as String,
+      description: data['description'] as String,
+      hasAttachment: data['hasAttachment'] as bool,
+      status: SupportStatus.values.byName(data['status'] as String),
+    );
+    value.staffReply = data['staffReply'] as String;
+    return value;
+  }
+
   SupportTicket({
     required this.id,
     required this.category,
@@ -951,6 +1058,26 @@ class SupportTicket {
 }
 
 class SupportTicketStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'support_tickets',
+      this,
+      () => {
+        for (final item in tickets)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        tickets
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(SupportTicket.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   SupportTicketStore._();
   static final instance = SupportTicketStore._();
   final List<SupportTicket> tickets = [];
@@ -1154,7 +1281,7 @@ class _SupportRequestPageState extends State<SupportRequestPage> {
             onPressed: () {
               if (!_key.currentState!.validate()) return;
               final ticket = SupportTicket(
-                id: 'SUP-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+                id: 'SUP-${DateTime.now().microsecondsSinceEpoch}',
                 category: _category,
                 subject: _subject.text.trim(),
                 description: _description.text.trim(),
@@ -1210,6 +1337,17 @@ Future<void> confirmProfileLogout(BuildContext context) async {
     ),
   );
   if (confirmed == true && context.mounted) {
+    try {
+      await DatabaseSync.instance.stop();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+      return;
+    }
+    if (!context.mounted) return;
     Navigator.of(
       context,
     ).pushNamedAndRemoveUntil(LoginPage.routeName, (_) => false);

@@ -247,8 +247,11 @@ class _StaffEditProfilePageState extends State<StaffEditProfilePage> {
         imageQuality: 82,
       );
       if (picked != null && mounted) {
+        final bytes = await picked.readAsBytes();
+        if (bytes.length > 2 * 1024 * 1024) throw Exception('Photo too large');
+        if (!mounted) return;
         setState(() {
-          _photoPath = picked.path;
+          _photoPath = 'data:image/jpeg;base64,${base64Encode(bytes)}';
           _markDirty();
         });
       }
@@ -481,6 +484,11 @@ class _EditAvatar extends StatelessWidget {
               ? const Icon(Icons.person_rounded, size: 60, color: _ink)
               : (photoPath!.startsWith('assets/')
                     ? Image.asset(photoPath!, fit: BoxFit.cover)
+                    : photoPath!.startsWith('data:image/')
+                    ? Image.memory(
+                        base64Decode(photoPath!.split(',').last),
+                        fit: BoxFit.cover,
+                      )
                     : Image.file(
                         File(photoPath!),
                         fit: BoxFit.cover,
@@ -626,6 +634,17 @@ Future<void> _logout(BuildContext context) async {
     ),
   );
   if (confirmed == true && context.mounted) {
+    try {
+      await DatabaseSync.instance.stop();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+      return;
+    }
+    if (!context.mounted) return;
     Navigator.of(
       context,
     ).pushNamedAndRemoveUntil(LoginPage.routeName, (_) => false);

@@ -1,3 +1,5 @@
+import '../data/clinic_api.dart';
+import '../staff/staff_portal.dart';
 import 'package:flutter/material.dart';
 
 import 'pet_owner_clinic_page.dart';
@@ -19,6 +21,21 @@ class _PetProductsPageState extends State<PetProductsPage> {
   String _category = 'All Product';
   String _query = '';
   String _sort = 'Popular';
+  @override
+  void initState() {
+    super.initState();
+    StaffOperationsStore.instance.addListener(_refresh);
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    StaffOperationsStore.instance.removeListener(_refresh);
+    super.dispose();
+  }
 
   List<Product> get _visibleProducts {
     final lowered = _query.toLowerCase();
@@ -181,6 +198,11 @@ class ProductDetailsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is! Product && products.isEmpty) {
+      return const Scaffold(
+        body: Center(child: Text('No products available.')),
+      );
+    }
     final product = args is Product ? args : products.first;
 
     return Scaffold(
@@ -359,7 +381,27 @@ class Product {
   final IconData icon;
 }
 
-const products = <Product>[
+List<Product> get products => ClinicApi.instance.token == null
+    ? _demoProducts
+    : StaffOperationsStore.instance.activeInventory
+          .map(
+            (item) => Product(
+              name: item.name,
+              category: item.category,
+              brand: item.supplier,
+              price: item.sellingPrice,
+              stock: item.quantity,
+              description: '${item.name} • ${item.unit}',
+              petType: 'Pets',
+              weight: item.unit,
+              rating: 0,
+              reviews: 0,
+              color: const Color(0xFFA1FDD8),
+              icon: Icons.pets,
+            ),
+          )
+          .toList();
+const _demoProducts = <Product>[
   Product(
     name: 'Dog Food 01',
     category: 'Food',

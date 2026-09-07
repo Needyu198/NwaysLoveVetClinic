@@ -1,30 +1,44 @@
 part of 'doctor_portal.dart';
 
 /// Reactive store around [DoctorProfileData] that loads from and persists to
-/// Firebase via [DoctorProfileRepository]. Falls back to in-memory defaults
-/// when Firebase is unavailable so the UI keeps working.
+/// Database via [DoctorProfileRepository]. Falls back to in-memory defaults
+/// when Database is unavailable so the UI keeps working.
 class DoctorProfileStore extends ChangeNotifier {
-  DoctorProfileStore._() {
-    _load();
-  }
+  DoctorProfileStore._();
 
   static final instance = DoctorProfileStore._();
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'doctor_profiles',
+      this,
+      () => {'profile': _data.toMap()},
+      (rows) {
+        _data = rows.isEmpty
+            ? DoctorProfileData(
+                name: ClinicApi.instance.account?['fullName'] as String? ?? '',
+              )
+            : DoctorProfileData.fromMap(rows.values.first);
+        _loading = false;
+        _syncedWithDatabase = rows.isNotEmpty;
+      },
+    );
+  }
 
   final _repository = DoctorProfileRepository.instance;
 
   DoctorProfileData _data = const DoctorProfileData();
-  bool _loading = true;
-  bool _syncedWithFirebase = false;
+  bool _loading = false;
+  bool _syncedWithDatabase = false;
 
   DoctorProfileData get data => _data;
   bool get isLoading => _loading;
-  bool get isSyncedWithFirebase => _syncedWithFirebase;
+  bool get isSyncedWithDatabase => _syncedWithDatabase;
 
   Future<void> _load() async {
-    final loaded = await _repository.load();
-    if (loaded != null) {
+    final loaded = _data;
+    {
       _data = loaded;
-      _syncedWithFirebase = true;
+      _syncedWithDatabase = true;
     }
     _loading = false;
     notifyListeners();
@@ -41,7 +55,7 @@ class DoctorProfileStore extends ChangeNotifier {
     _data = next;
     notifyListeners();
     final saved = await _repository.save(next);
-    _syncedWithFirebase = saved;
+    _syncedWithDatabase = saved;
     notifyListeners();
     return saved;
   }
@@ -187,6 +201,17 @@ class DoctorProfilePage extends StatelessWidget {
       ),
     );
     if (confirmed == true && context.mounted) {
+      try {
+        await DatabaseSync.instance.stop();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.toString())));
+        }
+        return;
+      }
+      if (!context.mounted) return;
       Navigator.of(
         context,
       ).pushNamedAndRemoveUntil(LoginPage.routeName, (_) => false);
@@ -363,7 +388,7 @@ class _DoctorProfileHero extends StatelessWidget {
     messenger.showSnackBar(const SnackBar(content: Text('Uploading photo...')));
     final url = await store._repository.uploadPhoto(picked.path);
     if (url == null) {
-      // Firebase unreachable: keep the local file path so the user still sees
+      // Database unreachable: keep the local file path so the user still sees
       // their selection this session.
       await store.setPhotoUrl(picked.path);
       messenger.showSnackBar(
@@ -429,6 +454,13 @@ class _DoctorAvatar extends StatelessWidget {
   Widget _buildImage() {
     final url = photoUrl;
     if (url == null) return _fallback();
+    if (url.startsWith('data:image/')) {
+      return Image.memory(
+        base64Decode(url.split(',').last),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stack) => _fallback(),
+      );
+    }
     if (url.startsWith('http')) {
       return Image.network(
         url,
@@ -1138,7 +1170,7 @@ class _EditDoctorProfilePageState extends State<EditDoctorProfilePage> {
       SnackBar(
         content: Text(
           saved
-              ? 'Profile saved to Firebase.'
+              ? 'Profile saved to PostgreSQL.'
               : 'Saved locally. Will sync when back online.',
         ),
       ),
@@ -2510,6 +2542,17 @@ class DoctorSecurityPage extends StatelessWidget {
       ),
     );
     if (confirmed == true && context.mounted) {
+      try {
+        await DatabaseSync.instance.stop();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.toString())));
+        }
+        return;
+      }
+      if (!context.mounted) return;
       Navigator.of(
         context,
       ).pushNamedAndRemoveUntil(LoginPage.routeName, (_) => false);

@@ -370,79 +370,23 @@ bool _isValidPhone(String value) {
   return digits.length >= 7 && digits.length <= 15;
 }
 
-/// Handles reading and writing the doctor profile to Firebase, with a graceful
-/// in-memory fallback so the app remains usable when Firebase is unavailable
-/// (offline, unconfigured, or in tests).
+/// PostgreSQL-backed doctor profile access. Persistence is coordinated with
+/// the other stores by DatabaseSync.
 class DoctorProfileRepository {
   DoctorProfileRepository._();
-
   static final instance = DoctorProfileRepository._();
-
-  /// Ensures a Firebase app exists so profile data can be persisted. Safe to
-  /// call from app startup; failures (unconfigured platform, offline, tests)
-  /// are swallowed so the app still runs with in-memory defaults.
-  Future<void> ensureInitialized() async {
-    if (Firebase.apps.isNotEmpty) return;
-    try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-    } catch (_) {
-      // Leave Firebase uninitialized; repository falls back to in-memory data.
-    }
-  }
-
-  bool get _hasFirebase => Firebase.apps.isNotEmpty;
-
-  /// Stable document id for the currently signed-in doctor. Falls back to the
-  /// demo doctor id when there is no authenticated Firebase user.
-  String get _docId {
-    final user = _hasFirebase ? FirebaseAuth.instance.currentUser : null;
-    if (user != null) return user.uid;
-    return 'demo-doctor';
-  }
-
-  DocumentReference<Map<String, dynamic>> get _doc =>
-      FirebaseFirestore.instance.collection('doctor_profiles').doc(_docId);
-
-  /// Loads the profile from Firestore. Returns null if Firebase is
-  /// unreachable so callers can fall back to defaults/in-memory data.
-  Future<DoctorProfileData?> load() async {
-    if (!_hasFirebase) return null;
-    try {
-      final snapshot = await _doc.get();
-      final data = snapshot.data();
-      if (data == null) return null;
-      return DoctorProfileData.fromMap(data);
-    } catch (_) {
-      // Firebase unavailable/unconfigured (offline, tests): fall back to
-      // in-memory defaults.
-      return null;
-    }
-  }
-
-  /// Persists the profile to Firestore. Returns true on success.
+  Future<void> ensureInitialized() async {}
+  Future<DoctorProfileData?> load() async => DoctorProfileStore.instance.data;
   Future<bool> save(DoctorProfileData data) async {
-    if (!_hasFirebase) return false;
-    try {
-      await _doc.set(data.toMap(), SetOptions(merge: true));
-      return true;
-    } catch (_) {
-      return false;
-    }
+    await DatabaseSync.instance.flush();
+    return DatabaseSync.instance.active && DatabaseSync.instance.error == null;
   }
 
-  /// Uploads a profile photo and returns its download URL, or null on failure.
   Future<String?> uploadPhoto(String filePath) async {
-    if (!_hasFirebase) return null;
-    try {
-      final ref = FirebaseStorage.instance.ref(
-        'doctor_profiles/$_docId/profile.jpg',
-      );
-      await ref.putFile(File(filePath));
-      return await ref.getDownloadURL();
-    } catch (_) {
-      return null;
+    final bytes = await XFile(filePath).readAsBytes();
+    if (bytes.length > 2 * 1024 * 1024) {
+      throw ClinicApiException('Please choose a photo smaller than 2 MB.');
     }
+    return 'data:image/jpeg;base64,${base64Encode(bytes)}';
   }
 }

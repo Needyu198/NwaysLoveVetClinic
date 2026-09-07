@@ -1,6 +1,60 @@
 part of 'staff_portal.dart';
 
 class StaffOperationsStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'walk_in_appointments',
+      this,
+      () => {
+        for (final item in _demo) databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _demo
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) =>
+                  databaseRestoreKey(StaffAppointment.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+    DatabaseSync.instance.bind(
+      'payments',
+      this,
+      () => {
+        for (final item in payments)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        payments
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(StaffPayment.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+    DatabaseSync.instance.bind(
+      'inventory',
+      this,
+      () => {
+        for (final item in inventory)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        inventory
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(InventoryItem.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   StaffOperationsStore._() {
     _seed();
   }
@@ -363,6 +417,7 @@ class StaffOperationsStore extends ChangeNotifier {
         AppointmentStore.instance.staffSetStatus(source, status);
       }
     }
+    if (source != null) AppointmentStore.instance.databaseChanged();
     notifyListeners();
     _notifyOwner(
       item,
@@ -381,10 +436,13 @@ class StaffOperationsStore extends ChangeNotifier {
     bool rescheduled = false,
   }) {
     final pet = item.pet;
+    final ownerId = databaseOwnerOf(item.source);
+    if (ownerId == null && DatabaseSync.instance.active) return;
     if (rescheduled) {
       OwnerNotificationStore.instance.push(
         'Appointment rescheduled',
         '$pet is now booked for ${item.time}. Please review the new time.',
+        ownerId: ownerId,
       );
       return;
     }
@@ -398,13 +456,18 @@ class StaffOperationsStore extends ChangeNotifier {
         'Completed' => '$pet\u2019s visit is complete.',
         _ => '$pet\u2019s appointment is now "$status".',
       };
-      OwnerNotificationStore.instance.push('Appointment update', message);
+      OwnerNotificationStore.instance.push(
+        'Appointment update',
+        message,
+        ownerId: ownerId,
+      );
       return;
     }
     if (doctor != null) {
       OwnerNotificationStore.instance.push(
         'Doctor assigned',
         '$doctor has been assigned to $pet.',
+        ownerId: ownerId,
       );
     }
   }
@@ -440,6 +503,38 @@ class StaffOperationsStore extends ChangeNotifier {
 }
 
 class StaffAppointment {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'pet': pet,
+    'owner': owner,
+    'phone': phone,
+    'service': service,
+    'doctor': doctor,
+    'date': date.toIso8601String(),
+    'time': time,
+    'reason': reason,
+    'status': status,
+    'priority': priority,
+    'queueNumber': queueNumber,
+  };
+  static StaffAppointment fromDb(Map<String, dynamic> data) {
+    final value = StaffAppointment(
+      id: data['id'] as String,
+      pet: data['pet'] as String,
+      owner: data['owner'] as String,
+      phone: data['phone'] as String,
+      service: data['service'] as String,
+      doctor: data['doctor'] as String,
+      date: DateTime.parse(data['date'] as String),
+      time: data['time'] as String,
+      reason: data['reason'] as String,
+      status: data['status'] as String,
+      priority: data['priority'] as String,
+      queueNumber: data['queueNumber'] as String,
+    );
+    return value;
+  }
+
   StaffAppointment({
     required this.id,
     required this.pet,
@@ -490,6 +585,24 @@ class StaffAppointment {
 }
 
 class StaffPayment {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'owner': owner,
+    'pet': pet,
+    'amount': amount,
+    'status': status,
+  };
+  static StaffPayment fromDb(Map<String, dynamic> data) {
+    final value = StaffPayment(
+      id: data['id'] as String,
+      owner: data['owner'] as String,
+      pet: data['pet'] as String,
+      amount: data['amount'] as int,
+      status: data['status'] as String,
+    );
+    return value;
+  }
+
   StaffPayment({
     required this.id,
     required this.owner,
@@ -507,6 +620,32 @@ class StaffPayment {
 /// A single recorded stock movement (Stock In / Stock Out / adjustment) that
 /// keeps the inventory auditable per the spec's Stock History requirement.
 class StockMovement {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'type': type,
+    'quantity': quantity,
+    'previousBalance': previousBalance,
+    'newBalance': newBalance,
+    'reason': reason,
+    'staff': staff,
+    'at': at.toIso8601String(),
+    'reference': reference,
+  };
+  static StockMovement fromDb(Map<String, dynamic> data) {
+    final value = StockMovement(
+      id: data['id'] as String,
+      type: data['type'] as String,
+      quantity: data['quantity'] as int,
+      previousBalance: data['previousBalance'] as int,
+      newBalance: data['newBalance'] as int,
+      reason: data['reason'] as String,
+      staff: data['staff'] as String,
+      at: DateTime.parse(data['at'] as String),
+      reference: data['reference'] as String,
+    );
+    return value;
+  }
+
   StockMovement({
     required this.id,
     required this.type,
@@ -531,6 +670,58 @@ class StockMovement {
 }
 
 class InventoryItem {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'name': name,
+    'category': category,
+    'quantity': quantity,
+    'reorderLevel': reorderLevel,
+    'unit': unit,
+    'expiresOn': expiresOn.toIso8601String(),
+    'sellingPrice': sellingPrice,
+    'purchasePrice': purchasePrice,
+    'supplier': supplier,
+    'batchNumber': batchNumber,
+    'imageAsset': imageAsset,
+    'restockRequested': restockRequested,
+    'restockQuantity': restockQuantity,
+    'restockNote': restockNote,
+    'restockStatus': restockStatus,
+    'lastAudit': lastAudit,
+    'archived': archived,
+    'movements': movements.map((v) => v.toDb()).toList(),
+  };
+  static InventoryItem fromDb(Map<String, dynamic> data) {
+    final value = InventoryItem(
+      id: data['id'] as String,
+      name: data['name'] as String,
+      category: data['category'] as String,
+      quantity: data['quantity'] as int,
+      reorderLevel: data['reorderLevel'] as int,
+      unit: data['unit'] as String,
+      expiresOn: DateTime.parse(data['expiresOn'] as String),
+      sellingPrice: data['sellingPrice'] as int,
+      purchasePrice: data['purchasePrice'] as int,
+      supplier: data['supplier'] as String,
+      batchNumber: data['batchNumber'] as String,
+      imageAsset: data['imageAsset'] == null
+          ? null
+          : data['imageAsset'] as String,
+    );
+    value.restockRequested = data['restockRequested'] as bool;
+    value.restockQuantity = data['restockQuantity'] as int;
+    value.restockNote = data['restockNote'] as String;
+    value.restockStatus = data['restockStatus'] as String;
+    value.lastAudit = data['lastAudit'] as String;
+    value.archived = data['archived'] as bool;
+    value.movements.addAll(
+      (data['movements'] as List)
+          .map((v) => StockMovement.fromDb(Map<String, dynamic>.from(v as Map)))
+          .toList(),
+    );
+    return value;
+  }
+
   InventoryItem({
     required this.id,
     required this.name,
@@ -584,6 +775,38 @@ class InventoryItem {
 /// Editable profile of the signed-in clinic staff member. In-memory only
 /// (resets on restart) but reactive so the whole app reflects changes.
 class StaffProfileStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'staff_profiles',
+      this,
+      () => {
+        'profile': {
+          'name': name,
+          'phone': phone,
+          'email': email,
+          'shift': shift,
+          'onShift': onShift,
+          'photoPath': photoPath,
+          'appointmentAlerts': appointmentAlerts,
+          'emergencyAlerts': emergencyAlerts,
+          'queueAlerts': queueAlerts,
+        },
+      },
+      (rows) {
+        final value = rows.isEmpty ? <String, dynamic>{} : rows.values.first;
+        name = value['name'] as String? ?? '';
+        phone = value['phone'] as String? ?? '';
+        email = value['email'] as String? ?? '';
+        shift = value['shift'] as String? ?? '';
+        onShift = value['onShift'] as bool? ?? false;
+        photoPath = value['photoPath'] as String?;
+        appointmentAlerts = value['appointmentAlerts'] as bool? ?? true;
+        emergencyAlerts = value['emergencyAlerts'] as bool? ?? true;
+        queueAlerts = value['queueAlerts'] as bool? ?? true;
+      },
+    );
+  }
+
   StaffProfileStore._();
 
   static final StaffProfileStore instance = StaffProfileStore._();

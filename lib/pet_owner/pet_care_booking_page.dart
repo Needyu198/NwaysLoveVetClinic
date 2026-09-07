@@ -1,3 +1,4 @@
+import '../data/database_sync.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -106,6 +107,26 @@ class MyServiceBookingsPage extends StatelessWidget {
 }
 
 class PetCareBookingStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'pet_care_bookings',
+      this,
+      () => {
+        for (final item in _bookings)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _bookings
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(PetCareBooking.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   PetCareBookingStore._();
 
   static final instance = PetCareBookingStore._();
@@ -154,6 +175,36 @@ class PetCareBookingStore extends ChangeNotifier {
 enum PetCareStatus { confirmed, checkedIn, inProgress, completed }
 
 class PetCareBooking {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'service': service.toDb(),
+    'pet': pet.toDb(),
+    'provider': provider,
+    'date': date.toIso8601String(),
+    'time': time,
+    'location': location,
+    'status': status.name,
+    'rating': rating,
+    'review': review,
+  };
+  static PetCareBooking fromDb(Map<String, dynamic> data) {
+    final value = PetCareBooking(
+      id: data['id'] as String,
+      service: PetCareService.fromDb(
+        Map<String, dynamic>.from(data['service'] as Map),
+      ),
+      pet: CarePet.fromDb(Map<String, dynamic>.from(data['pet'] as Map)),
+      provider: data['provider'] as String,
+      date: DateTime.parse(data['date'] as String),
+      time: data['time'] as String,
+      location: data['location'] as String,
+      status: PetCareStatus.values.byName(data['status'] as String),
+    );
+    value.rating = data['rating'] as int;
+    value.review = data['review'] as String;
+    return value;
+  }
+
   PetCareBooking({
     required this.id,
     required this.service,
@@ -178,6 +229,37 @@ class PetCareBooking {
 }
 
 class PetCareService {
+  Map<String, dynamic> toDb() => {
+    'name': name,
+    'description': description,
+    'price': price,
+    'duration': duration,
+    'availability': availability,
+    'requirements': requirements,
+    'icon': icon.codePoint,
+    'providers': providers.map((v) => v).toList(),
+    'options': options.map((v) => v.toDb()).toList(),
+  };
+  static PetCareService fromDb(Map<String, dynamic> data) {
+    final value = PetCareService(
+      name: data['name'] as String,
+      description: data['description'] as String,
+      price: data['price'] as String,
+      duration: data['duration'] as String,
+      availability: data['availability'] as String,
+      requirements: data['requirements'] as String,
+      icon: databaseIcon(data['icon'] as int),
+      providers: (data['providers'] as List).map((v) => v as String).toList(),
+      options: (data['options'] as List)
+          .map(
+            (v) =>
+                ServicePriceOption.fromDb(Map<String, dynamic>.from(v as Map)),
+          )
+          .toList(),
+    );
+    return value;
+  }
+
   const PetCareService({
     required this.name,
     required this.description,
@@ -202,6 +284,15 @@ class PetCareService {
 }
 
 class ServicePriceOption {
+  Map<String, dynamic> toDb() => {'name': name, 'prices': prices};
+  static ServicePriceOption fromDb(Map<String, dynamic> data) {
+    final value = ServicePriceOption(
+      data['name'] as String,
+      data['prices'] as String,
+    );
+    return value;
+  }
+
   const ServicePriceOption(this.name, this.prices);
 
   final String name;
@@ -209,6 +300,24 @@ class ServicePriceOption {
 }
 
 class CarePet {
+  Map<String, dynamic> toDb() => {
+    'name': name,
+    'breed': breed,
+    'age': age,
+    'health': health,
+    'color': color.toARGB32(),
+  };
+  static CarePet fromDb(Map<String, dynamic> data) {
+    final value = CarePet(
+      name: data['name'] as String,
+      breed: data['breed'] as String,
+      age: data['age'] as String,
+      health: data['health'] as String,
+      color: Color(data['color'] as int),
+    );
+    return value;
+  }
+
   const CarePet({
     required this.name,
     required this.breed,

@@ -9,6 +9,7 @@ class StaffMessagesPage extends StatefulWidget {
 
 class _StaffMessagesPageState extends State<StaffMessagesPage> {
   final _reply = TextEditingController();
+  ClinicContactMessage? _replyTo;
 
   @override
   void initState() {
@@ -67,6 +68,16 @@ class _StaffMessagesPageState extends State<StaffMessagesPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                if (!message.isFromStaff)
+                                  TextButton(
+                                    onPressed: () =>
+                                        setState(() => _replyTo = message),
+                                    child: Text(
+                                      _replyTo == message
+                                          ? 'Reply selected'
+                                          : 'Reply to this owner',
+                                    ),
+                                  ),
                                 Text(
                                   message.category.label,
                                   style: const TextStyle(
@@ -140,8 +151,16 @@ class _StaffMessagesPageState extends State<StaffMessagesPage> {
                     IconButton.filled(
                       onPressed: () {
                         if (_reply.text.trim().isEmpty) return;
+                        if (_replyTo == null && DatabaseSync.instance.active) {
+                          _notice(
+                            context,
+                            'Select an owner message to reply to.',
+                          );
+                          return;
+                        }
                         ContactClinicStore.instance.staffReply(
                           _reply.text.trim(),
+                          ownerId: databaseOwnerOf(_replyTo),
                         );
                         _reply.clear();
                       },

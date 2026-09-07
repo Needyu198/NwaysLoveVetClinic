@@ -1,3 +1,4 @@
+import '../data/database_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -234,6 +235,29 @@ class _ClinicConversationPageState extends State<ClinicConversationPage> {
 }
 
 class ContactClinicStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'clinic_messages',
+      this,
+      () => {
+        for (final item in _messages)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _messages
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(
+                ClinicContactMessage.fromDb(e.value),
+                e.key,
+              ),
+            ),
+          );
+      },
+    );
+  }
+
   ContactClinicStore._();
 
   static final instance = ContactClinicStore._();
@@ -283,17 +307,16 @@ class ContactClinicStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void staffReply(String text) {
-    _messages.add(
-      ClinicContactMessage(
-        id: 'STAFF-${DateTime.now().microsecondsSinceEpoch}',
-        text: text,
-        createdAt: DateTime.now(),
-        category: ContactCategory.other,
-        status: ContactMessageStatus.read,
-        isFromStaff: true,
-      ),
+  void staffReply(String text, {String? ownerId}) {
+    final reply = ClinicContactMessage(
+      id: 'STAFF-${DateTime.now().microsecondsSinceEpoch}',
+      text: text,
+      createdAt: DateTime.now(),
+      category: ContactCategory.other,
+      status: ContactMessageStatus.read,
+      isFromStaff: true,
     );
+    _messages.add(databaseAssignOwner(reply, reply.id, ownerId));
     notifyListeners();
   }
 
@@ -326,6 +349,28 @@ enum ContactMessageStatus {
 }
 
 class ClinicContactMessage {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'text': text,
+    'createdAt': createdAt.toIso8601String(),
+    'category': category.name,
+    'isFromStaff': isFromStaff,
+    'petName': petName,
+    'status': status.name,
+  };
+  static ClinicContactMessage fromDb(Map<String, dynamic> data) {
+    final value = ClinicContactMessage(
+      id: data['id'] as String,
+      text: data['text'] as String,
+      createdAt: DateTime.parse(data['createdAt'] as String),
+      category: ContactCategory.values.byName(data['category'] as String),
+      isFromStaff: data['isFromStaff'] as bool,
+      petName: data['petName'] == null ? null : data['petName'] as String,
+      status: ContactMessageStatus.values.byName(data['status'] as String),
+    );
+    return value;
+  }
+
   ClinicContactMessage({
     required this.id,
     required this.text,

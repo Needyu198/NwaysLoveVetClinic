@@ -1,3 +1,5 @@
+import '../data/clinic_api.dart';
+import '../data/database_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,6 +8,30 @@ import 'contact_clinic_page.dart';
 import 'pet_profile_page.dart';
 
 class OwnerProfileData {
+  Map<String, dynamic> toDb() => {
+    'fullName': fullName,
+    'dateOfBirth': dateOfBirth.toIso8601String(),
+    'gender': gender,
+    'phone': phone,
+    'email': email,
+    'address': address,
+    'photoSource': photoSource,
+  };
+  static OwnerProfileData fromDb(Map<String, dynamic> data) {
+    final value = OwnerProfileData(
+      fullName: data['fullName'] as String,
+      dateOfBirth: DateTime.parse(data['dateOfBirth'] as String),
+      gender: data['gender'] as String,
+      phone: data['phone'] as String,
+      email: data['email'] as String,
+      address: data['address'] as String,
+      photoSource: data['photoSource'] == null
+          ? null
+          : data['photoSource'] as String,
+    );
+    return value;
+  }
+
   const OwnerProfileData({
     required this.fullName,
     required this.dateOfBirth,
@@ -26,6 +52,27 @@ class OwnerProfileData {
 }
 
 class OwnerProfileStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'owner_profiles',
+      this,
+      () => {'profile': _profile.toDb()},
+      (rows) {
+        _profile = rows.isEmpty
+            ? OwnerProfileData(
+                fullName:
+                    ClinicApi.instance.account?['fullName'] as String? ?? '',
+                dateOfBirth: DateTime(2000),
+                gender: '',
+                phone: '',
+                email: '',
+                address: '',
+              )
+            : OwnerProfileData.fromDb(rows.values.first);
+      },
+    );
+  }
+
   OwnerProfileStore._();
 
   static final instance = OwnerProfileStore._();
@@ -61,6 +108,40 @@ class OwnerProfileStore extends ChangeNotifier {
 }
 
 class ProfilePet {
+  Map<String, dynamic> toDb() => {
+    'name': name,
+    'type': type,
+    'breed': breed,
+    'sex': sex,
+    'dateOfBirth': dateOfBirth.toIso8601String(),
+    'weightKg': weightKg,
+    'color': color,
+    'identifyingFeatures': identifyingFeatures,
+    'allergies': allergies,
+    'conditions': conditions,
+    'medicines': medicines,
+    'vaccination': vaccination,
+    'hasCustomPhoto': hasCustomPhoto,
+  };
+  static ProfilePet fromDb(Map<String, dynamic> data) {
+    final value = ProfilePet(
+      name: data['name'] as String,
+      type: data['type'] as String,
+      breed: data['breed'] as String,
+      sex: data['sex'] as String,
+      dateOfBirth: DateTime.parse(data['dateOfBirth'] as String),
+      weightKg: (data['weightKg'] as num).toDouble(),
+      color: data['color'] as String,
+      identifyingFeatures: data['identifyingFeatures'] as String,
+      allergies: data['allergies'] as String,
+      conditions: data['conditions'] as String,
+      medicines: data['medicines'] as String,
+      vaccination: data['vaccination'] as String,
+      hasCustomPhoto: data['hasCustomPhoto'] as bool,
+    );
+    return value;
+  }
+
   const ProfilePet({
     required this.name,
     required this.type,
@@ -113,6 +194,30 @@ class ProfilePet {
 }
 
 class ProfilePetStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'pets',
+      this,
+      () => {
+        for (final item in _pets)
+          databaseRecordKey(
+            item,
+            "${item.name}:${item.dateOfBirth.toIso8601String()}",
+          ): item
+              .toDb(),
+      },
+      (rows) {
+        _pets
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(ProfilePet.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   ProfilePetStore._();
 
   static final instance = ProfilePetStore._();

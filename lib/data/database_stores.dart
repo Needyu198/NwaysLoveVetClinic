@@ -1,0 +1,47 @@
+import 'clinic_directory.dart';
+import '../doctor/doctor_portal.dart';
+import '../pet_owner/appointment_booking_page.dart';
+import '../pet_owner/contact_clinic_page.dart';
+import '../pet_owner/emergency_service_page.dart';
+import '../pet_owner/first_aid_information_page.dart';
+import '../pet_owner/history_page.dart';
+import '../pet_owner/home_visit_booking_page.dart';
+import '../pet_owner/owner_shared_stores.dart';
+import '../pet_owner/pet_care_booking_page.dart';
+import '../pet_owner/profile_account_pages.dart';
+import '../pet_owner/profile_flows.dart';
+import '../staff/staff_portal.dart';
+import '../system_admin/system_admin_portal.dart';
+
+bool _registered = false;
+void registerDatabaseStores() {
+  if (_registered) return;
+  _registered = true;
+  ClinicDirectory.instance.connectDatabase();
+  DoctorProfileStore.instance.connectDatabase();
+  DoctorAppointmentStore.instance.connectDatabase();
+  OwnerProfileStore.instance.connectDatabase();
+  ProfilePetStore.instance.connectDatabase();
+  AppointmentStore.instance.connectDatabase();
+  QueueStore.instance.connectDatabase();
+  HomeVisitStore.instance.connectDatabase();
+  PetCareBookingStore.instance.connectDatabase();
+  EmergencyRequestStore.instance.connectDatabase();
+  ReminderStore.instance.connectDatabase();
+  OwnerNotificationStore.instance.connectDatabase();
+  ContactClinicStore.instance.connectDatabase();
+  SavedAddressStore.instance.connectDatabase();
+  NotificationSettingsStore.instance.connectDatabase();
+  SupportTicketStore.instance.connectDatabase();
+  HistoryReviewStore.instance.connectDatabase();
+  FirstAidSavedStore.instance.connectDatabase();
+  DoctorPostStore.instance.connectDatabase();
+  DoctorMedicalRecordStore.instance.connectDatabase();
+  DoctorNotificationStore.instance.connectDatabase();
+  StaffOperationsStore.instance.connectDatabase();
+  StaffProfileStore.instance.connectDatabase();
+  UserAccountStore.instance.connectDatabase();
+  DoctorVerificationStore.instance.connectDatabase();
+  AuditLogStore.instance.connectDatabase();
+  AdminProfileStore.instance.connectDatabase();
+}

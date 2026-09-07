@@ -38,7 +38,6 @@ class DoctorAppointmentState {
     'nextDoseDate': nextDoseDate,
     'followUp': followUp,
     'rescheduleNote': rescheduleNote,
-    'updatedAt': DateTime.now().toIso8601String(),
   };
 
   static DoctorAppointmentState fromMap(Map<String, dynamic> map) =>
@@ -70,54 +69,15 @@ class DoctorAppointmentState {
       );
 }
 
-/// Persists doctor-side appointment state to Firestore under
-/// `doctor_appointment_state/{docId}` (a single document keyed by appointment
-/// id), with a graceful in-memory fallback so the app keeps working offline,
-/// unconfigured, or in tests.
+/// Doctor-side state is persisted through the shared PostgreSQL sync service.
 class DoctorAppointmentRepository {
   DoctorAppointmentRepository._();
-
   static final instance = DoctorAppointmentRepository._();
-
-  bool get _hasFirebase => Firebase.apps.isNotEmpty;
-
-  String get _ownerId {
-    final user = _hasFirebase ? FirebaseAuth.instance.currentUser : null;
-    return user?.uid ?? 'demo-doctor';
-  }
-
-  CollectionReference<Map<String, dynamic>> get _collection =>
-      FirebaseFirestore.instance
-          .collection('doctor_appointment_state')
-          .doc(_ownerId)
-          .collection('appointments');
-
-  /// Loads all persisted appointment states, keyed by appointment id. Returns
-  /// an empty map when Firebase is unavailable.
-  Future<Map<String, DoctorAppointmentState>> loadAll() async {
-    if (!_hasFirebase) return const {};
-    try {
-      final snapshot = await _collection.get();
-      return {
-        for (final doc in snapshot.docs)
-          doc.id: DoctorAppointmentState.fromMap(doc.data()),
-      };
-    } catch (_) {
-      return const {};
-    }
-  }
-
-  /// Persists a single appointment's doctor-side state. Returns true on
-  /// success, false when Firebase is unavailable.
+  Future<Map<String, DoctorAppointmentState>> loadAll() async =>
+      Map.of(DoctorAppointmentStore.instance._persisted);
   Future<bool> save(String appointmentId, DoctorAppointmentState state) async {
-    if (!_hasFirebase) return false;
-    try {
-      await _collection
-          .doc(appointmentId)
-          .set(state.toMap(), SetOptions(merge: true));
-      return true;
-    } catch (_) {
-      return false;
-    }
+    DoctorAppointmentStore.instance._persisted[appointmentId] = state;
+    await DatabaseSync.instance.flush();
+    return DatabaseSync.instance.error == null;
   }
 }

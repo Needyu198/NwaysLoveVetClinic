@@ -1,3 +1,7 @@
+import '../data/clinic_directory.dart';
+import '../data/clinic_api.dart';
+import 'profile_flows.dart';
+import '../data/database_sync.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -86,6 +90,26 @@ class MyHomeVisitsPage extends StatelessWidget {
 }
 
 class HomeVisitStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'home_visits',
+      this,
+      () => {
+        for (final item in _visits)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _visits
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(HomeVisit.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   HomeVisitStore._();
 
   static final instance = HomeVisitStore._();
@@ -159,6 +183,48 @@ enum HomeVisitStatus {
 }
 
 class HomeVisit {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'pet': pet.toDb(),
+    'veterinarian': veterinarian,
+    'date': date.toIso8601String(),
+    'time': time,
+    'reason': reason,
+    'symptoms': symptoms,
+    'address': address,
+    'contactPerson': contactPerson,
+    'phone': phone,
+    'status': status.name,
+    'findings': findings,
+    'treatmentNotes': treatmentNotes,
+    'medicines': medicines,
+    'recommendations': recommendations,
+    'rating': rating,
+    'review': review,
+  };
+  static HomeVisit fromDb(Map<String, dynamic> data) {
+    final value = HomeVisit(
+      id: data['id'] as String,
+      pet: HomeVisitPet.fromDb(Map<String, dynamic>.from(data['pet'] as Map)),
+      veterinarian: data['veterinarian'] as String,
+      date: DateTime.parse(data['date'] as String),
+      time: data['time'] as String,
+      reason: data['reason'] as String,
+      symptoms: data['symptoms'] as String,
+      address: data['address'] as String,
+      contactPerson: data['contactPerson'] as String,
+      phone: data['phone'] as String,
+      status: HomeVisitStatus.values.byName(data['status'] as String),
+    );
+    value.findings = data['findings'] as String;
+    value.treatmentNotes = data['treatmentNotes'] as String;
+    value.medicines = data['medicines'] as String;
+    value.recommendations = data['recommendations'] as String;
+    value.rating = data['rating'] as int;
+    value.review = data['review'] as String;
+    return value;
+  }
+
   HomeVisit({
     required this.id,
     required this.pet,
@@ -193,6 +259,24 @@ class HomeVisit {
 }
 
 class HomeVisitPet {
+  Map<String, dynamic> toDb() => {
+    'name': name,
+    'breed': breed,
+    'age': age,
+    'medicalHistory': medicalHistory,
+    'color': color.toARGB32(),
+  };
+  static HomeVisitPet fromDb(Map<String, dynamic> data) {
+    final value = HomeVisitPet(
+      name: data['name'] as String,
+      breed: data['breed'] as String,
+      age: data['age'] as String,
+      medicalHistory: data['medicalHistory'] as String,
+      color: Color(data['color'] as int),
+    );
+    return value;
+  }
+
   const HomeVisitPet({
     required this.name,
     required this.breed,
@@ -209,7 +293,20 @@ class HomeVisitPet {
 }
 
 class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
-  static const _pets = [
+  List<HomeVisitPet> get _pets => ClinicApi.instance.token == null
+      ? _demoPets
+      : ProfilePetStore.instance.pets
+            .map(
+              (p) => HomeVisitPet(
+                name: p.name,
+                breed: p.breed,
+                age: '${p.ageYears} years',
+                medicalHistory: p.conditions,
+                color: const Color(0xFF2F80FF),
+              ),
+            )
+            .toList();
+  static const _demoPets = [
     HomeVisitPet(
       name: 'Max',
       breed: 'Golden Retriever',
@@ -233,7 +330,10 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
     ),
   ];
 
-  static const _veterinarians = [
+  List<String> get _veterinarians => ClinicApi.instance.token == null
+      ? _demoVeterinarians
+      : ClinicDirectory.instance.doctors;
+  static const _demoVeterinarians = [
     'Dr. Hnin Thiri Aung',
     'Dr. Cindy Lynn',
     'Dr. Myat Noe',

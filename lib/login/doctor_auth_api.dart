@@ -1,3 +1,5 @@
+import '../data/clinic_api.dart';
+
 class DoctorAuthApi {
   const DoctorAuthApi();
 
@@ -14,12 +16,16 @@ class DoctorAuthApi {
     required String username,
     required String password,
   }) async {
-    if (handlesIdentifier(username) && password == demoPassword) {
-      return const DoctorLoginResult.success();
+    try {
+      final role = await ClinicApi.instance.login(username, password);
+      if (role == 'doctor') return const DoctorLoginResult.success();
+      await ClinicApi.instance.logout();
+      return const DoctorLoginResult.failure(
+        'This account has a different role.',
+      );
+    } catch (e) {
+      return DoctorLoginResult.failure(e.toString());
     }
-    return const DoctorLoginResult.failure(
-      'Invalid doctor username or password.',
-    );
   }
 }
 

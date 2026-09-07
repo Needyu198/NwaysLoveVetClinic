@@ -177,7 +177,7 @@ class _DoctorHistoryCard extends StatelessWidget {
             value: _doctorHistoryDate(record.date),
           ),
           _DoctorHistoryRow(label: 'Time', value: record.time),
-          const _DoctorHistoryRow(
+          _DoctorHistoryRow(
             label: 'Veterinarian',
             value: DoctorAppointmentStore.doctorName,
           ),

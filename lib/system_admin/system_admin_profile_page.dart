@@ -321,8 +321,11 @@ class _AdminEditProfilePageState extends State<AdminEditProfilePage> {
         imageQuality: 82,
       );
       if (picked != null && mounted) {
+        final bytes = await picked.readAsBytes();
+        if (bytes.length > 2 * 1024 * 1024) throw Exception('Photo too large');
+        if (!mounted) return;
         setState(() {
-          _photoPath = picked.path;
+          _photoPath = 'data:image/jpeg;base64,${base64Encode(bytes)}';
           _markDirty();
         });
       }
@@ -516,6 +519,11 @@ class _AdminEditAvatar extends StatelessWidget {
                 )
               : (photoPath!.startsWith('assets/')
                     ? Image.asset(photoPath!, fit: BoxFit.cover)
+                    : photoPath!.startsWith('data:image/')
+                    ? Image.memory(
+                        base64Decode(photoPath!.split(',').last),
+                        fit: BoxFit.cover,
+                      )
                     : Image.file(
                         File(photoPath!),
                         fit: BoxFit.cover,

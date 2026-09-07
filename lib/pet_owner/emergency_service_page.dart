@@ -1,3 +1,6 @@
+import '../data/clinic_api.dart';
+import 'profile_flows.dart';
+import '../data/database_sync.dart';
 import 'package:flutter/material.dart';
 
 import 'appointment_booking_page.dart';
@@ -53,6 +56,27 @@ class MyEmergencyRequestsPage extends StatelessWidget {
 }
 
 class EmergencyRequestStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'emergency_requests',
+      this,
+      () => {
+        for (final item in _requests)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _requests
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) =>
+                  databaseRestoreKey(EmergencyRequest.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   EmergencyRequestStore._();
 
   static final instance = EmergencyRequestStore._();
@@ -152,6 +176,46 @@ enum EmergencyStatus {
 }
 
 class EmergencyRequest {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'createdAt': createdAt.toIso8601String(),
+    'pet': pet.toDb(),
+    'symptoms': symptoms.map((v) => v).toList(),
+    'description': description,
+    'contactPerson': contactPerson,
+    'phone': phone,
+    'status': status.name,
+    'priority': priority,
+    'clinicResponse': clinicResponse,
+    'findings': findings,
+    'diagnosis': diagnosis,
+    'proposedTreatment': proposedTreatment,
+    'treatmentResult': treatmentResult,
+    'recommendations': recommendations,
+    'ownerConsent': ownerConsent,
+  };
+  static EmergencyRequest fromDb(Map<String, dynamic> data) {
+    final value = EmergencyRequest(
+      id: data['id'] as String,
+      createdAt: DateTime.parse(data['createdAt'] as String),
+      pet: EmergencyPet.fromDb(Map<String, dynamic>.from(data['pet'] as Map)),
+      symptoms: (data['symptoms'] as List).map((v) => v as String).toList(),
+      description: data['description'] as String,
+      contactPerson: data['contactPerson'] as String,
+      phone: data['phone'] as String,
+      status: EmergencyStatus.values.byName(data['status'] as String),
+    );
+    value.priority = data['priority'] as String;
+    value.clinicResponse = data['clinicResponse'] as String;
+    value.findings = data['findings'] as String;
+    value.diagnosis = data['diagnosis'] as String;
+    value.proposedTreatment = data['proposedTreatment'] as String;
+    value.treatmentResult = data['treatmentResult'] as String;
+    value.recommendations = data['recommendations'] as String;
+    value.ownerConsent = data['ownerConsent'] as bool;
+    return value;
+  }
+
   EmergencyRequest({
     required this.id,
     required this.createdAt,
@@ -182,6 +246,24 @@ class EmergencyRequest {
 }
 
 class EmergencyPet {
+  Map<String, dynamic> toDb() => {
+    'name': name,
+    'breed': breed,
+    'age': age,
+    'medicalHistory': medicalHistory,
+    'color': color.toARGB32(),
+  };
+  static EmergencyPet fromDb(Map<String, dynamic> data) {
+    final value = EmergencyPet(
+      name: data['name'] as String,
+      breed: data['breed'] as String,
+      age: data['age'] as String,
+      medicalHistory: data['medicalHistory'] as String,
+      color: Color(data['color'] as int),
+    );
+    return value;
+  }
+
   const EmergencyPet({
     required this.name,
     required this.breed,
@@ -198,7 +280,20 @@ class EmergencyPet {
 }
 
 class _EmergencyServicePageState extends State<EmergencyServicePage> {
-  static const _pets = [
+  List<EmergencyPet> get _pets => ClinicApi.instance.token == null
+      ? _demoPets
+      : ProfilePetStore.instance.pets
+            .map(
+              (p) => EmergencyPet(
+                name: p.name,
+                breed: p.breed,
+                age: '${p.ageYears} years',
+                medicalHistory: p.conditions,
+                color: const Color(0xFF2F80FF),
+              ),
+            )
+            .toList();
+  static const _demoPets = [
     EmergencyPet(
       name: 'Max',
       breed: 'Golden Retriever',

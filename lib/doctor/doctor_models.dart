@@ -1,6 +1,54 @@
 part of 'doctor_portal.dart';
 
 class DoctorAppointmentRecord {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'petName': petName,
+    'petDetails': petDetails,
+    'ownerName': ownerName,
+    'service': service,
+    'date': date.toIso8601String(),
+    'time': time,
+    'reason': reason,
+    'symptoms': symptoms,
+    '_status': _status,
+    'consultationNotes': consultationNotes,
+    'diagnosis': diagnosis,
+    'treatment': treatment,
+    'allergies': allergies,
+    'existingConditions': existingConditions,
+    'prescription': prescription,
+    'vaccination': vaccination,
+    'nextDoseDate': nextDoseDate,
+    'followUp': followUp,
+    'rescheduleNote': rescheduleNote,
+  };
+  static DoctorAppointmentRecord fromDb(Map<String, dynamic> data) {
+    final value = DoctorAppointmentRecord(
+      id: data['id'] as String,
+      petName: data['petName'] as String,
+      petDetails: data['petDetails'] as String,
+      ownerName: data['ownerName'] as String,
+      service: data['service'] as String,
+      date: DateTime.parse(data['date'] as String),
+      time: data['time'] as String,
+      reason: data['reason'] as String,
+      symptoms: data['symptoms'] as String,
+      initialStatus: data['_status'] as String,
+    );
+    value.consultationNotes = data['consultationNotes'] as String;
+    value.diagnosis = data['diagnosis'] as String;
+    value.treatment = data['treatment'] as String;
+    value.allergies = data['allergies'] as String;
+    value.existingConditions = data['existingConditions'] as String;
+    value.prescription = data['prescription'] as String;
+    value.vaccination = data['vaccination'] as String;
+    value.nextDoseDate = data['nextDoseDate'] as String;
+    value.followUp = data['followUp'] as String;
+    value.rescheduleNote = data['rescheduleNote'] as String;
+    return value;
+  }
+
   DoctorAppointmentRecord({
     required this.id,
     required this.petName,
@@ -58,6 +106,28 @@ class DoctorAppointmentRecord {
 }
 
 class DoctorPost {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'title': title,
+    'content': content,
+    'coverAsset': coverAsset,
+    'attachmentAssets': attachmentAssets.map((v) => v).toList(),
+    'createdAt': createdAt.toIso8601String(),
+  };
+  static DoctorPost fromDb(Map<String, dynamic> data) {
+    final value = DoctorPost(
+      id: data['id'] as String,
+      title: data['title'] as String,
+      content: data['content'] as String,
+      coverAsset: data['coverAsset'] as String,
+      attachmentAssets: (data['attachmentAssets'] as List)
+          .map((v) => v as String)
+          .toList(),
+      createdAt: DateTime.parse(data['createdAt'] as String),
+    );
+    return value;
+  }
+
   const DoctorPost({
     required this.id,
     required this.title,
@@ -76,6 +146,24 @@ class DoctorPost {
 }
 
 class DoctorPostDraft {
+  Map<String, dynamic> toDb() => {
+    'title': title,
+    'content': content,
+    'coverAsset': coverAsset,
+    'attachmentAssets': attachmentAssets.map((v) => v).toList(),
+  };
+  static DoctorPostDraft fromDb(Map<String, dynamic> data) {
+    final value = DoctorPostDraft(
+      title: data['title'] as String,
+      content: data['content'] as String,
+      coverAsset: data['coverAsset'] as String,
+      attachmentAssets: (data['attachmentAssets'] as List)
+          .map((v) => v as String)
+          .toList(),
+    );
+    return value;
+  }
+
   const DoctorPostDraft({
     required this.title,
     required this.content,
@@ -99,6 +187,36 @@ class DoctorPostDraft {
 }
 
 class DoctorPostStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'health_post_drafts',
+      this,
+      () => _draft == null ? {} : {'draft': _draft!.toDb()},
+      (rows) {
+        _draft = rows.isEmpty
+            ? null
+            : DoctorPostDraft.fromDb(rows.values.first);
+      },
+    );
+    DatabaseSync.instance.bind(
+      'health_posts',
+      this,
+      () => {
+        for (final item in _posts)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _posts
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(DoctorPost.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   DoctorPostStore._();
 
   static final instance = DoctorPostStore._();
@@ -169,20 +287,40 @@ class DoctorAppointmentStore extends ChangeNotifier {
   DoctorAppointmentStore._();
 
   static final instance = DoctorAppointmentStore._();
-  static const doctorName = 'Dr. Aye Chan';
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'doctor_appointment_state',
+      this,
+      () => {for (final e in _persisted.entries) e.key: e.value.toMap()},
+      (rows) {
+        _demoRecords.clear();
+        _persisted
+          ..clear()
+          ..addAll(
+            rows.map((k, v) => MapEntry(k, DoctorAppointmentState.fromMap(v))),
+          );
+        _loaded = true;
+        _loading = false;
+      },
+    );
+  }
+
+  static String get doctorName => ClinicApi.instance.token == null
+      ? 'Dr. Aye Chan'
+      : ClinicApi.instance.account?['fullName'] as String? ?? '';
 
   final List<DoctorAppointmentRecord> _demoRecords = [];
 
   final _repository = DoctorAppointmentRepository.instance;
 
-  /// Persisted doctor-side state loaded from Firebase, keyed by appointment id.
+  /// Persisted doctor-side state loaded from Database, keyed by appointment id.
   final Map<String, DoctorAppointmentState> _persisted = {};
   bool _loaded = false;
   bool _loading = false;
 
-  bool get isSyncedWithFirebase => _loaded;
+  bool get isSyncedWithDatabase => _loaded;
 
-  /// Loads persisted appointment state from Firebase and applies it to the
+  /// Loads persisted appointment state from Database and applies it to the
   /// current records. Safe to call repeatedly; only fetches once per session
   /// unless [force] is set.
   Future<void> loadPersistedState({bool force = false}) async {
@@ -224,7 +362,7 @@ class DoctorAppointmentStore extends ChangeNotifier {
   }
 
   void ensureDemoSchedule() {
-    if (_demoRecords.isNotEmpty) return;
+    if (ClinicApi.instance.token != null || _demoRecords.isNotEmpty) return;
     final today = DateTime.now();
     _demoRecords.addAll([
       DoctorAppointmentRecord(
@@ -303,11 +441,12 @@ class DoctorAppointmentStore extends ChangeNotifier {
     persist(record);
   }
 
-  /// Persists a record's doctor-side state to Firebase (fire-and-forget). Also
+  /// Persists a record's doctor-side state to PostgreSQL (fire-and-forget). Also
   /// updates the local cache so it survives list rebuilds within the session.
   Future<void> persist(DoctorAppointmentRecord record) async {
     final state = DoctorAppointmentState.fromRecord(record);
     _persisted[record.id] = state;
+    notifyListeners();
     await _repository.save(record.id, state);
   }
 
@@ -319,6 +458,46 @@ class DoctorAppointmentStore extends ChangeNotifier {
 }
 
 class DoctorMedicalRecord {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'appointmentId': appointmentId,
+    'petName': petName,
+    'ownerName': ownerName,
+    'service': service,
+    'date': date.toIso8601String(),
+    'symptoms': symptoms,
+    'findings': findings,
+    'diagnosis': diagnosis,
+    'treatment': treatment,
+    'prescription': prescription,
+    'vaccination': vaccination,
+    'nextDoseDate': nextDoseDate,
+    'followUp': followUp,
+    'testResult': testResult,
+    'finalized': finalized,
+  };
+  static DoctorMedicalRecord fromDb(Map<String, dynamic> data) {
+    final value = DoctorMedicalRecord(
+      id: data['id'] as String,
+      appointmentId: data['appointmentId'] as String,
+      petName: data['petName'] as String,
+      ownerName: data['ownerName'] as String,
+      service: data['service'] as String,
+      date: DateTime.parse(data['date'] as String),
+      symptoms: data['symptoms'] as String,
+      findings: data['findings'] as String,
+      diagnosis: data['diagnosis'] as String,
+      treatment: data['treatment'] as String,
+      prescription: data['prescription'] as String,
+      vaccination: data['vaccination'] as String,
+      nextDoseDate: data['nextDoseDate'] as String,
+      followUp: data['followUp'] as String,
+      testResult: data['testResult'] as String,
+      finalized: data['finalized'] as bool,
+    );
+    return value;
+  }
+
   DoctorMedicalRecord({
     required this.id,
     required this.appointmentId,
@@ -357,6 +536,29 @@ class DoctorMedicalRecord {
 }
 
 class DoctorMedicalRecordStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'medical_records',
+      this,
+      () => {
+        for (final item in _records)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _records
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(
+                DoctorMedicalRecord.fromDb(e.value),
+                e.key,
+              ),
+            ),
+          );
+      },
+    );
+  }
+
   DoctorMedicalRecordStore._();
 
   static final instance = DoctorMedicalRecordStore._();
@@ -425,6 +627,22 @@ class DoctorMedicalRecordStore extends ChangeNotifier {
 }
 
 class DoctorNotification {
+  Map<String, dynamic> toDb() => {
+    'title': title,
+    'message': message,
+    'createdAt': createdAt.toIso8601String(),
+    'read': read,
+  };
+  static DoctorNotification fromDb(Map<String, dynamic> data) {
+    final value = DoctorNotification(
+      title: data['title'] as String,
+      message: data['message'] as String,
+      createdAt: DateTime.parse(data['createdAt'] as String),
+      read: data['read'] as bool,
+    );
+    return value;
+  }
+
   DoctorNotification({
     required this.title,
     required this.message,
@@ -439,6 +657,28 @@ class DoctorNotification {
 }
 
 class DoctorNotificationStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'doctor_notifications',
+      this,
+      () => {
+        for (final item in _notifications)
+          databaseRecordKey(item, item.createdAt.toIso8601String()): item
+              .toDb(),
+      },
+      (rows) {
+        _notifications
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) =>
+                  databaseRestoreKey(DoctorNotification.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   DoctorNotificationStore._();
 
   static final instance = DoctorNotificationStore._();

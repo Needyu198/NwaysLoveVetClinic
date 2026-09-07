@@ -38,6 +38,30 @@ extension AdminAccountStatusLabel on AdminAccountStatus {
 
 /// A single system user account managed by the administrator.
 class AdminUser {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'name': name,
+    'email': email,
+    'phone': phone,
+    'role': role.name,
+    'status': status.name,
+    'lastActive': lastActive,
+    'createdOn': createdOn.toIso8601String(),
+  };
+  static AdminUser fromDb(Map<String, dynamic> data) {
+    final value = AdminUser(
+      id: data['id'] as String,
+      name: data['name'] as String,
+      email: data['email'] as String,
+      phone: data['phone'] as String,
+      role: AdminUserRole.values.byName(data['role'] as String),
+      status: AdminAccountStatus.values.byName(data['status'] as String),
+      lastActive: data['lastActive'] as String,
+      createdOn: DateTime.parse(data['createdOn'] as String),
+    );
+    return value;
+  }
+
   AdminUser({
     required this.id,
     required this.name,
@@ -62,6 +86,26 @@ class AdminUser {
 /// In-memory directory of every account in the system. Drives the Users and
 /// Roles management screen and the dashboard user counts.
 class UserAccountStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'user_directory',
+      this,
+      () => {
+        for (final item in _users)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _users
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(AdminUser.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   UserAccountStore._() {
     _seed();
   }
@@ -171,7 +215,7 @@ class UserAccountStore extends ChangeNotifier {
       AdminUserRole.admin => 'ADM',
     };
     final user = AdminUser(
-      id: '$prefix-${DateTime.now().millisecondsSinceEpoch % 100000}',
+      id: '$prefix-${DateTime.now().microsecondsSinceEpoch}',
       name: name,
       email: email,
       phone: phone,
@@ -260,6 +304,36 @@ extension VerificationStatusLabel on VerificationStatus {
 
 /// A doctor's professional verification application.
 class DoctorApplication {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'name': name,
+    'specialty': specialty,
+    'email': email,
+    'phone': phone,
+    'licenseNumber': licenseNumber,
+    'licenseExpiry': licenseExpiry.toIso8601String(),
+    'qualifications': qualifications,
+    'documents': documents.map((v) => v).toList(),
+    'status': status.name,
+    'decisionReason': decisionReason,
+  };
+  static DoctorApplication fromDb(Map<String, dynamic> data) {
+    final value = DoctorApplication(
+      id: data['id'] as String,
+      name: data['name'] as String,
+      specialty: data['specialty'] as String,
+      email: data['email'] as String,
+      phone: data['phone'] as String,
+      licenseNumber: data['licenseNumber'] as String,
+      licenseExpiry: DateTime.parse(data['licenseExpiry'] as String),
+      qualifications: data['qualifications'] as String,
+      documents: (data['documents'] as List).map((v) => v as String).toList(),
+      status: VerificationStatus.values.byName(data['status'] as String),
+      decisionReason: data['decisionReason'] as String,
+    );
+    return value;
+  }
+
   DoctorApplication({
     required this.id,
     required this.name,
@@ -289,6 +363,27 @@ class DoctorApplication {
 
 /// In-memory store of doctor verification applications.
 class DoctorVerificationStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'doctor_verifications',
+      this,
+      () => {
+        for (final item in _applications)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _applications
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) =>
+                  databaseRestoreKey(DoctorApplication.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   DoctorVerificationStore._() {
     _seed();
   }
@@ -363,6 +458,32 @@ class DoctorVerificationStore extends ChangeNotifier {
 
 /// A single immutable audit entry recording a sensitive admin action.
 class AuditEntry {
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'action': action,
+    'module': module,
+    'record': record,
+    'actor': actor,
+    'timestamp': timestamp.toIso8601String(),
+    'previousValue': previousValue,
+    'newValue': newValue,
+    'reason': reason,
+  };
+  static AuditEntry fromDb(Map<String, dynamic> data) {
+    final value = AuditEntry(
+      id: data['id'] as String,
+      action: data['action'] as String,
+      module: data['module'] as String,
+      record: data['record'] as String,
+      actor: data['actor'] as String,
+      timestamp: DateTime.parse(data['timestamp'] as String),
+      previousValue: data['previousValue'] as String,
+      newValue: data['newValue'] as String,
+      reason: data['reason'] as String,
+    );
+    return value;
+  }
+
   AuditEntry({
     required this.id,
     required this.action,
@@ -389,6 +510,26 @@ class AuditEntry {
 /// Central, append-only audit trail. Every admin action writes here so the
 /// Audit Logs screen can display who did what, when, and why.
 class AuditLogStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'audit_logs',
+      this,
+      () => {
+        for (final item in _entries)
+          databaseRecordKey(item, item.id): item.toDb(),
+      },
+      (rows) {
+        _entries
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (e) => databaseRestoreKey(AuditEntry.fromDb(e.value), e.key),
+            ),
+          );
+      },
+    );
+  }
+
   AuditLogStore._() {
     _seed();
   }
@@ -470,6 +611,38 @@ class AdminSession {
 /// Editable profile of the signed-in administrator. In-memory only (resets on
 /// restart) but reactive so the whole profile UI reflects changes.
 class AdminProfileStore extends ChangeNotifier {
+  void connectDatabase() {
+    DatabaseSync.instance.bind(
+      'admin_profiles',
+      this,
+      () => {
+        'profile': {
+          'name': name,
+          'phone': phone,
+          'email': email,
+          'photoPath': photoPath,
+          'twoFactorEnabled': twoFactorEnabled,
+          'approvalAlerts': approvalAlerts,
+          'emergencyAlerts': emergencyAlerts,
+          'systemAlerts': systemAlerts,
+          'reportAlerts': reportAlerts,
+        },
+      },
+      (rows) {
+        final value = rows.isEmpty ? <String, dynamic>{} : rows.values.first;
+        name = value['name'] as String? ?? '';
+        phone = value['phone'] as String? ?? '';
+        email = value['email'] as String? ?? '';
+        photoPath = value['photoPath'] as String?;
+        twoFactorEnabled = value['twoFactorEnabled'] as bool? ?? false;
+        approvalAlerts = value['approvalAlerts'] as bool? ?? true;
+        emergencyAlerts = value['emergencyAlerts'] as bool? ?? true;
+        systemAlerts = value['systemAlerts'] as bool? ?? true;
+        reportAlerts = value['reportAlerts'] as bool? ?? false;
+      },
+    );
+  }
+
   AdminProfileStore._();
 
   static final AdminProfileStore instance = AdminProfileStore._();
