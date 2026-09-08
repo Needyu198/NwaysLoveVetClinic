@@ -89,14 +89,18 @@ class ClinicApi {
     this.token = token;
     this.account = Map<String, dynamic>.from(account);
     // Mirror the session into Firebase Auth (best-effort, never blocks login).
-    // Uses the backend username mapped to a synthetic email in the clinic
-    // Firebase project.
-    unawaited(
-      FirebaseService.instance.signInOrRegister(
-        email: FirebaseService.emailForIdentifier(username),
-        password: password,
-      ),
-    );
+    // Fully isolated: any error (sync or async) is swallowed so it can never
+    // affect the backend login result.
+    scheduleMicrotask(() async {
+      try {
+        await FirebaseService.instance.signInOrRegister(
+          email: FirebaseService.emailForIdentifier(username),
+          password: password,
+        );
+      } catch (e) {
+        debugPrint('Firebase mirror sign-in skipped: $e');
+      }
+    });
     return role;
   }
 
@@ -106,7 +110,13 @@ class ClinicApi {
     } finally {
       token = null;
       account = null;
-      unawaited(FirebaseService.instance.signOut());
+      scheduleMicrotask(() async {
+        try {
+          await FirebaseService.instance.signOut();
+        } catch (_) {
+          /* best-effort */
+        }
+      });
     }
   }
 }

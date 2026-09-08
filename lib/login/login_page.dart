@@ -286,12 +286,25 @@ class _SignInFormState extends State<SignInForm> {
       _errorMessage = null;
     });
 
-    final result = await AccountAuthApi(
-      petOwnerAuthApi: widget.authApi,
-      doctorAuthApi: widget.doctorAuthApi,
-      systemAdminAuthApi: widget.systemAdminAuthApi,
-      staffAuthApi: widget.staffAuthApi,
-    ).login(identifier: username, password: password);
+    final AccountLoginResult result;
+    try {
+      result = await AccountAuthApi(
+        petOwnerAuthApi: widget.authApi,
+        doctorAuthApi: widget.doctorAuthApi,
+        systemAdminAuthApi: widget.systemAdminAuthApi,
+        staffAuthApi: widget.staffAuthApi,
+      ).login(identifier: username, password: password);
+    } catch (e, stack) {
+      debugPrint('LOGIN/AUTH ERROR: $e');
+      debugPrint('$stack');
+      if (mounted) {
+        setState(() {
+          _isSigningIn = false;
+          _errorMessage = e.toString();
+        });
+      }
+      return;
+    }
 
     if (!mounted) {
       return;
@@ -308,7 +321,10 @@ class _SignInFormState extends State<SignInForm> {
     if (ClinicApi.instance.token != null) {
       try {
         await DatabaseSync.instance.start();
-      } catch (e) {
+      } catch (e, stack) {
+        // Log full details so the exact failing line is visible in the console.
+        debugPrint('LOGIN/START ERROR: $e');
+        debugPrint('$stack');
         if (mounted) {
           setState(() {
             _isSigningIn = false;

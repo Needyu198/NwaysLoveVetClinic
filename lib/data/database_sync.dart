@@ -61,10 +61,20 @@ class DatabaseSync extends ChangeNotifier {
         }
       }
       active = true;
-      // Open the real-time channel so the queue and other tables update live.
-      RealtimeClient.instance.connect();
-      // Register this device for push notifications (best-effort, non-blocking).
-      unawaited(MessagingService.instance.registerForPush());
+      // Real-time + push are optional extras. Isolate them so a failure here
+      // can never turn a successful login/sync into an error.
+      scheduleMicrotask(() {
+        try {
+          RealtimeClient.instance.connect();
+        } catch (e) {
+          debugPrint('Realtime connect skipped: $e');
+        }
+        try {
+          MessagingService.instance.registerForPush();
+        } catch (e) {
+          debugPrint('Push registration skipped: $e');
+        }
+      });
     } catch (e) {
       error = e.toString();
       rethrow;
@@ -226,16 +236,38 @@ class _Binding {
   void hydrate(List records) {
     final rows = <String, Map<String, dynamic>>{};
     for (final record in records) {
-      final key = record['data']['key'] as String;
+      // Defensive parsing: skip any record whose required fields are missing or
+      // the wrong type instead of throwing (which would abort the whole login).
+      if (record is! Map) {
+        debugPrint('Skipping malformed record in $table: not an object');
+        continue;
+      }
+      final data = record['data'];
+      final id = record['id'];
+      final ownerId = record['owner_id'];
+      final version = record['version'];
+      final key = data is Map ? data['key'] : null;
+      final value = data is Map ? data['value'] : null;
+      if (id is! String ||
+          ownerId is! String ||
+          version is! int ||
+          key is! String ||
+          value is! Map) {
+        debugPrint(
+          'Skipping malformed record in $table '
+          '(id=$id key=$key version=$version): missing/invalid fields',
+        );
+        continue;
+      }
       if (rows.containsKey(key)) {
         throw ClinicApiException(
           'Duplicate record key in $table. Contact the clinic administrator.',
         );
       }
-      _ownersByKey[key] = record['owner_id'] as String;
-      ids[key] = record['id'] as String;
-      versions[key] = record['version'] as int;
-      rows[key] = Map<String, dynamic>.from(record['data']['value'] as Map);
+      _ownersByKey[key] = ownerId;
+      ids[key] = id;
+      versions[key] = version;
+      rows[key] = Map<String, dynamic>.from(value);
     }
     restore(rows);
     baseline = _copy(read());
