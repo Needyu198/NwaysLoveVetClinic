@@ -8,7 +8,9 @@ class ClinicDirectory extends ChangeNotifier {
   DatabaseRows _people = {};
   List<String> get doctors => _people.values
       .where((p) => p['role'] == 'doctor')
-      .map((p) => p['name'] as String)
+      .map((p) => p['name'])
+      .whereType<String>()
+      .where((name) => name.trim().isNotEmpty)
       .toList();
   void connectDatabase() => DatabaseSync.instance.bind(
     'clinic_directory',

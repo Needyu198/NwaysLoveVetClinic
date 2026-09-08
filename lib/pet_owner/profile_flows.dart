@@ -122,22 +122,29 @@ class ProfilePet {
     'medicines': medicines,
     'vaccination': vaccination,
     'hasCustomPhoto': hasCustomPhoto,
+    // Persisted pet photo, stored inline as a base64 data URI (or empty).
+    'photoUrl': photoUrl,
   };
   static ProfilePet fromDb(Map<String, dynamic> data) {
+    // Tolerate older records that predate some fields by falling back to
+    // sensible defaults instead of throwing on a missing/null key.
+    String str(String key, [String fallback = '']) =>
+        data[key] is String ? data[key] as String : fallback;
     final value = ProfilePet(
-      name: data['name'] as String,
-      type: data['type'] as String,
-      breed: data['breed'] as String,
-      sex: data['sex'] as String,
-      dateOfBirth: DateTime.parse(data['dateOfBirth'] as String),
-      weightKg: (data['weightKg'] as num).toDouble(),
-      color: data['color'] as String,
-      identifyingFeatures: data['identifyingFeatures'] as String,
-      allergies: data['allergies'] as String,
-      conditions: data['conditions'] as String,
-      medicines: data['medicines'] as String,
-      vaccination: data['vaccination'] as String,
-      hasCustomPhoto: data['hasCustomPhoto'] as bool,
+      name: str('name'),
+      type: str('type', 'Dog'),
+      breed: str('breed'),
+      sex: str('sex', 'Unknown'),
+      dateOfBirth: DateTime.tryParse(str('dateOfBirth')) ?? DateTime(2020),
+      weightKg: (data['weightKg'] as num?)?.toDouble() ?? 0,
+      color: str('color'),
+      identifyingFeatures: str('identifyingFeatures'),
+      allergies: str('allergies', 'None known'),
+      conditions: str('conditions', 'None known'),
+      medicines: str('medicines', 'None'),
+      vaccination: str('vaccination'),
+      hasCustomPhoto: data['hasCustomPhoto'] as bool? ?? false,
+      photoUrl: str('photoUrl'),
     );
     return value;
   }
@@ -156,6 +163,7 @@ class ProfilePet {
     required this.medicines,
     required this.vaccination,
     this.hasCustomPhoto = false,
+    this.photoUrl = '',
   });
 
   final String name;
@@ -171,6 +179,29 @@ class ProfilePet {
   final String medicines;
   final String vaccination;
   final bool hasCustomPhoto;
+
+  /// Inline pet photo as a base64 data URI (`data:image/...;base64,...`),
+  /// or empty when the pet has no uploaded photo.
+  final String photoUrl;
+
+  bool get hasPhoto => photoUrl.isNotEmpty;
+
+  ProfilePet copyWith({String? photoUrl, bool? hasCustomPhoto}) => ProfilePet(
+    name: name,
+    type: type,
+    breed: breed,
+    sex: sex,
+    dateOfBirth: dateOfBirth,
+    weightKg: weightKg,
+    color: color,
+    identifyingFeatures: identifyingFeatures,
+    allergies: allergies,
+    conditions: conditions,
+    medicines: medicines,
+    vaccination: vaccination,
+    hasCustomPhoto: hasCustomPhoto ?? this.hasCustomPhoto,
+    photoUrl: photoUrl ?? this.photoUrl,
+  );
 
   int get ageYears {
     final now = DateTime.now();
@@ -190,6 +221,8 @@ class ProfilePet {
     weight: '${weightKg.toStringAsFixed(weightKg % 1 == 0 ? 0 : 1)} kg',
     age: ageYears == 0 ? 'Under 1 year' : '$ageYears years',
     imageAsset: PetProfilePage.fallbackProfile.imageAsset,
+    photoUrl: photoUrl,
+    petKey: '$name:${dateOfBirth.toIso8601String()}',
   );
 }
 
@@ -221,36 +254,10 @@ class ProfilePetStore extends ChangeNotifier {
   ProfilePetStore._();
 
   static final instance = ProfilePetStore._();
-  final List<ProfilePet> _pets = [
-    ProfilePet(
-      name: 'Max',
-      type: 'Dog',
-      breed: 'Golden Retriever',
-      sex: 'Male',
-      dateOfBirth: DateTime(2024, 5, 10),
-      weightKg: 18,
-      color: 'Golden',
-      identifyingFeatures: 'White mark on chest',
-      allergies: 'None known',
-      conditions: 'None known',
-      medicines: 'None',
-      vaccination: 'Rabies vaccine completed',
-    ),
-    ProfilePet(
-      name: 'Luna',
-      type: 'Cat',
-      breed: 'Mixed breed',
-      sex: 'Female',
-      dateOfBirth: DateTime(2023, 8, 3),
-      weightKg: 4,
-      color: 'Grey',
-      identifyingFeatures: 'White paws',
-      allergies: 'None known',
-      conditions: 'None known',
-      medicines: 'None',
-      vaccination: 'Vaccinations current',
-    ),
-  ];
+
+  // Pets come entirely from what the owner adds (persisted in the `pets`
+  // table and hydrated on login). No seeded/demo pets.
+  final List<ProfilePet> _pets = [];
 
   List<ProfilePet> get pets => List.unmodifiable(_pets);
 
@@ -270,9 +277,46 @@ class ProfilePetStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Stable identity for a pet, matching the key used by [connectDatabase].
+  static String keyOf(ProfilePet pet) =>
+      '${pet.name}:${pet.dateOfBirth.toIso8601String()}';
+
+  /// Replace [oldPet] with [updated] in place, preserving its database record
+  /// key so the change syncs as an update (not a new record).
+  void update(ProfilePet oldPet, ProfilePet updated) {
+    final index = _pets.indexOf(oldPet);
+    if (index < 0) return;
+    // Carry over the existing DB record key onto the new object so DatabaseSync
+    // treats this as an update to the same row.
+    final existingKey = databaseKeyOf(oldPet) ?? keyOf(oldPet);
+    databaseRestoreKey(updated, existingKey);
+    _pets[index] = updated;
+    notifyListeners();
+  }
+
+  /// Set/replace a pet's photo by its stable key ("name:dobIso"). Returns true
+  /// when a matching pet was found and updated.
+  bool setPhoto(String petKey, String photoUrl) {
+    final index = _pets.indexWhere((p) => keyOf(p) == petKey);
+    if (index < 0) return false;
+    final old = _pets[index];
+    final existingKey = databaseKeyOf(old) ?? petKey;
+    final updated = old.copyWith(photoUrl: photoUrl, hasCustomPhoto: true);
+    databaseRestoreKey(updated, existingKey);
+    _pets[index] = updated;
+    notifyListeners();
+    return true;
+  }
+
+  /// Look up a pet by its stable key (for reading the latest photo, etc.).
+  ProfilePet? byKey(String petKey) {
+    final index = _pets.indexWhere((p) => keyOf(p) == petKey);
+    return index < 0 ? null : _pets[index];
+  }
+
   @visibleForTesting
   void reset() {
-    _pets.removeWhere((pet) => pet.name != 'Max' && pet.name != 'Luna');
+    _pets.clear();
     notifyListeners();
   }
 }

@@ -67,7 +67,8 @@ function installApi(app, pool) {
     const p = policy(req);
     if (req.params.table === 'clinic_directory') {
       const result = await pool.query(`SELECT id, id AS owner_id, 1 AS version,
-        jsonb_build_object('key',id,'value',jsonb_build_object('id',id,'name',full_name,'role',role)) AS data
+        jsonb_build_object('key',id,'value',jsonb_build_object(
+          'id',id,'name',COALESCE(NULLIF(full_name, ''),username),'role',role)) AS data
         FROM app_accounts WHERE active AND role IN ('doctor','staff') ORDER BY full_name,id`);
       return res.json({records:result.rows});
     }

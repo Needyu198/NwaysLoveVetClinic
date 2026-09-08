@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 
+import 'dart:convert';
+
+import 'package:image_picker/image_picker.dart';
+
+import '../data/clinic_api.dart';
+import '../data/database_sync.dart';
+import 'pet_image.dart';
 import 'pet_owner_home_page.dart';
 import 'pet_reminder_page.dart';
+import 'profile_flows.dart';
 
 class PetProfile {
   const PetProfile({
@@ -13,6 +21,8 @@ class PetProfile {
     required this.age,
     required this.imageAsset,
     this.imageAlignment = Alignment.center,
+    this.photoUrl = '',
+    this.petKey = '',
   });
 
   final String name;
@@ -23,9 +33,31 @@ class PetProfile {
   final String age;
   final String imageAsset;
   final Alignment imageAlignment;
+
+  /// Inline uploaded photo as a base64 data URI, or empty to use [imageAsset].
+  final String photoUrl;
+
+  /// Stable key ("name:dobIso") used to locate this pet in ProfilePetStore
+  /// when uploading/updating its photo. Empty for demo/fallback profiles.
+  final String petKey;
+
+  bool get hasPhoto => photoUrl.isNotEmpty;
+
+  PetProfile copyWithPhoto(String newPhotoUrl) => PetProfile(
+    name: name,
+    species: species,
+    breed: breed,
+    sex: sex,
+    weight: weight,
+    age: age,
+    imageAsset: imageAsset,
+    imageAlignment: imageAlignment,
+    photoUrl: newPhotoUrl,
+    petKey: petKey,
+  );
 }
 
-class PetProfilePage extends StatelessWidget {
+class PetProfilePage extends StatefulWidget {
   const PetProfilePage({super.key});
 
   static const String routeName = '/pet-profile';
@@ -41,9 +73,79 @@ class PetProfilePage extends StatelessWidget {
   );
 
   @override
+  State<PetProfilePage> createState() => _PetProfilePageState();
+}
+
+class _PetProfilePageState extends State<PetProfilePage> {
+  PetProfile? _profile;
+  bool _uploading = false;
+
+  PetProfile get _current => _profile ?? PetProfilePage.fallbackProfile;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_profile == null) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      final profile = args is PetProfile
+          ? args
+          : PetProfilePage.fallbackProfile;
+      // If this pet is in the store, prefer its latest photo.
+      final stored = profile.petKey.isEmpty
+          ? null
+          : ProfilePetStore.instance.byKey(profile.petKey);
+      _profile = stored != null ? stored.toPetProfile() : profile;
+    }
+  }
+
+  Future<void> _uploadPhoto() async {
+    final profile = _current;
+    if (profile.petKey.isEmpty) {
+      _notify('Photos can only be added to your saved pets.');
+      return;
+    }
+    if (_uploading) return;
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1200,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+      setState(() => _uploading = true);
+      final bytes = await picked.readAsBytes();
+      if (bytes.length > 2 * 1024 * 1024) {
+        throw ClinicApiException('Please choose a photo smaller than 2 MB.');
+      }
+      final dataUri = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      // Persist to the store (updates the pets table via DatabaseSync).
+      final ok = ProfilePetStore.instance.setPhoto(profile.petKey, dataUri);
+      if (!ok) throw ClinicApiException('Could not find this pet to update.');
+      // Ensure the change is flushed to the backend promptly.
+      await DatabaseSync.instance.flush();
+      if (!mounted) return;
+      setState(() {
+        _profile = profile.copyWithPhoto(dataUri);
+        _uploading = false;
+      });
+      _notify('Photo updated.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploading = false);
+      _notify(e.toString());
+    }
+  }
+
+  void _notify(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)?.settings.arguments;
-    final profile = args is PetProfile ? args : fallbackProfile;
+    final profile = _current;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF8),
@@ -52,7 +154,13 @@ class PetProfilePage extends StatelessWidget {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            SliverToBoxAdapter(child: _ProfileHero(profile: profile)),
+            SliverToBoxAdapter(
+              child: _ProfileHero(
+                profile: profile,
+                uploading: _uploading,
+                onUploadPhoto: _uploadPhoto,
+              ),
+            ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(22, 22, 22, 34),
               sliver: SliverList.list(
@@ -78,9 +186,15 @@ class PetProfilePage extends StatelessWidget {
 }
 
 class _ProfileHero extends StatelessWidget {
-  const _ProfileHero({required this.profile});
+  const _ProfileHero({
+    required this.profile,
+    required this.uploading,
+    required this.onUploadPhoto,
+  });
 
   final PetProfile profile;
+  final bool uploading;
+  final VoidCallback onUploadPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -128,9 +242,9 @@ class _ProfileHero extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.asset(
-                  profile.imageAsset,
-                  fit: BoxFit.cover,
+                PetPhoto(
+                  photoUrl: profile.photoUrl,
+                  fallbackAsset: profile.imageAsset,
                   alignment: profile.imageAlignment,
                 ),
                 const DecoratedBox(
@@ -151,8 +265,10 @@ class _ProfileHero extends StatelessWidget {
                   right: 18,
                   top: 18,
                   child: _GlassIconButton(
-                    icon: Icons.add_photo_alternate_outlined,
-                    onTap: () {},
+                    icon: uploading
+                        ? Icons.hourglass_top_rounded
+                        : Icons.add_photo_alternate_outlined,
+                    onTap: uploading ? () {} : onUploadPhoto,
                   ),
                 ),
                 Positioned(

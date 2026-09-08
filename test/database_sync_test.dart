@@ -15,7 +15,28 @@ void main() {
   test(
     'booking, queue, reminder and inventory survive reload; failed saves remain pending',
     () async {
-      final database = <String, Map<String, Map<String, dynamic>>>{};
+      final database = <String, Map<String, Map<String, dynamic>>>{
+        'reminders': {
+          'legacy-reminder': {
+            'id': 'legacy-reminder',
+            'owner_id': 'owner-test',
+            'version': 1,
+            'data': {
+              'key': 'legacy-reminder',
+              'value': {
+                'id': 'legacy-reminder',
+                'title': null,
+                'type': 'checkup',
+                'dateTime': '2027-01-01T10:00:00.000',
+                'note': '',
+                'petName': null,
+                'createdByStaff': false,
+                'completed': false,
+              },
+            },
+          },
+        },
+      };
       var failWrites = false;
       ClinicApi.instance.account = {
         'id': 'owner-test',
@@ -60,6 +81,8 @@ void main() {
       registerDatabaseStores();
       final sync = DatabaseSync.instance;
       await sync.start();
+      expect(sync.error, isNull);
+      expect(ReminderStore.instance.reminders, isEmpty);
       expect(AppointmentStore.instance.appointments, isEmpty);
       expect(
         StaffOperationsStore.instance.inventory,

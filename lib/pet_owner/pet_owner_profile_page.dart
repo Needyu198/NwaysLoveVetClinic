@@ -398,27 +398,29 @@ class _MyPetsSection extends StatelessWidget {
       icon: const Icon(Icons.add_rounded),
       label: const Text('Add Pet'),
     ),
-    children: pets
-        .map(
-          (pet) => _FeatureRow(
-            key: ValueKey('profile-pet-${pet.name}'),
-            icon: pet.type == 'Cat'
-                ? Icons.cruelty_free_rounded
-                : Icons.pets_rounded,
-            title: pet.name,
-            subtitle: '${pet.type} • ${pet.breed} • ${pet.ageYears} years',
-            color: pet.type == 'Cat'
-                ? const Color(0xFF8B3DFF)
-                : const Color(0xFF2F80FF),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const PetProfilePage(),
-                settings: RouteSettings(arguments: pet.toPetProfile()),
-              ),
+    children: [
+      for (var i = 0; i < pets.length; i++)
+        _FeatureRow(
+          // Use the pet's stable key plus index so pets with the same name
+          // never collide (duplicate keys crash the Column).
+          key: ValueKey('profile-pet-${ProfilePetStore.keyOf(pets[i])}-$i'),
+          icon: pets[i].type == 'Cat'
+              ? Icons.cruelty_free_rounded
+              : Icons.pets_rounded,
+          title: pets[i].name,
+          subtitle:
+              '${pets[i].type} • ${pets[i].breed} • ${pets[i].ageYears} years',
+          color: pets[i].type == 'Cat'
+              ? const Color(0xFF8B3DFF)
+              : const Color(0xFF2F80FF),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const PetProfilePage(),
+              settings: RouteSettings(arguments: pets[i].toPetProfile()),
             ),
           ),
-        )
-        .toList(),
+        ),
+    ],
   );
 }
 

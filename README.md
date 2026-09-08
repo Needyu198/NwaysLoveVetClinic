@@ -27,13 +27,27 @@ npm run migrate
 npm start
 ```
 
-The default API address is `http://127.0.0.1:5050` on desktop and web, and
-`http://10.0.2.2:5050` on the Android emulator. For a physical device or a
-deployed API, pass the reachable address when starting Flutter:
+The backend listens on all network interfaces (`0.0.0.0`) by default. The app
+uses `http://127.0.0.1:5050` on desktop and web and `http://10.0.2.2:5050` on
+the Android emulator. For a physical device on the local network, or for an
+internet-accessible HTTPS deployment, pass the reachable API address when
+starting Flutter. For a phone on the same local network:
 
 ```sh
-flutter run --dart-define=API_BASE_URL=http://YOUR_SERVER:5050
+flutter run --dart-define=API_BASE_URL=http://YOUR_MAC_LAN_IP:5050
 ```
+
+For a public deployment that works from any internet connection:
+
+```sh
+flutter run --dart-define=API_BASE_URL=https://api.your-domain.example
+```
+
+Binding to `0.0.0.0` makes the API reachable through the Mac's LAN address, but
+it does not publish the Mac to the internet. To use the app from any network,
+deploy the backend and PostgreSQL using `deploy/README.md`, expose only the API
+through HTTPS, and build the app with that public URL. Never expose PostgreSQL
+port 5432 to the internet.
 
 Create another PostgreSQL-backed account with:
 

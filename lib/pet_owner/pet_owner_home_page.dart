@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'owner_shared_stores.dart';
+import 'pet_image.dart';
+import 'profile_flows.dart';
 import 'pet_owner_clinic_page.dart';
 import 'pet_owner_nav_bar.dart';
 import 'pet_owner_profile_page.dart';
@@ -248,61 +250,108 @@ class _ProfilePhoto extends StatelessWidget {
   }
 }
 
-class _PetCarousel extends StatelessWidget {
+class _PetCarousel extends StatefulWidget {
   const _PetCarousel();
 
-  static const _pets = <PetProfile>[
-    PetProfile(
-      name: 'Max',
-      species: 'Dog',
-      breed: 'Golden Retriever',
-      sex: 'Male',
-      weight: '18 kg',
-      age: '2 years',
-      imageAsset: PetOwnerHomePage.dogAsset,
-      imageAlignment: Alignment.center,
-    ),
-    PetProfile(
-      name: 'Bella',
-      species: 'Dog',
-      breed: 'Shih Tzu',
-      sex: 'Female',
-      weight: '6 kg',
-      age: '1 year',
-      imageAsset: PetOwnerHomePage.dogAsset,
-      imageAlignment: Alignment.center,
-    ),
-    PetProfile(
-      name: 'Luna',
-      species: 'Dog',
-      breed: 'Mixed breed',
-      sex: 'Female',
-      weight: '10 kg',
-      age: '3 years',
-      imageAsset: PetOwnerHomePage.dogAsset,
-      imageAlignment: Alignment.center,
-    ),
-  ];
+  @override
+  State<_PetCarousel> createState() => _PetCarouselState();
+}
+
+class _PetCarouselState extends State<_PetCarousel> {
+  final _store = ProfilePetStore.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _store.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    _store.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pets = _store.pets;
+    if (pets.isEmpty) {
+      return const _EmptyPetsCard();
+    }
     return ListView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 4),
       children: [
-        for (final pet in _pets) ...[
-          Center(child: _PetCard(profile: pet)),
-          if (pet != _pets.last) const SizedBox(width: 16),
+        for (var i = 0; i < pets.length; i++) ...[
+          Center(child: _PetCard(pet: pets[i])),
+          if (i != pets.length - 1) const SizedBox(width: 16),
         ],
       ],
     );
   }
 }
 
-class _PetCard extends StatelessWidget {
-  const _PetCard({required this.profile});
+class _EmptyPetsCard extends StatelessWidget {
+  const _EmptyPetsCard();
 
-  final PetProfile profile;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x160B2F25),
+              blurRadius: 14,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.pets_rounded,
+                size: 40,
+                color: Color(0xFF9BB0A8),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'No pets yet',
+                style: TextStyle(
+                  color: PetOwnerHomePage.inkColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'Add your pet from the profile page',
+                style: TextStyle(
+                  color: PetOwnerHomePage.mutedTextColor,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PetCard extends StatelessWidget {
+  const _PetCard({required this.pet});
+
+  final ProfilePet pet;
 
   @override
   Widget build(BuildContext context) {
@@ -310,9 +359,11 @@ class _PetCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
+          // Pass the real pet's display profile (with photo + key) so the
+          // profile page shows and can update the correct database record.
           Navigator.of(
             context,
-          ).pushNamed(PetProfilePage.routeName, arguments: profile);
+          ).pushNamed(PetProfilePage.routeName, arguments: pet.toPetProfile());
         },
         borderRadius: BorderRadius.circular(28),
         child: Ink(
@@ -334,10 +385,9 @@ class _PetCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.asset(
-                  profile.imageAsset,
-                  fit: BoxFit.cover,
-                  alignment: profile.imageAlignment,
+                PetPhoto(
+                  photoUrl: pet.photoUrl,
+                  fallbackAsset: PetOwnerHomePage.dogAsset,
                 ),
                 const DecoratedBox(
                   decoration: BoxDecoration(
@@ -358,7 +408,7 @@ class _PetCard extends StatelessWidget {
                   right: 13,
                   bottom: 13,
                   child: Text(
-                    profile.name,
+                    pet.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

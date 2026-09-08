@@ -269,15 +269,50 @@ class _Binding {
       versions[key] = version;
       rows[key] = Map<String, dynamic>.from(value);
     }
-    restore(rows);
+    _restoreValidRows(rows);
     baseline = _copy(read());
     dirty = false;
+  }
+
+  void _restoreValidRows(DatabaseRows rows) {
+    try {
+      restore(rows);
+      return;
+    } catch (error) {
+      debugPrint(
+        'Some $table records could not be restored; checking them '
+        'individually: $error',
+      );
+    }
+
+    final validRows = <String, Map<String, dynamic>>{};
+    for (final entry in rows.entries) {
+      try {
+        restore({entry.key: entry.value});
+        validRows[entry.key] = entry.value;
+      } catch (error) {
+        // Records written by an older app version can be missing fields that
+        // the current model requires. Keep them on the server, but do not let
+        // one incompatible record prevent the account from signing in.
+        debugPrint(
+          'Skipping incompatible record in $table '
+          '(key=${entry.key}): $error',
+        );
+      }
+    }
+    restore(validRows);
   }
 }
 
 final _recordKeys = Expando<String>('database key');
 String databaseRecordKey(Object item, String suggested) =>
     _recordKeys[item] ??= '${ClinicApi.instance.accountId}:$suggested';
+
+/// The database record key previously assigned to [item], or null if none.
+/// Used to carry a record's identity onto a replacement object so an edit
+/// syncs as an update to the same row rather than a new insert.
+String? databaseKeyOf(Object? item) => item == null ? null : _recordKeys[item];
+
 T databaseRestoreKey<T extends Object>(T item, String key) {
   _recordKeys[item] = key;
   return item;
