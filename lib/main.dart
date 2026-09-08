@@ -1,6 +1,8 @@
 import 'data/database_stores.dart';
 import 'data/database_status.dart';
+import 'data/firebase_service.dart';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import 'doctor/doctor_portal.dart';
@@ -27,8 +29,23 @@ import 'pet_owner/pet_add_reminder_page.dart';
 import 'pet_owner/pet_reminder_page.dart';
 import 'system_admin/system_admin_portal.dart';
 
+/// Top-level background handler for FCM messages received while the app is not
+/// in the foreground. Must be a top-level function.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // No heavy work here; the OS displays the notification. This handler exists
+  // so the plugin can process data messages in the background.
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize Firebase before the app starts. This is non-fatal: if Firebase
+  // cannot initialize (e.g. missing native config on a platform), the app still
+  // runs on the custom backend auth.
+  await FirebaseService.instance.ensureInitialized();
+  if (FirebaseService.instance.isAvailable) {
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  }
   registerDatabaseStores();
   runApp(const NwayLoveVetClinicApp());
 }

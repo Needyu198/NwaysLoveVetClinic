@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'clinic_api.dart';
+import 'messaging_service.dart';
+import 'realtime_client.dart';
 export 'database_icons.dart';
 
 typedef DatabaseRows = Map<String, Map<String, dynamic>>;
@@ -59,6 +61,10 @@ class DatabaseSync extends ChangeNotifier {
         }
       }
       active = true;
+      // Open the real-time channel so the queue and other tables update live.
+      RealtimeClient.instance.connect();
+      // Register this device for push notifications (best-effort, non-blocking).
+      unawaited(MessagingService.instance.registerForPush());
     } catch (e) {
       error = e.toString();
       rethrow;
@@ -146,6 +152,31 @@ class DatabaseSync extends ChangeNotifier {
     await start();
   }
 
+  /// Re-hydrate a single table in response to a real-time change notification.
+  /// No-op when the session is inactive, currently syncing, or the table has
+  /// local unsaved edits (to avoid clobbering the user's in-flight changes).
+  Future<void> refreshTable(String table) async {
+    if (!active || busy) return;
+    final matches = _bindings.where((b) => b.table == table && b.allowed);
+    if (matches.isEmpty) return;
+    for (final b in matches) {
+      if (b.dirty) return; // defer; the pending flush will reconcile
+    }
+    busy = true;
+    try {
+      for (final b in matches) {
+        final result = await ClinicApi.instance.request('GET', '/data/$table');
+        b.hydrate(result['records'] as List);
+        b.store.notifyListeners();
+      }
+    } on ClinicApiException catch (e) {
+      if (e.statusCode != 403) error = e.toString();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> stop() async {
     await flush();
     if (pending) {
@@ -155,6 +186,8 @@ class DatabaseSync extends ChangeNotifier {
     }
     active = false;
     _timer?.cancel();
+    RealtimeClient.instance.disconnect();
+    unawaited(MessagingService.instance.unregister());
     for (final b in _bindings) {
       b.reset();
       b.restore({});

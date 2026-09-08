@@ -56,9 +56,16 @@ class AccountAuthApi {
       username: identifier,
       password: password,
     );
-    return result.isSuccess
-        ? AccountLoginResult.success(AccountRole.values.byName(result.role))
-        : AccountLoginResult.failure(result.message);
+    if (!result.isSuccess) return AccountLoginResult.failure(result.message);
+    final role = AccountRole.values
+        .where((r) => r.name == result.role)
+        .firstOrNull;
+    if (role == null) {
+      return const AccountLoginResult.failure(
+        'This account role is not supported.',
+      );
+    }
+    return AccountLoginResult.success(role);
   }
 }
 

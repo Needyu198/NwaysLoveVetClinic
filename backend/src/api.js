@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const { resources } = require('./resources');
+const { broadcastChange } = require('./realtime');
 const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 const fail = (status, message) => Object.assign(new Error(message), { status });
 function installApi(app, pool) {
@@ -24,7 +25,7 @@ function installApi(app, pool) {
     await pool.query("INSERT INTO app_sessions(token_hash, account_id, role, expires_at) VALUES($1,$2,$3,NOW() + INTERVAL '12 hours')", [hash(token), account.id, account.role]);
     res.json({ token, account: { id: account.id, username: account.username, fullName: account.full_name, role: account.role } });
   }));
-  app.use(['/data', '/auth/logout'], async (req, res, next) => {
+  app.use(['/data', '/auth/logout', '/devices'], async (req, res, next) => {
     try {
       const token = (req.headers.authorization || '').replace(/^Bearer /, '');
       const session = (await pool.query('SELECT s.* FROM app_sessions s JOIN app_accounts a ON a.id=s.account_id AND a.active AND a.role=s.role WHERE s.token_hash=$1 AND s.expires_at>NOW()', [hash(token)])).rows[0];
@@ -35,6 +36,24 @@ function installApi(app, pool) {
   });
   app.post('/auth/logout', wrap(async (req, res) => {
     await pool.query('DELETE FROM app_sessions WHERE token_hash=$1', [req.session.token_hash]);
+    res.json({ ok: true });
+  }));
+  // Register (or refresh) this device's FCM token for the signed-in account.
+  app.post('/devices/register', wrap(async (req, res) => {
+    const token = String(req.body.token || '').trim();
+    const platform = String(req.body.platform || 'unknown').slice(0, 32);
+    if (!token || token.length > 4096) throw fail(400, 'A device token is required.');
+    await pool.query(
+      `INSERT INTO device_tokens(token, account_id, platform) VALUES($1,$2,$3)
+       ON CONFLICT (token) DO UPDATE SET account_id=EXCLUDED.account_id, platform=EXCLUDED.platform, updated_at=NOW()`,
+      [token, req.session.account_id, platform],
+    );
+    res.json({ ok: true });
+  }));
+  // Remove this device's token (e.g. on logout / permission revoked).
+  app.post('/devices/unregister', wrap(async (req, res) => {
+    const token = String(req.body.token || '').trim();
+    if (token) await pool.query('DELETE FROM device_tokens WHERE token=$1 AND account_id=$2', [token, req.session.account_id]);
     res.json({ ok: true });
   }));
   const policy = req => {
@@ -99,6 +118,9 @@ function installApi(app, pool) {
         }
       }
       await client.query('COMMIT');
+      // Notify connected clients that this table changed so they refresh live
+      // (drives the real-time queue). Only emit when something actually changed.
+      if (changes.length || deletions.length) broadcastChange(req.params.table);
       res.json({ records: saved });
     } catch (e) { await client.query('ROLLBACK'); if (e.code === '23505') throw fail(409, 'Record already exists. Reload before saving.'); throw e; }
     finally { client.release(); }

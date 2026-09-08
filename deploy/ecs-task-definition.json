@@ -1,0 +1,71 @@
+{
+  "family": "nways-clinic",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/nways-backend:latest",
+      "essential": true,
+      "portMappings": [{ "containerPort": 5050, "protocol": "tcp" }],
+      "environment": [
+        { "name": "PORT", "value": "5050" },
+        { "name": "HOST", "value": "0.0.0.0" },
+        { "name": "DB_HOST", "value": "<RDS_ENDPOINT>" },
+        { "name": "DB_PORT", "value": "5432" },
+        { "name": "DB_NAME", "value": "NwayLoveVetClinicSever" },
+        { "name": "DB_USER", "value": "postgres" }
+      ],
+      "secrets": [
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:nways/db-password"
+        },
+        {
+          "name": "FIREBASE_SERVICE_ACCOUNT",
+          "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:nways/firebase-service-account"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/nways-clinic",
+          "awslogs-region": "<REGION>",
+          "awslogs-stream-prefix": "backend"
+        }
+      }
+    },
+    {
+      "name": "reporting",
+      "image": "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/nways-reporting:latest",
+      "essential": false,
+      "portMappings": [{ "containerPort": 5060, "protocol": "tcp" }],
+      "environment": [
+        { "name": "REPORT_HOST", "value": "0.0.0.0" },
+        { "name": "REPORT_PORT", "value": "5060" },
+        { "name": "DB_HOST", "value": "<RDS_ENDPOINT>" },
+        { "name": "DB_PORT", "value": "5432" },
+        { "name": "DB_NAME", "value": "NwayLoveVetClinicSever" },
+        { "name": "DB_USER", "value": "postgres" }
+      ],
+      "secrets": [
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:nways/db-password"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/nways-clinic",
+          "awslogs-region": "<REGION>",
+          "awslogs-stream-prefix": "reporting"
+        }
+      }
+    }
+  ]
+}

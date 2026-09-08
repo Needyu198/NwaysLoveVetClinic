@@ -1,9 +1,11 @@
 
 const express = require("express");
 const cors = require("cors");
+const http = require("node:http");
 
 const { getDatabaseConfigError, pool } = require("./db");
 const { ensureDatabaseSchema } = require("./schema");
+const { attachRealtime } = require("./realtime");
 
 const app = express();
 const port = Number(process.env.PORT || 5050);
@@ -35,13 +37,16 @@ app.get("/health", async (req, res) => {
 
 require("./api").installApi(app, pool);
 
+const server = http.createServer(app);
+attachRealtime(server, pool);
+
 async function start() {
   const configError = getDatabaseConfigError();
   if (configError) throw new Error(configError);
   await ensureDatabaseSchema();
-  return app.listen(port, host, () => console.log(`Clinic API ready at http://${host}:${port}`));
+  return server.listen(port, host, () => console.log(`Clinic API + realtime ready at http://${host}:${port}`));
 }
 if (require.main === module) {
   start().catch(error => { console.error('API startup failed:', error.message); pool.end(); process.exitCode = 1; });
 }
-module.exports = { app, pool, start };
+module.exports = { app, server, pool, start };

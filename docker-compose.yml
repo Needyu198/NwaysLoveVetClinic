@@ -1,0 +1,76 @@
+# Full-stack local orchestration and the basis for cloud deployment.
+#
+#   docker compose up --build
+#
+# Services:
+#   db         PostgreSQL (data persisted in the pgdata volume)
+#   backend    Node/Express + Socket.io API on :5050
+#   reporting  Python/Flask + pandas analytics on :5060
+#   web-staff  React staff app served by nginx on :8080
+#
+# Copy .env.docker.example to .env and adjust secrets before running.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-NwayLoveVetClinicSever}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 5050
+      HOST: 0.0.0.0
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-NwayLoveVetClinicSever}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      # Optional FCM credentials (see docs/FCM_SETUP.md)
+      FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT:-}
+    ports:
+      - "5050:5050"
+
+  reporting:
+    build: ./reporting
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      REPORT_HOST: 0.0.0.0
+      REPORT_PORT: 5060
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-NwayLoveVetClinicSever}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "5060:5060"
+
+  web-staff:
+    build:
+      context: ./web-staff
+      args:
+        # Point the built app at the backend's public URL.
+        VITE_API_BASE_URL: ${STAFF_API_BASE_URL:-http://localhost:5050}
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:

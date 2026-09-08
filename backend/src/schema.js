@@ -30,6 +30,13 @@ async function ensureDatabaseSchema(database = pool) {
       token_hash TEXT PRIMARY KEY, account_id TEXT NOT NULL,
       role TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    // Device tokens for Firebase Cloud Messaging push delivery.
+    await client.query(`CREATE TABLE IF NOT EXISTS device_tokens (
+      token TEXT PRIMARY KEY, account_id TEXT NOT NULL,
+      platform TEXT NOT NULL DEFAULT 'unknown',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    await client.query(`CREATE INDEX IF NOT EXISTS device_tokens_account_idx ON device_tokens(account_id)`);
     for (const table of Object.keys(resources)) {
       await client.query(`CREATE TABLE IF NOT EXISTS ${table} (
         id TEXT PRIMARY KEY, owner_id TEXT NOT NULL,
