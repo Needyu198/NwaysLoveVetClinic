@@ -17,8 +17,24 @@ export function getAccount() {
   return raw ? JSON.parse(raw) : null;
 }
 
+export function accountId() {
+  return getAccount()?.id || '';
+}
+
 export function baseUrl() {
   return BASE;
+}
+
+// Format an integer amount as "1,015 MMK" (matches the Flutter app).
+export function formatMmk(amount) {
+  const n = Number(amount) || 0;
+  return `${n.toLocaleString('en-US')} MMK`;
+}
+
+// The Flutter app keys each synced record as "<accountId>:<itemId>".
+// Web writes must use the same key so they map to the same logical record.
+export function recordKey(itemId) {
+  return `${accountId()}:${itemId}`;
 }
 
 function setSession(token, account) {
@@ -73,4 +89,44 @@ export async function getTable(table) {
 // Persist changes/deletions for a table (optimistic version numbers).
 export async function syncTable(table, changes = [], deletions = []) {
   return request('POST', `/data/${table}/sync`, { changes, deletions });
+}
+
+// Build the full InventoryItem.toDb() value shape the Flutter app expects.
+export function buildInventoryValue(item) {
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    quantity: item.quantity,
+    reorderLevel: item.reorderLevel,
+    unit: item.unit ?? 'pcs',
+    expiresOn: item.expiresOn,
+    sellingPrice: item.sellingPrice,
+    purchasePrice: item.purchasePrice ?? 0,
+    supplier: item.supplier ?? '',
+    batchNumber: item.batchNumber ?? '',
+    imageAsset: item.imageAsset ?? null,
+    description: item.description ?? '',
+    restockRequested: item.restockRequested ?? false,
+    restockQuantity: item.restockQuantity ?? 0,
+    restockNote: item.restockNote ?? '',
+    restockStatus: item.restockStatus ?? '',
+    lastAudit: item.lastAudit ?? 'No stock changes recorded',
+    archived: item.archived ?? false,
+    movements: item.movements ?? [],
+  };
+}
+
+// Create or update an inventory record.
+// `existing` is the raw record from getTable() when editing (has id + version).
+export async function saveInventoryItem(item, existing) {
+  const recordId = existing ? existing.id : recordKey(item.id);
+  const version = existing ? existing.version : 0;
+  return syncTable('inventory', [
+    {
+      id: recordId,
+      version,
+      data: { key: recordKey(item.id), value: buildInventoryValue(item) },
+    },
+  ]);
 }

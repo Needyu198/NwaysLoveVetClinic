@@ -522,13 +522,25 @@ List<Product> get products => ClinicApi.instance.token == null
               price: item.sellingPrice,
               originalPrice: _originalPriceFor(item.id, item.sellingPrice),
               stock: item.quantity,
-              description:
-                  '${item.name}. Sold per ${item.unit}. Category: ${item.category}.',
+              description: item.description.isNotEmpty
+                  ? item.description
+                  : '${item.name}. Category: ${item.category}.',
               petType: 'Pets',
               weight: item.unit,
               color: _categoryColor(item.category),
               icon: _categoryIcon(item.category),
-              imageAsset: item.imageAsset,
+              // Base64 data URIs show as real photos; asset paths fall back to
+              // the asset image; both handled by ProductArt.
+              imageAsset:
+                  (item.imageAsset != null &&
+                      item.imageAsset!.startsWith('assets/'))
+                  ? item.imageAsset
+                  : null,
+              photoUrl:
+                  (item.imageAsset != null &&
+                      item.imageAsset!.startsWith('data:'))
+                  ? item.imageAsset!
+                  : '',
             ),
           )
           .toList();
@@ -656,10 +668,10 @@ class _CategoryIconStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 96,
+      height: 100,
       color: Colors.white,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
         separatorBuilder: (_, _) => const SizedBox(width: 14),
@@ -672,10 +684,11 @@ class _CategoryIconStrip extends StatelessWidget {
             child: SizedBox(
               width: 64,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 52,
-                    height: 52,
+                    width: 50,
+                    height: 50,
                     decoration: BoxDecoration(
                       color: isSelected
                           ? ProductStyles.mint

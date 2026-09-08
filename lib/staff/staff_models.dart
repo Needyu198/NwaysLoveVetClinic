@@ -683,6 +683,7 @@ class InventoryItem {
     'supplier': supplier,
     'batchNumber': batchNumber,
     'imageAsset': imageAsset,
+    'description': description,
     'restockRequested': restockRequested,
     'restockQuantity': restockQuantity,
     'restockNote': restockNote,
@@ -707,6 +708,8 @@ class InventoryItem {
       imageAsset: data['imageAsset'] == null
           ? null
           : data['imageAsset'] as String,
+      // Backward-compatible: older records have no description.
+      description: data['description'] as String? ?? '',
     );
     value.restockRequested = data['restockRequested'] as bool;
     value.restockQuantity = data['restockQuantity'] as int;
@@ -735,6 +738,7 @@ class InventoryItem {
     this.supplier = '',
     this.batchNumber = '',
     this.imageAsset,
+    this.description = '',
   });
 
   final String id;
@@ -749,6 +753,7 @@ class InventoryItem {
   String supplier;
   String batchNumber;
   String? imageAsset;
+  String description;
 
   bool restockRequested = false;
   int restockQuantity = 0;

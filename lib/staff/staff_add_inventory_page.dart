@@ -13,39 +13,30 @@ class StaffAddInventoryPage extends StatefulWidget {
 class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
   final _formKey = GlobalKey<FormState>();
   late final _name = TextEditingController(text: widget.existing?.name ?? '');
-  late final _sku = TextEditingController(text: widget.existing?.id ?? '');
-  late final _unit = TextEditingController(text: widget.existing?.unit ?? '');
   late final _quantity = TextEditingController(
     text: widget.existing != null ? '${widget.existing!.quantity}' : '',
-  );
-  late final _reorder = TextEditingController(
-    text: widget.existing != null ? '${widget.existing!.reorderLevel}' : '',
-  );
-  late final _purchase = TextEditingController(
-    text: widget.existing != null ? '${widget.existing!.purchasePrice}' : '',
   );
   late final _selling = TextEditingController(
     text: widget.existing != null ? '${widget.existing!.sellingPrice}' : '',
   );
+  late final _description = TextEditingController(
+    text: widget.existing?.description ?? '',
+  );
   late String _category =
       widget.existing?.category ??
       StaffOperationsStore.inventoryCategories.first;
-  late DateTime _expiry =
-      widget.existing?.expiresOn ??
-      DateTime.now().add(const Duration(days: 365));
-  late String? _imagePath = widget.existing?.imageAsset;
+  // Item photo stored as a base64 data URI (or a bundled asset path for demo
+  // items) so it persists to the database and shows in the shop.
+  late String? _imageData = widget.existing?.imageAsset;
 
   bool get _isEdit => widget.existing != null;
 
   @override
   void dispose() {
     _name.dispose();
-    _sku.dispose();
-    _unit.dispose();
     _quantity.dispose();
-    _reorder.dispose();
-    _purchase.dispose();
     _selling.dispose();
+    _description.dispose();
     super.dispose();
   }
 
@@ -66,7 +57,7 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
               title: const Text('Take a photo'),
               onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
             ),
-            if (_imagePath != null)
+            if (_imageData != null)
               ListTile(
                 leading: const Icon(
                   Icons.delete_outline_rounded,
@@ -77,7 +68,7 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                   style: TextStyle(color: Color(0xFFB3261E)),
                 ),
                 onTap: () {
-                  setState(() => _imagePath = null);
+                  setState(() => _imageData = null);
                   Navigator.of(sheetContext).pop();
                 },
               ),
@@ -85,11 +76,7 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
         ),
       ),
     );
-    if (!mounted) return;
-    if (source == null) {
-      // Sheet dismissed or "Remove photo" tapped.
-      return;
-    }
+    if (!mounted || source == null) return;
     try {
       final picked = await ImagePicker().pickImage(
         source: source,
@@ -97,23 +84,22 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
         maxHeight: 1024,
         imageQuality: 82,
       );
-      if (picked != null && mounted) {
-        setState(() => _imagePath = picked.path);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      if (bytes.length > 2 * 1024 * 1024) {
+        if (mounted) {
+          _notice(context, 'Please choose a photo smaller than 2 MB.');
+        }
+        return;
+      }
+      if (mounted) {
+        setState(
+          () => _imageData = 'data:image/jpeg;base64,${base64Encode(bytes)}',
+        );
       }
     } on Exception {
       if (mounted) _notice(context, 'Could not open the image picker.');
     }
-  }
-
-  Future<void> _pickExpiry() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _expiry,
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 15),
-    );
-    if (picked != null) setState(() => _expiry = picked);
   }
 
   void _save() {
@@ -123,35 +109,34 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
       final item = widget.existing!
         ..name = _name.text.trim()
         ..category = _category
-        ..unit = _unit.text.trim()
-        ..reorderLevel = int.parse(_reorder.text.trim())
-        ..purchasePrice = int.parse(_purchase.text.trim())
         ..sellingPrice = int.parse(_selling.text.trim())
-        ..imageAsset = _imagePath
-        ..expiresOn = _expiry;
+        ..description = _description.text.trim()
+        ..imageAsset = _imageData;
       store.notifyChanged();
       Navigator.pop(context);
       _notice(context, '${item.name} updated.');
       return;
     }
 
-    final sku = _sku.text.trim();
-    if (store.isDuplicateSku(sku)) {
-      _notice(context, 'Item ID "$sku" already exists.');
-      return;
+    // Generate a unique id and default the fields the form no longer collects.
+    var id = 'item-${DateTime.now().millisecondsSinceEpoch}';
+    while (store.isDuplicateSku(id)) {
+      id = 'item-${DateTime.now().microsecondsSinceEpoch}';
     }
+    final quantity = int.parse(_quantity.text.trim());
     store.addItem(
       InventoryItem(
-        id: sku,
+        id: id,
         name: _name.text.trim(),
         category: _category,
-        quantity: int.parse(_quantity.text.trim()),
-        reorderLevel: int.parse(_reorder.text.trim()),
-        unit: _unit.text.trim(),
-        purchasePrice: int.parse(_purchase.text.trim()),
+        quantity: quantity,
+        reorderLevel: (quantity * 0.2).ceil().clamp(1, 100),
+        unit: 'pcs',
+        purchasePrice: 0,
         sellingPrice: int.parse(_selling.text.trim()),
-        imageAsset: _imagePath,
-        expiresOn: _expiry,
+        expiresOn: DateTime.now().add(const Duration(days: 365)),
+        imageAsset: _imageData,
+        description: _description.text.trim(),
       ),
     );
     Navigator.pop(context);
@@ -176,7 +161,7 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
               children: [
-                _InventoryPhotoPicker(imagePath: _imagePath, onTap: _pickPhoto),
+                _InventoryPhotoPicker(imageData: _imageData, onTap: _pickPhoto),
                 const SizedBox(height: 18),
                 const _AddSectionLabel('Item information'),
                 const SizedBox(height: 10),
@@ -186,102 +171,38 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                   icon: Icons.label_outline_rounded,
                   validator: _required,
                 ),
-                _AddField(
-                  controller: _sku,
-                  label: 'Item ID / SKU',
-                  icon: Icons.qr_code_rounded,
-                  enabled: !_isEdit,
-                  validator: _required,
-                ),
                 _AddDropdown(
                   label: 'Category',
                   value: _category,
                   items: StaffOperationsStore.inventoryCategories,
                   onChanged: (v) => setState(() => _category = v),
                 ),
+                _AddField(
+                  controller: _description,
+                  label: 'Description',
+                  icon: Icons.notes_rounded,
+                  maxLines: 4,
+                ),
                 const SizedBox(height: 8),
                 const _AddSectionLabel('Stock'),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _AddField(
-                        controller: _quantity,
-                        label: _isEdit
-                            ? 'Quantity (locked)'
-                            : 'Initial quantity',
-                        icon: Icons.numbers_rounded,
-                        keyboardType: TextInputType.number,
-                        enabled: !_isEdit,
-                        validator: _isEdit ? null : _positiveIntValidator,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _AddField(
-                        controller: _unit,
-                        label: 'Unit',
-                        icon: Icons.straighten_rounded,
-                        validator: _required,
-                      ),
-                    ),
-                  ],
-                ),
                 _AddField(
-                  controller: _reorder,
-                  label: 'Low-stock threshold',
-                  icon: Icons.production_quantity_limits_rounded,
+                  controller: _quantity,
+                  label: _isEdit ? 'Quantity (locked)' : 'Initial quantity',
+                  icon: Icons.numbers_rounded,
                   keyboardType: TextInputType.number,
-                  validator: _positiveIntValidator,
+                  enabled: !_isEdit,
+                  validator: _isEdit ? null : _positiveIntValidator,
                 ),
                 const SizedBox(height: 8),
                 const _AddSectionLabel('Pricing'),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _AddField(
-                        controller: _purchase,
-                        label: 'Purchase price',
-                        icon: Icons.payments_outlined,
-                        keyboardType: TextInputType.number,
-                        validator: _positiveIntValidator,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _AddField(
-                        controller: _selling,
-                        label: 'Selling price',
-                        icon: Icons.sell_outlined,
-                        keyboardType: TextInputType.number,
-                        validator: _positiveIntValidator,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const _AddSectionLabel('Expiry'),
-                const SizedBox(height: 10),
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: _border),
-                  ),
-                  child: ListTile(
-                    leading: const Icon(
-                      Icons.event_busy_outlined,
-                      color: _green,
-                    ),
-                    title: const Text('Expiry date'),
-                    subtitle: Text(_shortDate(_expiry)),
-                    trailing: TextButton(
-                      onPressed: _pickExpiry,
-                      child: const Text('Pick'),
-                    ),
-                  ),
+                _AddField(
+                  controller: _selling,
+                  label: 'Selling price',
+                  icon: Icons.sell_outlined,
+                  keyboardType: TextInputType.number,
+                  validator: _positiveIntValidator,
                 ),
                 const SizedBox(height: 10),
                 FilledButton.icon(
@@ -320,10 +241,44 @@ class _AddSectionLabel extends StatelessWidget {
   );
 }
 
-class _InventoryPhotoPicker extends StatelessWidget {
-  const _InventoryPhotoPicker({required this.imagePath, required this.onTap});
+class _AddField extends StatelessWidget {
+  const _AddField({
+    required this.controller,
+    required this.label,
+    required this.icon,
+    this.keyboardType,
+    this.validator,
+    this.enabled = true,
+    this.maxLines = 1,
+  });
 
-  final String? imagePath;
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+  final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
+  final bool enabled;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      validator: validator,
+      enabled: enabled,
+      maxLines: maxLines,
+      decoration: _input(label, icon),
+    ),
+  );
+}
+
+class _InventoryPhotoPicker extends StatelessWidget {
+  const _InventoryPhotoPicker({required this.imageData, required this.onTap});
+
+  /// A base64 data URI, a bundled asset path, or null when no photo is set.
+  final String? imageData;
   final VoidCallback onTap;
 
   @override
@@ -342,7 +297,7 @@ class _InventoryPhotoPicker extends StatelessWidget {
             border: Border.all(color: _border, width: 1.4),
           ),
           clipBehavior: Clip.antiAlias,
-          child: imagePath == null
+          child: imageData == null
               ? const Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -360,7 +315,7 @@ class _InventoryPhotoPicker extends StatelessWidget {
               : Stack(
                   fit: StackFit.expand,
                   children: [
-                    _buildImage(imagePath!),
+                    _buildImage(imageData!),
                     Positioned(
                       right: 6,
                       bottom: 6,
@@ -384,42 +339,27 @@ class _InventoryPhotoPicker extends StatelessWidget {
     );
   }
 
-  Widget _buildImage(String path) {
-    if (path.startsWith('assets/')) {
-      return Image.asset(path, fit: BoxFit.cover);
+  Widget _buildImage(String data) {
+    if (data.startsWith('data:')) {
+      final comma = data.indexOf(',');
+      if (comma >= 0) {
+        try {
+          return Image.memory(
+            base64Decode(data.substring(comma + 1)),
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+          );
+        } catch (_) {
+          /* fall through */
+        }
+      }
     }
-    return Image.file(File(path), fit: BoxFit.cover);
+    if (data.startsWith('assets/')) {
+      return Image.asset(data, fit: BoxFit.cover);
+    }
+    // Legacy local file path (older records).
+    return Image.file(File(data), fit: BoxFit.cover);
   }
-}
-
-class _AddField extends StatelessWidget {
-  const _AddField({
-    required this.controller,
-    required this.label,
-    required this.icon,
-    this.keyboardType,
-    this.validator,
-    this.enabled = true,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final IconData icon;
-  final TextInputType? keyboardType;
-  final String? Function(String?)? validator;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      validator: validator,
-      enabled: enabled,
-      decoration: _input(label, icon),
-    ),
-  );
 }
 
 class _AddDropdown extends StatelessWidget {

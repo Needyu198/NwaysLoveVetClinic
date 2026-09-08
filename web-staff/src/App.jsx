@@ -1,14 +1,31 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { login, logout, getAccount, getTable } from './api.js';
+import React, { useEffect, useState } from 'react';
+import { login, logout, getAccount } from './api.js';
 import { connectRealtime } from './realtime.js';
+import {
+  DashboardView,
+  AppointmentsView,
+  WalkInView,
+  QueueView,
+  PaymentsView,
+  InventoryView,
+  MedicalRecordsView,
+  HealthPostsView,
+  MessagesView,
+  ReportsView,
+} from './views.jsx';
 
-// Staff-accessible resources (see backend/src/resources.js). These are the
-// tables a 'staff' role may read.
-const TABS = [
-  { key: 'queue_entries', label: 'Queue' },
-  { key: 'walk_in_appointments', label: 'Appointments' },
-  { key: 'inventory', label: 'Inventory' },
-  { key: 'payments', label: 'Payments' },
+// The staff feature areas, mirroring the Flutter staff portal.
+const NAV = [
+  { key: 'dashboard', label: 'Dashboard', icon: '📊', View: DashboardView },
+  { key: 'appointments', label: 'Appointments', icon: '📅', View: AppointmentsView },
+  { key: 'queue', label: 'Queue', icon: '⏳', View: QueueView },
+  { key: 'walkin', label: 'Walk-in', icon: '🚶', View: WalkInView },
+  { key: 'payments', label: 'Payments', icon: '💳', View: PaymentsView },
+  { key: 'inventory', label: 'Inventory', icon: '📦', View: InventoryView },
+  { key: 'records', label: 'Medical Records', icon: '🩺', View: MedicalRecordsView },
+  { key: 'posts', label: 'Health Posts', icon: '📝', View: HealthPostsView },
+  { key: 'messages', label: 'Messages', icon: '💬', View: MessagesView },
+  { key: 'reports', label: 'Reports', icon: '📈', View: ReportsView },
 ];
 
 function LoginScreen({ onSignedIn }) {
@@ -39,20 +56,29 @@ function LoginScreen({ onSignedIn }) {
   return (
     <div className="login-wrap">
       <form className="login-card" onSubmit={submit}>
+        <img className="login-logo" src="/logo.png" alt="Nway's Love Vet Clinic" />
         <h1>Clinic Staff Portal</h1>
         <p>Nway's Love Vet Clinic</p>
         <label>Username</label>
-        <input
-          value={username}
-          onChange={e => setUsername(e.target.value)}
-          autoFocus
-        />
+        <div className="field">
+          <span className="field-icon">👤</span>
+          <input
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            placeholder="Enter your username"
+            autoFocus
+          />
+        </div>
         <label>Password</label>
-        <input
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-        />
+        <div className="field">
+          <span className="field-icon">🔒</span>
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Enter your password"
+          />
+        </div>
         <button className="btn-primary" disabled={busy}>
           {busy ? 'Signing in…' : 'Sign In'}
         </button>
@@ -62,111 +88,78 @@ function LoginScreen({ onSignedIn }) {
   );
 }
 
-function DataTable({ table }) {
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const load = useCallback(async () => {
-    try {
-      setRecords(await getTable(table));
-      setError('');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [table]);
-
-  useEffect(() => {
-    setLoading(true);
-    load();
-  }, [load]);
-
-  if (loading) return <div className="empty">Loading…</div>;
-  if (error) return <div className="error">{error}</div>;
-  if (records.length === 0) return <div className="empty">No records yet.</div>;
-
-  // Derive columns from the union of value keys across records.
-  const columns = Array.from(
-    records.reduce((set, r) => {
-      Object.keys(r.data?.value || {}).forEach(k => set.add(k));
-      return set;
-    }, new Set()),
-  ).slice(0, 6);
-
-  return (
-    <div className="card">
-      <table>
-        <thead>
-          <tr>
-            {columns.map(c => (
-              <th key={c}>{c}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {records.map(r => (
-            <tr key={r.id}>
-              {columns.map(c => (
-                <td key={c}>{formatCell(r.data?.value?.[c])}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function formatCell(v) {
-  if (v == null) return '';
-  if (typeof v === 'object') return JSON.stringify(v);
-  return String(v);
-}
-
-function Dashboard({ account, onSignOut }) {
-  const [active, setActive] = useState(TABS[0].key);
+function Portal({ account, onSignOut }) {
+  const [active, setActive] = useState('dashboard');
   const [live, setLive] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    const disconnect = connectRealtime(changedTable => {
-      // If the table currently shown changed, force a reload.
+    const disconnect = connectRealtime(() => {
       setLive(true);
-      if (changedTable === active) setRefreshKey(k => k + 1);
+      // Any table change bumps the refresh key so the active view reloads.
+      setRefreshKey(k => k + 1);
     });
     return disconnect;
-  }, [active]);
+  }, []);
+
+  const activeNav = NAV.find(n => n.key === active) || NAV[0];
+  const ActiveView = activeNav.View;
+  const initials = (account.fullName || account.username || '?')
+    .trim()
+    .split(/\s+/)
+    .map(w => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
   return (
-    <div>
-      <div className="app-header">
-        <h1>Clinic Staff Portal</h1>
-        <div>
-          <span className="who">
-            <span className={`live-dot ${live ? '' : 'off'}`} />
-            {account.fullName || account.username} · {account.role}
-          </span>
-          <button className="tab" onClick={onSignOut}>
-            Sign out
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <img className="brand-logo" src="/logo.png" alt="logo" />
+          <div>
+            <div className="brand-title">Nway's Love</div>
+            <div className="brand-sub">Staff Portal</div>
+          </div>
+        </div>
+        <nav>
+          {NAV.map(n => (
+            <button
+              key={n.key}
+              className={`nav-item ${active === n.key ? 'active' : ''}`}
+              onClick={() => setActive(n.key)}
+            >
+              <span className="nav-icon">{n.icon}</span>
+              {n.label}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-foot">
+          <div className="avatar">{initials}</div>
+          <div className="who">
+            <div className="who-name">{account.fullName || account.username}</div>
+            <div className="muted small">{account.role}</div>
+          </div>
+          <button className="icon-btn ghost" title="Sign out" onClick={onSignOut}>
+            ⏻
           </button>
         </div>
-      </div>
-      <div className="tabs">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            className={`tab ${active === t.key ? 'active' : ''}`}
-            onClick={() => setActive(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div className="content">
-        <DataTable key={`${active}-${refreshKey}`} table={active} />
-      </div>
+      </aside>
+      <main className="content">
+        <header className="topbar">
+          <div>
+            <div className="topbar-title">{activeNav.label}</div>
+            <div className="muted small">Nway's Love Vet Clinic</div>
+          </div>
+          <div className={`live-chip ${live ? 'on' : ''}`}>
+            <span className={`live-dot ${live ? '' : 'off'}`} />
+            {live ? 'Live' : 'Connecting…'}
+          </div>
+        </header>
+        <div className="content-body">
+          <ActiveView refreshKey={refreshKey} />
+        </div>
+      </main>
     </div>
   );
 }
@@ -180,5 +173,5 @@ export default function App() {
   }
 
   if (!account) return <LoginScreen onSignedIn={setAccount} />;
-  return <Dashboard account={account} onSignOut={handleSignOut} />;
+  return <Portal account={account} onSignOut={handleSignOut} />;
 }
