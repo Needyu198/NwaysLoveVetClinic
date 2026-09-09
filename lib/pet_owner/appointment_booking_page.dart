@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'pet_owner_home_page.dart';
+import 'pet_owner_page_header.dart';
 
 class AppointmentBookingPage extends StatefulWidget {
   const AppointmentBookingPage({
@@ -1117,45 +1118,53 @@ class MyQueuePage extends StatelessWidget {
     );
     return Scaffold(
       backgroundColor: _BookingColors.page,
-      appBar: AppBar(
-        title: const Text('My Queue'),
-        backgroundColor: _BookingColors.mint,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          IconButton(
-            tooltip: 'Queue History',
-            onPressed: () =>
-                Navigator.of(context).pushNamed(QueueHistoryPage.routeName),
-            icon: const Icon(Icons.history_rounded),
-          ),
-        ],
-      ),
-      body: AnimatedBuilder(
-        animation: QueueStore.instance,
-        builder: (context, _) {
-          final entries = QueueStore.instance.active;
-          if (entries.isEmpty) {
-            return const _EmptyQueue(
-              icon: Icons.groups_2_outlined,
-              title: 'No active queue',
-              message:
-                  'Your queue information appears after clinic staff verifies and checks in a confirmed appointment.',
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-            itemCount: entries.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 14),
-            itemBuilder: (context, index) => _QueueCard(
-              entry: entries[index],
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => QueueDetailsPage(entry: entries[index]),
+      body: SafeArea(
+        child: Column(
+          children: [
+            PetOwnerPageHeader(
+              title: 'My Queue',
+              actions: [
+                IconButton(
+                  tooltip: 'Queue History',
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pushNamed(QueueHistoryPage.routeName),
+                  icon: const Icon(Icons.history_rounded),
                 ),
+              ],
+            ),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: QueueStore.instance,
+                builder: (context, _) {
+                  final entries = QueueStore.instance.active;
+                  if (entries.isEmpty) {
+                    return const _EmptyQueue(
+                      icon: Icons.groups_2_outlined,
+                      title: 'No active queue',
+                      message:
+                          'Your queue information appears after clinic staff verifies and checks in a confirmed appointment.',
+                    );
+                  }
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+                    itemCount: entries.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) => _QueueCard(
+                      entry: entries[index],
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              QueueDetailsPage(entry: entries[index]),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
@@ -1170,36 +1179,41 @@ class QueueHistoryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _BookingColors.page,
-      appBar: AppBar(
-        title: const Text('Queue History'),
-        backgroundColor: _BookingColors.mint,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: AnimatedBuilder(
-        animation: QueueStore.instance,
-        builder: (context, _) {
-          final entries = QueueStore.instance.history;
-          if (entries.isEmpty) {
-            return const _EmptyQueue(
-              icon: Icons.history_rounded,
-              title: 'No completed queues',
-              message: 'Completed clinic queues will appear here.',
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-            itemCount: entries.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 14),
-            itemBuilder: (context, index) => _QueueCard(
-              entry: entries[index],
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => QueueDetailsPage(entry: entries[index]),
-                ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Queue History'),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: QueueStore.instance,
+                builder: (context, _) {
+                  final entries = QueueStore.instance.history;
+                  if (entries.isEmpty) {
+                    return const _EmptyQueue(
+                      icon: Icons.history_rounded,
+                      title: 'No completed queues',
+                      message: 'Completed clinic queues will appear here.',
+                    );
+                  }
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+                    itemCount: entries.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) => _QueueCard(
+                      entry: entries[index],
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              QueueDetailsPage(entry: entries[index]),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'appointment_booking_page.dart';
 import 'owner_shared_stores.dart';
+import 'pet_add_reminder_page.dart';
 import 'pet_image.dart';
+import 'pet_reminder_page.dart';
 import 'profile_flows.dart';
 import 'pet_owner_clinic_page.dart';
 import 'pet_owner_nav_bar.dart';
@@ -52,49 +55,93 @@ class PetOwnerHomePage extends StatelessWidget {
   }
 }
 
-class _HomeContent extends StatelessWidget {
+class _HomeContent extends StatefulWidget {
   const _HomeContent();
 
-  static const _reminders = <_HomeMessage>[
-    _HomeMessage(
-      title: 'Morning medicine',
-      detail:
-          'Time to give Max his medication. Don’t forget his morning dose to keep him healthy and active.',
-      meta: '8:00 AM',
-      icon: Icons.medication_liquid_rounded,
-    ),
-    _HomeMessage(
-      title: 'Vaccination due',
-      detail: 'Max’s vaccination is due this week. Schedule a visit soon.',
-      meta: 'This week',
-      icon: Icons.vaccines_rounded,
-    ),
-    _HomeMessage(
-      title: 'Dinner time',
-      detail: 'Feeding time for Max. Give him his evening meal.',
-      meta: '6:00 PM',
-      icon: Icons.restaurant_rounded,
-    ),
+  @override
+  State<_HomeContent> createState() => _HomeContentState();
+}
+
+class _HomeContentState extends State<_HomeContent> {
+  final _reminderStore = ReminderStore.instance;
+  final _appointmentStore = AppointmentStore.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _reminderStore.addListener(_onChanged);
+    _appointmentStore.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    _reminderStore.removeListener(_onChanged);
+    _appointmentStore.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  static const _months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
-  static const _appointments = <_HomeMessage>[
-    _HomeMessage(
-      title: 'Grooming',
-      detail:
-          'Max has a grooming appointment tomorrow. Please arrive 10 minutes early.',
-      meta: 'Tomorrow, 10:00 AM',
-      icon: Icons.content_cut_rounded,
-    ),
-    _HomeMessage(
-      title: 'Annual checkup',
-      detail: 'Bella’s annual checkup is scheduled with the clinic team.',
-      meta: 'Friday, 2:30 PM',
-      icon: Icons.event_available_rounded,
-    ),
-  ];
+  String _dateLabel(DateTime d) {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final day = DateUtils.dateOnly(d);
+    final diff = day.difference(today).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Tomorrow';
+    return '${_months[d.month - 1]} ${d.day}';
+  }
+
+  String _timeLabel(DateTime d) {
+    final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+    final m = d.minute.toString().padLeft(2, '0');
+    final ampm = d.hour < 12 ? 'AM' : 'PM';
+    return '$h:$m $ampm';
+  }
+
+  IconData _reminderIcon(ReminderType type) {
+    switch (type) {
+      case ReminderType.vaccine:
+        return Icons.vaccines_rounded;
+      case ReminderType.medicine:
+        return Icons.medication_rounded;
+      case ReminderType.checkup:
+        return Icons.medical_services_rounded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Real, DB-backed reminders (soonest first, not completed).
+    final reminders = _reminderStore.upcoming;
+    // Real, DB-backed upcoming appointments (not cancelled, not past).
+    final today = DateUtils.dateOnly(DateTime.now());
+    final appointments =
+        _appointmentStore.appointments
+            .where(
+              (a) =>
+                  a.status != 'Cancelled' &&
+                  !DateUtils.dateOnly(a.date).isBefore(today),
+            )
+            .toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
+
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
@@ -103,25 +150,74 @@ class _HomeContent extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 124),
           sliver: SliverList.list(
             children: [
-              const _SectionTitle(
+              _SectionTitle(
                 title: 'Reminders',
-                subtitle: 'Care tasks today',
+                subtitle: 'Care tasks',
+                onSeeAll: () =>
+                    Navigator.of(context).pushNamed(PetReminderPage.routeName),
               ),
               const SizedBox(height: 14),
-              for (final reminder in _reminders) ...[
-                _HomeMessageCard(message: reminder),
-                const SizedBox(height: 14),
-              ],
+              if (reminders.isEmpty)
+                _EmptyHomeCard(
+                  icon: Icons.notifications_none_rounded,
+                  title: 'No reminders yet',
+                  detail:
+                      'Add a reminder to stay on top of your pet\u2019s care.',
+                  actionLabel: 'Add reminder',
+                  onAction: () => Navigator.of(
+                    context,
+                  ).pushNamed(PetAddReminderPage.routeName),
+                )
+              else
+                for (final r in reminders.take(4)) ...[
+                  _HomeMessageCard(
+                    message: _HomeMessage(
+                      title: r.title,
+                      detail: r.note.isNotEmpty
+                          ? r.note
+                          : (r.petName != null
+                                ? 'For ${r.petName}'
+                                : 'Scheduled reminder'),
+                      meta:
+                          '${_dateLabel(r.dateTime)} \u2022 ${_timeLabel(r.dateTime)}',
+                      icon: _reminderIcon(r.type),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
               const SizedBox(height: 10),
-              const _SectionTitle(
+              _SectionTitle(
                 title: 'Appointments',
                 subtitle: 'Upcoming clinic visits',
+                onSeeAll: () => Navigator.of(
+                  context,
+                ).pushNamed(MyAppointmentsPage.routeName),
               ),
               const SizedBox(height: 14),
-              for (final appointment in _appointments) ...[
-                _HomeMessageCard(message: appointment),
-                const SizedBox(height: 14),
-              ],
+              if (appointments.isEmpty)
+                _EmptyHomeCard(
+                  icon: Icons.event_available_rounded,
+                  title: 'No upcoming appointments',
+                  detail: 'Book a visit with the clinic for your pet.',
+                  actionLabel: 'Book appointment',
+                  onAction: () => Navigator.of(
+                    context,
+                  ).pushNamed(AppointmentBookingPage.routeName),
+                )
+              else
+                for (final a in appointments.take(4)) ...[
+                  _HomeMessageCard(
+                    message: _HomeMessage(
+                      title: '${a.pet.name} \u2022 ${a.service.name}',
+                      detail: a.reason.isNotEmpty
+                          ? a.reason
+                          : 'With ${a.veterinarian}',
+                      meta: '${_dateLabel(a.date)} \u2022 ${a.time}',
+                      icon: Icons.event_available_rounded,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
             ],
           ),
         ),
@@ -443,10 +539,15 @@ class _HomeMessage {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.subtitle});
+  const _SectionTitle({
+    required this.title,
+    required this.subtitle,
+    this.onSeeAll,
+  });
 
   final String title;
   final String subtitle;
+  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -479,20 +580,93 @@ class _SectionTitle extends StatelessWidget {
             ],
           ),
         ),
-        Container(
-          width: 38,
-          height: 38,
-          decoration: const BoxDecoration(
-            color: PetOwnerHomePage.softMintColor,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.arrow_forward_rounded,
-            color: Color(0xFF5F8177),
-            size: 22,
+        InkWell(
+          onTap: onSeeAll,
+          borderRadius: BorderRadius.circular(19),
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: const BoxDecoration(
+              color: PetOwnerHomePage.softMintColor,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.arrow_forward_rounded,
+              color: Color(0xFF5F8177),
+              size: 22,
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _EmptyHomeCard extends StatelessWidget {
+  const _EmptyHomeCard({
+    required this.icon,
+    required this.title,
+    required this.detail,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String detail;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x140B2F25),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 34, color: const Color(0xFF9BB0A8)),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              color: PetOwnerHomePage.inkColor,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            detail,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: PetOwnerHomePage.mutedTextColor,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: onAction,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: Text(actionLabel),
+            style: FilledButton.styleFrom(
+              backgroundColor: PetOwnerHomePage.inkColor,
+              foregroundColor: Colors.white,
+              shape: const StadiumBorder(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

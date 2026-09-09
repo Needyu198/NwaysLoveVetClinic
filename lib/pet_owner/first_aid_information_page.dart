@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'emergency_service_page.dart';
+import 'pet_owner_page_header.dart';
 
 const _firstAidMint = Color(0xFFA1FDD8);
 const _firstAidDark = Color(0xFF10231D);
@@ -25,91 +26,97 @@ class _FirstAidInformationPageState extends State<FirstAidInformationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFA),
-      appBar: AppBar(
-        title: const Text('First Aid Information'),
-        backgroundColor: _firstAidMint,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          IconButton(
-            key: const ValueKey('saved-first-aid-guides'),
-            tooltip: 'Saved guides',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const SavedFirstAidGuidesPage(),
+      body: SafeArea(
+        child: Column(
+          children: [
+            PetOwnerPageHeader(
+              title: 'First Aid Information',
+              actions: [
+                IconButton(
+                  key: const ValueKey('saved-first-aid-guides'),
+                  tooltip: 'Saved guides',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SavedFirstAidGuidesPage(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.bookmark_outline_rounded),
+                ),
+              ],
+            ),
+            Expanded(
+              child: ListView(
+                key: const ValueKey('first-aid-topic-list'),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+                children: [
+                  const _EmergencyNotice(),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Choose pet type',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    children: ['Dog', 'Cat', 'Other']
+                        .map(
+                          (type) => ChoiceChip(
+                            key: ValueKey('first-aid-pet-$type'),
+                            label: Text(type),
+                            selected: _petType == type,
+                            onSelected: (_) => setState(() => _petType = type),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'First aid topics',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Read-only guidance available without a booking or internet connection.',
+                    style: TextStyle(color: Color(0xFF53635E), height: 1.35),
+                  ),
+                  const SizedBox(height: 14),
+                  ...firstAidGuides.map(
+                    (guide) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Card(
+                        elevation: 0,
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(color: Color(0xFFD7E4DF)),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: ListTile(
+                          key: ValueKey('first-aid-topic-${guide.id}'),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          leading: CircleAvatar(
+                            backgroundColor: const Color(0xFFE3FFF4),
+                            foregroundColor: _firstAidDark,
+                            child: Icon(guide.icon),
+                          ),
+                          title: Text(
+                            guide.title,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          subtitle: Text(guide.summary),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () => _openGuide(context, guide, _petType),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            icon: const Icon(Icons.bookmark_outline_rounded),
-          ),
-        ],
-      ),
-      body: ListView(
-        key: const ValueKey('first-aid-topic-list'),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
-        children: [
-          const _EmergencyNotice(),
-          const SizedBox(height: 20),
-          const Text(
-            'Choose pet type',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            children: ['Dog', 'Cat', 'Other']
-                .map(
-                  (type) => ChoiceChip(
-                    key: ValueKey('first-aid-pet-$type'),
-                    label: Text(type),
-                    selected: _petType == type,
-                    onSelected: (_) => setState(() => _petType = type),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'First aid topics',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            'Read-only guidance available without a booking or internet connection.',
-            style: TextStyle(color: Color(0xFF53635E), height: 1.35),
-          ),
-          const SizedBox(height: 14),
-          ...firstAidGuides.map(
-            (guide) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Card(
-                elevation: 0,
-                color: Colors.white,
-                shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: Color(0xFFD7E4DF)),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: ListTile(
-                  key: ValueKey('first-aid-topic-${guide.id}'),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  leading: CircleAvatar(
-                    backgroundColor: const Color(0xFFE3FFF4),
-                    foregroundColor: _firstAidDark,
-                    child: Icon(guide.icon),
-                  ),
-                  title: Text(
-                    guide.title,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: Text(guide.summary),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => _openGuide(context, guide, _petType),
-                ),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -138,178 +145,198 @@ class _FirstAidGuidePageState extends State<FirstAidGuidePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFA),
-      appBar: AppBar(
-        title: Text(guide.title),
-        backgroundColor: _firstAidMint,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          AnimatedBuilder(
-            animation: FirstAidSavedStore.instance,
-            builder: (context, _) {
-              final saved = FirstAidSavedStore.instance.contains(guide.id);
-              return IconButton(
-                key: const ValueKey('save-first-aid-guide'),
-                tooltip: saved ? 'Remove saved guide' : 'Save guide',
-                onPressed: () => FirstAidSavedStore.instance.toggle(guide.id),
-                icon: Icon(
-                  saved
-                      ? Icons.bookmark_rounded
-                      : Icons.bookmark_outline_rounded,
+      body: SafeArea(
+        child: Column(
+          children: [
+            PetOwnerPageHeader(
+              title: guide.title,
+              actions: [
+                AnimatedBuilder(
+                  animation: FirstAidSavedStore.instance,
+                  builder: (context, _) {
+                    final saved = FirstAidSavedStore.instance.contains(
+                      guide.id,
+                    );
+                    return IconButton(
+                      key: const ValueKey('save-first-aid-guide'),
+                      tooltip: saved ? 'Remove saved guide' : 'Save guide',
+                      onPressed: () =>
+                          FirstAidSavedStore.instance.toggle(guide.id),
+                      icon: Icon(
+                        saved
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_outline_rounded,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          IconButton(
-            key: const ValueKey('share-first-aid-guide'),
-            tooltip: 'Share guide',
-            onPressed: () => _showShareSheet(context),
-            icon: const Icon(Icons.ios_share_rounded),
-          ),
-        ],
-      ),
-      body: ListView(
-        key: const ValueKey('first-aid-guide-content'),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFE8E8),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.warning_amber_rounded, color: _firstAidRed),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'First aid may help during transport, but it does not replace veterinary treatment. If your pet is unconscious or cannot breathe, seek emergency care now.',
-                    style: TextStyle(fontWeight: FontWeight.w700, height: 1.35),
-                  ),
+                IconButton(
+                  key: const ValueKey('share-first-aid-guide'),
+                  tooltip: 'Share guide',
+                  onPressed: () => _showShareSheet(context),
+                  icon: const Icon(Icons.ios_share_rounded),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            '${widget.petType} guide',
-            style: const TextStyle(
-              color: Color(0xFF436159),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            guide.warning,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-          ),
-          if (widget.petType == 'Other') ...[
-            const SizedBox(height: 10),
-            const Text(
-              'Species differ. Contact the clinic before handling an unfamiliar or exotic pet.',
-              style: TextStyle(fontWeight: FontWeight.w700),
+            Expanded(
+              child: ListView(
+                key: const ValueKey('first-aid-guide-content'),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFE8E8),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: _firstAidRed),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'First aid may help during transport, but it does not replace veterinary treatment. If your pet is unconscious or cannot breathe, seek emergency care now.',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    '${widget.petType} guide',
+                    style: const TextStyle(
+                      color: Color(0xFF436159),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    guide.warning,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  if (widget.petType == 'Other') ...[
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Species differ. Contact the clinic before handling an unfamiliar or exotic pet.',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                  _Section(title: 'Possible signs', items: guide.symptoms),
+                  _StepsSection(items: guide.steps),
+                  _Section(
+                    title: 'Do not',
+                    items: guide.avoid,
+                    icon: Icons.block_rounded,
+                    iconColor: _firstAidRed,
+                    background: const Color(0xFFFFF3F3),
+                  ),
+                  _Section(
+                    title: 'Helpful materials',
+                    items: guide.materials,
+                    icon: Icons.check_circle_outline_rounded,
+                  ),
+                  const SizedBox(height: 22),
+                  const Text(
+                    'Does your pet need professional help now?',
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 10),
+                  SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(value: true, label: Text('Yes')),
+                      ButtonSegment(value: false, label: Text('Not sure / No')),
+                    ],
+                    emptySelectionAllowed: true,
+                    selected: _needsEmergencyHelp == null
+                        ? <bool>{}
+                        : <bool>{_needsEmergencyHelp!},
+                    onSelectionChanged: (selection) => setState(
+                      () => _needsEmergencyHelp = selection.isEmpty
+                          ? null
+                          : selection.first,
+                    ),
+                  ),
+                  if (_needsEmergencyHelp != null) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      _needsEmergencyHelp!
+                          ? 'Do not delay. Contact the clinic and prepare safe transport.'
+                          : 'Continue close monitoring. Contact the clinic if signs persist, worsen, or you are unsure.',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    key: const ValueKey('first-aid-emergency-service'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _firstAidRed,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(52),
+                    ),
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).pushNamed(EmergencyServicePage.routeName),
+                    icon: const Icon(Icons.emergency_rounded),
+                    label: const Text('Open Emergency Service'),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          key: const ValueKey('first-aid-call-clinic'),
+                          onPressed: () => _confirmClinicCall(context),
+                          icon: const Icon(Icons.call_outlined),
+                          label: const Text('Call Clinic'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          key: const ValueKey('first-aid-directions'),
+                          onPressed: () => _showDirections(context),
+                          icon: const Icon(Icons.directions_outlined),
+                          label: const Text('Directions'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 26),
+                  const Text(
+                    'Related topics',
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: guide.relatedIds.map((id) {
+                      final related = firstAidGuides.firstWhere(
+                        (item) => item.id == id,
+                      );
+                      return ActionChip(
+                        label: Text(related.title),
+                        onPressed: () =>
+                            _openGuide(context, related, widget.petType),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
             ),
           ],
-          _Section(title: 'Possible signs', items: guide.symptoms),
-          _StepsSection(items: guide.steps),
-          _Section(
-            title: 'Do not',
-            items: guide.avoid,
-            icon: Icons.block_rounded,
-            iconColor: _firstAidRed,
-            background: const Color(0xFFFFF3F3),
-          ),
-          _Section(
-            title: 'Helpful materials',
-            items: guide.materials,
-            icon: Icons.check_circle_outline_rounded,
-          ),
-          const SizedBox(height: 22),
-          const Text(
-            'Does your pet need professional help now?',
-            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 10),
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: true, label: Text('Yes')),
-              ButtonSegment(value: false, label: Text('Not sure / No')),
-            ],
-            emptySelectionAllowed: true,
-            selected: _needsEmergencyHelp == null
-                ? <bool>{}
-                : <bool>{_needsEmergencyHelp!},
-            onSelectionChanged: (selection) => setState(
-              () => _needsEmergencyHelp = selection.isEmpty
-                  ? null
-                  : selection.first,
-            ),
-          ),
-          if (_needsEmergencyHelp != null) ...[
-            const SizedBox(height: 14),
-            Text(
-              _needsEmergencyHelp!
-                  ? 'Do not delay. Contact the clinic and prepare safe transport.'
-                  : 'Continue close monitoring. Contact the clinic if signs persist, worsen, or you are unsure.',
-              style: const TextStyle(fontWeight: FontWeight.w700, height: 1.35),
-            ),
-          ],
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            key: const ValueKey('first-aid-emergency-service'),
-            style: FilledButton.styleFrom(
-              backgroundColor: _firstAidRed,
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(52),
-            ),
-            onPressed: () =>
-                Navigator.of(context).pushNamed(EmergencyServicePage.routeName),
-            icon: const Icon(Icons.emergency_rounded),
-            label: const Text('Open Emergency Service'),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  key: const ValueKey('first-aid-call-clinic'),
-                  onPressed: () => _confirmClinicCall(context),
-                  icon: const Icon(Icons.call_outlined),
-                  label: const Text('Call Clinic'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  key: const ValueKey('first-aid-directions'),
-                  onPressed: () => _showDirections(context),
-                  icon: const Icon(Icons.directions_outlined),
-                  label: const Text('Directions'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 26),
-          const Text(
-            'Related topics',
-            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: guide.relatedIds.map((id) {
-              final related = firstAidGuides.firstWhere(
-                (item) => item.id == id,
-              );
-              return ActionChip(
-                label: Text(related.title),
-                onPressed: () => _openGuide(context, related, widget.petType),
-              );
-            }).toList(),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -365,40 +392,48 @@ class SavedFirstAidGuidesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Saved First Aid Guides'),
-        backgroundColor: _firstAidMint,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: AnimatedBuilder(
-        animation: FirstAidSavedStore.instance,
-        builder: (context, _) {
-          final saved = firstAidGuides
-              .where((guide) => FirstAidSavedStore.instance.contains(guide.id))
-              .toList();
-          if (saved.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'No saved guides yet.\nOpen a topic and tap the bookmark icon.',
-                  textAlign: TextAlign.center,
-                ),
+      backgroundColor: const Color(0xFFF8FBFA),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Saved First Aid Guides'),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: FirstAidSavedStore.instance,
+                builder: (context, _) {
+                  final saved = firstAidGuides
+                      .where(
+                        (guide) =>
+                            FirstAidSavedStore.instance.contains(guide.id),
+                      )
+                      .toList();
+                  if (saved.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'No saved guides yet.\nOpen a topic and tap the bookmark icon.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    );
+                  }
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: saved.length,
+                    separatorBuilder: (_, _) => const Divider(),
+                    itemBuilder: (context, index) => ListTile(
+                      title: Text(saved[index].title),
+                      subtitle: Text(saved[index].summary),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => _openGuide(context, saved[index], 'Dog'),
+                    ),
+                  );
+                },
               ),
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(20),
-            itemCount: saved.length,
-            separatorBuilder: (_, _) => const Divider(),
-            itemBuilder: (context, index) => ListTile(
-              title: Text(saved[index].title),
-              subtitle: Text(saved[index].summary),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => _openGuide(context, saved[index], 'Dog'),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }

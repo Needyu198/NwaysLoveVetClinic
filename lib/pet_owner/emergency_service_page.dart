@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'appointment_booking_page.dart';
 import 'contact_clinic_page.dart';
+import 'pet_owner_page_header.dart';
 
 class EmergencyServicePage extends StatefulWidget {
   const EmergencyServicePage({super.key});
@@ -24,32 +25,37 @@ class MyEmergencyRequestsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _EmergencyColors.page,
-      appBar: AppBar(
-        title: const Text('Emergency Requests'),
-        backgroundColor: _EmergencyColors.lightRed,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: AnimatedBuilder(
-        animation: EmergencyRequestStore.instance,
-        builder: (context, _) {
-          final requests = EmergencyRequestStore.instance.requests;
-          if (requests.isEmpty) {
-            return const _EmergencyEmpty();
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-            itemCount: requests.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 14),
-            itemBuilder: (context, index) => _EmergencyRequestCard(
-              request: requests[index],
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => EmergencyStatusPage(request: requests[index]),
-                ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Emergency Requests'),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: EmergencyRequestStore.instance,
+                builder: (context, _) {
+                  final requests = EmergencyRequestStore.instance.requests;
+                  if (requests.isEmpty) {
+                    return const _EmergencyEmpty();
+                  }
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+                    itemCount: requests.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) => _EmergencyRequestCard(
+                      request: requests[index],
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              EmergencyStatusPage(request: requests[index]),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
@@ -403,55 +409,49 @@ class _EmergencyServicePageState extends State<EmergencyServicePage> {
     if (_created != null) return _EmergencyConfirmation(request: _created!);
     return Scaffold(
       backgroundColor: _EmergencyColors.page,
-      appBar: AppBar(
-        leading: IconButton(
-          onPressed: _back,
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: const Text('Emergency Service'),
-        backgroundColor: _EmergencyColors.lightRed,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          IconButton(
-            tooltip: 'Emergency Requests',
-            onPressed: () => Navigator.of(
-              context,
-            ).pushNamed(MyEmergencyRequestsPage.routeName),
-            icon: const Icon(Icons.assignment_outlined),
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(5),
-          child: LinearProgressIndicator(
-            value: (_step + 1) / 6,
-            backgroundColor: Colors.white54,
-            color: _EmergencyColors.red,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          if (_error != null)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFE1E1),
-                borderRadius: BorderRadius.circular(14),
+      body: SafeArea(
+        child: Column(
+          children: [
+            PetOwnerPageHeader(
+              title: 'Emergency Service',
+              onBack: _back,
+              actions: [
+                IconButton(
+                  tooltip: 'Emergency Requests',
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pushNamed(MyEmergencyRequestsPage.routeName),
+                  icon: const Icon(Icons.assignment_outlined),
+                ),
+              ],
+            ),
+            LinearProgressIndicator(
+              value: (_step + 1) / 6,
+              backgroundColor: Colors.white54,
+              color: _EmergencyColors.red,
+            ),
+            if (_error != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFE1E1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Color(0xFFB3261E)),
+                ),
               ),
-              child: Text(
-                _error!,
-                style: const TextStyle(color: Color(0xFFB3261E)),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: KeyedSubtree(key: ValueKey(_step), child: _stepBody()),
               ),
             ),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: KeyedSubtree(key: ValueKey(_step), child: _stepBody()),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -774,92 +774,99 @@ class EmergencyStatusPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _EmergencyColors.page,
-      appBar: AppBar(
-        title: const Text('Emergency Status'),
-        backgroundColor: _EmergencyColors.lightRed,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: AnimatedBuilder(
-        animation: EmergencyRequestStore.instance,
-        builder: (context, _) => ListView(
-          padding: const EdgeInsets.all(20),
+      body: SafeArea(
+        child: Column(
           children: [
-            _EmergencyStatusPanel(request: request),
-            const SizedBox(height: 16),
-            _EmergencyDetailsPanel(
-              details: {
-                'Request ID': '#${request.id}',
-                'Pet': request.pet.name,
-                'Symptoms': request.symptoms.join(', '),
-                'Description': request.description,
-                'Priority': request.priority,
-                'Clinic response': request.clinicResponse,
-                if (request.findings.isNotEmpty) 'Findings': request.findings,
-                if (request.diagnosis.isNotEmpty)
-                  'Diagnosis': request.diagnosis,
-                if (request.proposedTreatment.isNotEmpty)
-                  'Proposed treatment': request.proposedTreatment,
-                if (request.treatmentResult.isNotEmpty)
-                  'Treatment result': request.treatmentResult,
-                if (request.recommendations.isNotEmpty)
-                  'Recommendations': request.recommendations,
-              },
-            ),
-            const SizedBox(height: 16),
-            const _EmergencyNotice(
-              icon: Icons.lock_outline_rounded,
-              text:
-                  'Emergency priority and status are updated by clinic staff. Pet owners cannot change them manually.',
-            ),
-            if (request.status == EmergencyStatus.treatmentProposed) ...[
-              const SizedBox(height: 16),
-              if (request.ownerConsent)
-                const _EmergencyNotice(
-                  icon: Icons.check_circle_outline,
-                  text: 'Owner treatment consent has been recorded.',
-                )
-              else
-                FilledButton.icon(
-                  key: const ValueKey('approve-emergency-treatment'),
-                  onPressed: () => EmergencyRequestStore.instance
-                      .recordOwnerConsent(request),
-                  icon: const Icon(Icons.fact_check_outlined),
-                  label: const Text('Approve Emergency Treatment'),
-                  style: _EmergencyStyles.primaryButton,
-                ),
-            ],
-            if (request.status == EmergencyStatus.completed) ...[
-              const SizedBox(height: 18),
-              OutlinedButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) =>
-                        EmergencyMedicalRecordPage(request: request),
-                  ),
-                ),
-                icon: const Icon(Icons.description_outlined),
-                label: const Text('Open Medical Record'),
-              ),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => AppointmentBookingPage(
-                      initialPetName: request.pet.name,
+            const PetOwnerPageHeader(title: 'Emergency Status'),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: EmergencyRequestStore.instance,
+                builder: (context, _) => ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    _EmergencyStatusPanel(request: request),
+                    const SizedBox(height: 16),
+                    _EmergencyDetailsPanel(
+                      details: {
+                        'Request ID': '#${request.id}',
+                        'Pet': request.pet.name,
+                        'Symptoms': request.symptoms.join(', '),
+                        'Description': request.description,
+                        'Priority': request.priority,
+                        'Clinic response': request.clinicResponse,
+                        if (request.findings.isNotEmpty)
+                          'Findings': request.findings,
+                        if (request.diagnosis.isNotEmpty)
+                          'Diagnosis': request.diagnosis,
+                        if (request.proposedTreatment.isNotEmpty)
+                          'Proposed treatment': request.proposedTreatment,
+                        if (request.treatmentResult.isNotEmpty)
+                          'Treatment result': request.treatmentResult,
+                        if (request.recommendations.isNotEmpty)
+                          'Recommendations': request.recommendations,
+                      },
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    const _EmergencyNotice(
+                      icon: Icons.lock_outline_rounded,
+                      text:
+                          'Emergency priority and status are updated by clinic staff. Pet owners cannot change them manually.',
+                    ),
+                    if (request.status ==
+                        EmergencyStatus.treatmentProposed) ...[
+                      const SizedBox(height: 16),
+                      if (request.ownerConsent)
+                        const _EmergencyNotice(
+                          icon: Icons.check_circle_outline,
+                          text: 'Owner treatment consent has been recorded.',
+                        )
+                      else
+                        FilledButton.icon(
+                          key: const ValueKey('approve-emergency-treatment'),
+                          onPressed: () => EmergencyRequestStore.instance
+                              .recordOwnerConsent(request),
+                          icon: const Icon(Icons.fact_check_outlined),
+                          label: const Text('Approve Emergency Treatment'),
+                          style: _EmergencyStyles.primaryButton,
+                        ),
+                    ],
+                    if (request.status == EmergencyStatus.completed) ...[
+                      const SizedBox(height: 18),
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                EmergencyMedicalRecordPage(request: request),
+                          ),
+                        ),
+                        icon: const Icon(Icons.description_outlined),
+                        label: const Text('Open Medical Record'),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => AppointmentBookingPage(
+                              initialPetName: request.pet.name,
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.event_repeat_outlined),
+                        label: const Text('Book Follow-up'),
+                        style: _EmergencyStyles.primaryButton,
+                      ),
+                      const SizedBox(height: 10),
+                      TextButton.icon(
+                        onPressed: () =>
+                            Navigator.of(context).pushNamed('/history'),
+                        icon: const Icon(Icons.history_rounded),
+                        label: const Text('Open Emergency History'),
+                      ),
+                    ],
+                  ],
                 ),
-                icon: const Icon(Icons.event_repeat_outlined),
-                label: const Text('Book Follow-up'),
-                style: _EmergencyStyles.primaryButton,
               ),
-              const SizedBox(height: 10),
-              TextButton.icon(
-                onPressed: () => Navigator.of(context).pushNamed('/history'),
-                icon: const Icon(Icons.history_rounded),
-                label: const Text('Open Emergency History'),
-              ),
-            ],
+            ),
           ],
         ),
       ),
@@ -876,26 +883,30 @@ class EmergencyMedicalRecordPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _EmergencyColors.page,
-      appBar: AppBar(
-        title: const Text('Emergency Medical Record'),
-        backgroundColor: _EmergencyColors.lightRed,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          _EmergencyDetailsPanel(
-            details: {
-              'Request ID': '#${request.id}',
-              'Pet': request.pet.name,
-              'Symptoms': request.symptoms.join(', '),
-              'Findings': request.findings,
-              'Diagnosis': request.diagnosis,
-              'Treatment': request.treatmentResult,
-              'Recommendations': request.recommendations,
-            },
-          ),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Emergency Medical Record'),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _EmergencyDetailsPanel(
+                    details: {
+                      'Request ID': '#${request.id}',
+                      'Pet': request.pet.name,
+                      'Symptoms': request.symptoms.join(', '),
+                      'Findings': request.findings,
+                      'Diagnosis': request.diagnosis,
+                      'Treatment': request.treatmentResult,
+                      'Recommendations': request.recommendations,
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

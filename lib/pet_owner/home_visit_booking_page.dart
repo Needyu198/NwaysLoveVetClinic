@@ -6,6 +6,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'pet_owner_page_header.dart';
+
 class HomeVisitBookingPage extends StatefulWidget {
   const HomeVisitBookingPage({super.key});
 
@@ -24,58 +26,65 @@ class MyHomeVisitsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _VisitColors.page,
-      appBar: AppBar(
-        title: const Text('My Home Visits'),
-        backgroundColor: _VisitColors.mint,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: AnimatedBuilder(
-        animation: HomeVisitStore.instance,
-        builder: (context, _) {
-          final visits = HomeVisitStore.instance.visits;
-          if (visits.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.home_work_outlined,
-                      size: 72,
-                      color: _VisitColors.muted,
-                    ),
-                    const SizedBox(height: 18),
-                    const Text('No home visits yet', style: _VisitText.title),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Choose Home Visit from the Clinic categories to make a booking.',
-                      textAlign: TextAlign.center,
-                      style: _VisitText.body,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'My Home Visits'),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: HomeVisitStore.instance,
+                builder: (context, _) {
+                  final visits = HomeVisitStore.instance.visits;
+                  if (visits.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.home_work_outlined,
+                              size: 72,
+                              color: _VisitColors.muted,
+                            ),
+                            const SizedBox(height: 18),
+                            const Text(
+                              'No home visits yet',
+                              style: _VisitText.title,
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Choose Home Visit from the Clinic categories to make a booking.',
+                              textAlign: TextAlign.center,
+                              style: _VisitText.body,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
 
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-            itemCount: visits.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 14),
-            itemBuilder: (context, index) {
-              final visit = visits[index];
-              return _VisitCard(
-                visit: visit,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => HomeVisitTrackingPage(visit: visit),
-                  ),
-                ),
-              );
-            },
-          );
-        },
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+                    itemCount: visits.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) {
+                      final visit = visits[index];
+                      return _VisitCard(
+                        visit: visit,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => HomeVisitTrackingPage(visit: visit),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () =>
@@ -518,54 +527,49 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
 
     return Scaffold(
       backgroundColor: _VisitColors.page,
-      appBar: AppBar(
-        leading: IconButton(
-          onPressed: _back,
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: const Text('Book a Home Visit'),
-        backgroundColor: _VisitColors.mint,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          IconButton(
-            tooltip: 'My Home Visits',
-            onPressed: () =>
-                Navigator.of(context).pushNamed(MyHomeVisitsPage.routeName),
-            icon: const Icon(Icons.assignment_outlined),
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(5),
-          child: LinearProgressIndicator(
-            value: (_step + 1) / 8,
-            color: _VisitColors.green,
-            backgroundColor: Colors.white54,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          if (_error != null)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFE8E5),
-                borderRadius: BorderRadius.circular(14),
+      body: SafeArea(
+        child: Column(
+          children: [
+            PetOwnerPageHeader(
+              title: 'Book a Home Visit',
+              onBack: _back,
+              actions: [
+                IconButton(
+                  tooltip: 'My Home Visits',
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pushNamed(MyHomeVisitsPage.routeName),
+                  icon: const Icon(Icons.assignment_outlined),
+                ),
+              ],
+            ),
+            LinearProgressIndicator(
+              value: (_step + 1) / 8,
+              color: _VisitColors.green,
+              backgroundColor: Colors.white54,
+            ),
+            if (_error != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFE8E5),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Color(0xFFB3261E)),
+                ),
               ),
-              child: Text(
-                _error!,
-                style: const TextStyle(color: Color(0xFFB3261E)),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: KeyedSubtree(key: ValueKey(_step), child: _stepBody()),
               ),
             ),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: KeyedSubtree(key: ValueKey(_step), child: _stepBody()),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -924,46 +928,50 @@ class HomeVisitTrackingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _VisitColors.page,
-      appBar: AppBar(
-        title: const Text('Home Visit Status'),
-        backgroundColor: _VisitColors.mint,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: AnimatedBuilder(
-        animation: HomeVisitStore.instance,
-        builder: (context, _) {
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              _VisitStatusHeader(status: visit.status),
-              const SizedBox(height: 18),
-              _VisitDetailPanel(
-                title: 'Upcoming Home Visit',
-                children: [
-                  _VisitDetailRow('Booking ID', '#${visit.id}'),
-                  _VisitDetailRow('Pet', visit.pet.name),
-                  _VisitDetailRow('Veterinarian', visit.veterinarian),
-                  _VisitDetailRow(
-                    'Date and time',
-                    '${_longDate(visit.date)} • ${visit.time}',
-                  ),
-                  _VisitDetailRow('Address', visit.address),
-                  _VisitDetailRow(
-                    'Contact',
-                    '${visit.contactPerson} • ${visit.phone}',
-                  ),
-                ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Home Visit Status'),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: HomeVisitStore.instance,
+                builder: (context, _) {
+                  return ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      _VisitStatusHeader(status: visit.status),
+                      const SizedBox(height: 18),
+                      _VisitDetailPanel(
+                        title: 'Upcoming Home Visit',
+                        children: [
+                          _VisitDetailRow('Booking ID', '#${visit.id}'),
+                          _VisitDetailRow('Pet', visit.pet.name),
+                          _VisitDetailRow('Veterinarian', visit.veterinarian),
+                          _VisitDetailRow(
+                            'Date and time',
+                            '${_longDate(visit.date)} • ${visit.time}',
+                          ),
+                          _VisitDetailRow('Address', visit.address),
+                          _VisitDetailRow(
+                            'Contact',
+                            '${visit.contactPerson} • ${visit.phone}',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _VisitNotice(
+                        icon: Icons.info_outline,
+                        text: _statusMessage(visit.status),
+                      ),
+                      const SizedBox(height: 20),
+                      _statusAction(context),
+                    ],
+                  );
+                },
               ),
-              const SizedBox(height: 16),
-              _VisitNotice(
-                icon: Icons.info_outline,
-                text: _statusMessage(visit.status),
-              ),
-              const SizedBox(height: 20),
-              _statusAction(context),
-            ],
-          );
-        },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1068,75 +1076,88 @@ class _HomeVisitMedicalRecordPageState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _VisitColors.page,
-      appBar: AppBar(
-        title: const Text('Home Visit Medical Record'),
-        backgroundColor: _VisitColors.mint,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          _VisitDetailPanel(
-            title: '${widget.visit.pet.name} • Completed Home Visit',
-            children: [
-              _VisitDetailRow('Veterinarian', widget.visit.veterinarian),
-              _VisitDetailRow('Visit reason', widget.visit.reason),
-              _VisitDetailRow('Findings', widget.visit.findings),
-              _VisitDetailRow('Treatment notes', widget.visit.treatmentNotes),
-              _VisitDetailRow('Medicines', widget.visit.medicines),
-              _VisitDetailRow('Recommendations', widget.visit.recommendations),
-            ],
-          ),
-          const SizedBox(height: 22),
-          const Text('Rating and Review', style: _VisitText.section),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              for (var star = 1; star <= 5; star++)
-                IconButton(
-                  key: ValueKey('home-visit-rating-$star'),
-                  onPressed: () => setState(() => _rating = star),
-                  icon: Icon(
-                    star <= _rating
-                        ? Icons.star_rounded
-                        : Icons.star_border_rounded,
-                    color: const Color(0xFFFFB000),
-                    size: 34,
-                  ),
-                ),
-            ],
-          ),
-          TextField(
-            controller: _review,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Write a review',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: _rating == 0
-                ? null
-                : () {
-                    HomeVisitStore.instance.saveReview(
-                      widget.visit,
-                      _rating,
-                      _review.text.trim(),
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Thank you. Your Home Visit review was saved.',
-                        ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Home Visit Medical Record'),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _VisitDetailPanel(
+                    title: '${widget.visit.pet.name} • Completed Home Visit',
+                    children: [
+                      _VisitDetailRow(
+                        'Veterinarian',
+                        widget.visit.veterinarian,
                       ),
-                    );
-                  },
-            style: _VisitStyles.primaryButton,
-            child: const Text('Submit Review'),
-          ),
-        ],
+                      _VisitDetailRow('Visit reason', widget.visit.reason),
+                      _VisitDetailRow('Findings', widget.visit.findings),
+                      _VisitDetailRow(
+                        'Treatment notes',
+                        widget.visit.treatmentNotes,
+                      ),
+                      _VisitDetailRow('Medicines', widget.visit.medicines),
+                      _VisitDetailRow(
+                        'Recommendations',
+                        widget.visit.recommendations,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  const Text('Rating and Review', style: _VisitText.section),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      for (var star = 1; star <= 5; star++)
+                        IconButton(
+                          key: ValueKey('home-visit-rating-$star'),
+                          onPressed: () => setState(() => _rating = star),
+                          icon: Icon(
+                            star <= _rating
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            color: const Color(0xFFFFB000),
+                            size: 34,
+                          ),
+                        ),
+                    ],
+                  ),
+                  TextField(
+                    controller: _review,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Write a review',
+                      alignLabelWithHint: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: _rating == 0
+                        ? null
+                        : () {
+                            HomeVisitStore.instance.saveReview(
+                              widget.visit,
+                              _rating,
+                              _review.text.trim(),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Thank you. Your Home Visit review was saved.',
+                                ),
+                              ),
+                            );
+                          },
+                    style: _VisitStyles.primaryButton,
+                    child: const Text('Submit Review'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

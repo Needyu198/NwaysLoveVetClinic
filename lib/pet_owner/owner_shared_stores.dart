@@ -74,12 +74,12 @@ class ReminderStore extends ChangeNotifier {
     );
   }
 
-  ReminderStore._() {
-    _seed();
-  }
+  ReminderStore._();
 
   static final ReminderStore instance = ReminderStore._();
 
+  // Reminders come entirely from the database (what the owner or staff adds).
+  // No seeded/demo reminders.
   final List<PetReminder> _reminders = [];
 
   List<PetReminder> get reminders => List.unmodifiable(_reminders);
@@ -123,40 +123,9 @@ class ReminderStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _seed() {
-    _reminders.addAll([
-      PetReminder(
-        id: 'REM-SEED-1',
-        title: 'Annual Rabies Vaccination',
-        type: ReminderType.vaccine,
-        dateTime: DateTime(2026, 4, 4, 10, 0),
-        note: 'Bring previous vaccination records',
-        petName: 'Max',
-      ),
-      PetReminder(
-        id: 'REM-SEED-2',
-        title: 'General Health Checkup',
-        type: ReminderType.checkup,
-        dateTime: DateTime(2026, 4, 15, 14, 30),
-        note: 'Follow-up for grain-free diet assessment',
-        petName: 'Max',
-      ),
-      PetReminder(
-        id: 'REM-SEED-3',
-        title: 'Bordetella Vaccine',
-        type: ReminderType.vaccine,
-        dateTime: DateTime(2026, 3, 2, 9, 0),
-        note: 'Completed successfully',
-        petName: 'Max',
-        completed: true,
-      ),
-    ]);
-  }
-
   @visibleForTesting
   void reset() {
     _reminders.clear();
-    _seed();
     notifyListeners();
   }
 }

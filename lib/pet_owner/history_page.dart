@@ -6,6 +6,7 @@ import 'appointment_booking_page.dart';
 import 'emergency_service_page.dart';
 import 'home_visit_booking_page.dart';
 import 'pet_care_booking_page.dart';
+import 'pet_owner_page_header.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -128,47 +129,58 @@ class _HistoryPageState extends State<HistoryPage> {
     );
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF8),
-      appBar: AppBar(
-        title: const Text('History'),
-        backgroundColor: const Color(0xFFA1FDD8),
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: AnimatedBuilder(
-        animation: Listenable.merge([
-          AppointmentStore.instance,
-          QueueStore.instance,
-          PetCareBookingStore.instance,
-          HomeVisitStore.instance,
-          EmergencyRequestStore.instance,
-          DoctorMedicalRecordStore.instance,
-        ]),
-        builder: (context, _) {
-          if (_petName == null) return _petSelection();
-          final records = _filteredRecords();
-          return Column(
-            children: [
-              _historyControls(),
-              Expanded(
-                child: records.isEmpty
-                    ? const _HistoryEmpty()
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
-                        itemCount: records.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) => _HistoryCard(
-                          record: records[index],
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  HistoryDetailsPage(record: records[index]),
-                            ),
-                          ),
-                        ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'History'),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([
+                  AppointmentStore.instance,
+                  QueueStore.instance,
+                  PetCareBookingStore.instance,
+                  HomeVisitStore.instance,
+                  EmergencyRequestStore.instance,
+                  DoctorMedicalRecordStore.instance,
+                ]),
+                builder: (context, _) {
+                  if (_petName == null) return _petSelection();
+                  final records = _filteredRecords();
+                  return Column(
+                    children: [
+                      _historyControls(),
+                      Expanded(
+                        child: records.isEmpty
+                            ? const _HistoryEmpty()
+                            : ListView.separated(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  16,
+                                  20,
+                                  36,
+                                ),
+                                itemCount: records.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 12),
+                                itemBuilder: (context, index) => _HistoryCard(
+                                  record: records[index],
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => HistoryDetailsPage(
+                                        record: records[index],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                       ),
+                    ],
+                  );
+                },
               ),
-            ],
-          );
-        },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -627,72 +639,78 @@ class HistoryDetailsPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF8),
-      appBar: AppBar(
-        title: const Text('History Details'),
-        backgroundColor: const Color(0xFFA1FDD8),
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Row(
-            children: [
-              const CircleAvatar(
-                backgroundColor: Color(0xFFA1FDD8),
-                foregroundColor: Color(0xFF16855E),
-                child: Icon(Icons.history_rounded),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(record.title, style: _HistoryText.title),
-                    Text(record.petName, style: _HistoryText.body),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'History Details'),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  Row(
+                    children: [
+                      const CircleAvatar(
+                        backgroundColor: Color(0xFFA1FDD8),
+                        foregroundColor: Color(0xFF16855E),
+                        child: Icon(Icons.history_rounded),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(record.title, style: _HistoryText.title),
+                            Text(record.petName, style: _HistoryText.body),
+                          ],
+                        ),
+                      ),
+                      _HistoryStatus(status: record.status),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _HistoryDetailsPanel(details: record.details),
+                  if (canViewMedicalRecord) ...[
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      key: const ValueKey('view-history-medical-record'),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              HistoryMedicalRecordPage(record: record),
+                        ),
+                      ),
+                      icon: const Icon(Icons.description_outlined),
+                      label: const Text('View Medical Record'),
+                    ),
                   ],
-                ),
-              ),
-              _HistoryStatus(status: record.status),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _HistoryDetailsPanel(details: record.details),
-          if (canViewMedicalRecord) ...[
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              key: const ValueKey('view-history-medical-record'),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => HistoryMedicalRecordPage(record: record),
-                ),
-              ),
-              icon: const Icon(Icons.description_outlined),
-              label: const Text('View Medical Record'),
-            ),
-          ],
-          if (canBookFollowUp) ...[
-            const SizedBox(height: 10),
-            FilledButton.icon(
-              key: const ValueKey('book-history-follow-up'),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) =>
-                      AppointmentBookingPage(initialPetName: record.petName),
-                ),
-              ),
-              icon: const Icon(Icons.event_repeat_outlined),
-              label: const Text('Book Follow-up'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF16855E),
-                foregroundColor: Colors.white,
+                  if (canBookFollowUp) ...[
+                    const SizedBox(height: 10),
+                    FilledButton.icon(
+                      key: const ValueKey('book-history-follow-up'),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => AppointmentBookingPage(
+                            initialPetName: record.petName,
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.event_repeat_outlined),
+                      label: const Text('Book Follow-up'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF16855E),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                  if (record.completed) ...[
+                    const SizedBox(height: 22),
+                    HistoryReviewSection(recordId: record.id),
+                  ],
+                ],
               ),
             ),
           ],
-          if (record.completed) ...[
-            const SizedBox(height: 22),
-            HistoryReviewSection(recordId: record.id),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -707,21 +725,25 @@ class HistoryMedicalRecordPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF8),
-      appBar: AppBar(
-        title: const Text('Medical Record'),
-        backgroundColor: const Color(0xFFA1FDD8),
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Text(
-            '${record.petName} • ${record.title}',
-            style: _HistoryText.title,
-          ),
-          const SizedBox(height: 16),
-          _HistoryDetailsPanel(details: record.details),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Medical Record'),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  Text(
+                    '${record.petName} • ${record.title}',
+                    style: _HistoryText.title,
+                  ),
+                  const SizedBox(height: 16),
+                  _HistoryDetailsPanel(details: record.details),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

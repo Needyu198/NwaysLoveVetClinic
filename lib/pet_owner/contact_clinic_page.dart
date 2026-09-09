@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'emergency_service_page.dart';
+import 'pet_owner_page_header.dart';
 
-const _contactMint = Color(0xFFA1FDD8);
 const _contactRed = Color(0xFFC62828);
 
 class ContactClinicPage extends StatelessWidget {
@@ -22,124 +22,130 @@ class ContactClinicPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF9),
-      appBar: AppBar(
-        title: const Text('Contact Clinic'),
-        backgroundColor: _contactMint,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          IconButton(
-            key: const ValueKey('contact-history'),
-            tooltip: 'Contact history',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const ClinicConversationPage(),
-              ),
-            ),
-            icon: const Icon(Icons.history_rounded),
-          ),
-        ],
-      ),
-      body: ListView(
-        key: const ValueKey('contact-clinic-content'),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-        children: [
-          const _ClinicInformationCard(),
-          const SizedBox(height: 22),
-          const Text(
-            'How would you like to contact us?',
-            style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 14),
-          GridView.count(
-            physics: const NeverScrollableScrollPhysics(),
-            shrinkWrap: true,
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.45,
-            children: [
-              _ContactMethodCard(
-                key: const ValueKey('contact-call'),
-                icon: Icons.call_outlined,
-                title: 'Call Clinic',
-                subtitle: 'Speak with clinic staff',
-                onTap: () => _confirmCall(context),
-              ),
-              _ContactMethodCard(
-                key: const ValueKey('contact-chat'),
-                icon: Icons.chat_bubble_outline_rounded,
-                title: 'Chat',
-                subtitle: 'Send a message in the app',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ClinicConversationPage(),
-                  ),
-                ),
-              ),
-              _ContactMethodCard(
-                key: const ValueKey('contact-email'),
-                icon: Icons.email_outlined,
-                title: 'Email',
-                subtitle: 'For non-urgent questions',
-                onTap: () => _showEmail(context),
-              ),
-              _ContactMethodCard(
-                key: const ValueKey('contact-directions'),
-                icon: Icons.directions_outlined,
-                title: 'Directions',
-                subtitle: 'View or copy our address',
-                onTap: () => _showDirections(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFECEC),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFFFCACA)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.emergency_rounded, color: _contactRed),
-                    SizedBox(width: 9),
-                    Expanded(
-                      child: Text(
-                        'Is your pet seriously ill or injured?',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            PetOwnerPageHeader(
+              title: 'Contact Clinic',
+              actions: [
+                IconButton(
+                  key: const ValueKey('contact-history'),
+                  tooltip: 'Contact history',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ClinicConversationPage(),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Chat and email are not emergency channels. Call the clinic or submit an Emergency Service request.',
-                  style: TextStyle(height: 1.35),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  key: const ValueKey('contact-emergency-service'),
-                  onPressed: () => Navigator.of(
-                    context,
-                  ).pushNamed(EmergencyServicePage.routeName),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _contactRed,
-                    foregroundColor: Colors.white,
                   ),
-                  icon: const Icon(Icons.open_in_new_rounded),
-                  label: const Text('Emergency Service'),
+                  icon: const Icon(Icons.history_rounded),
                 ),
               ],
             ),
-          ),
-        ],
+            Expanded(
+              child: ListView(
+                key: const ValueKey('contact-clinic-content'),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+                children: [
+                  const _ClinicInformationCard(),
+                  const SizedBox(height: 22),
+                  const Text(
+                    'How would you like to contact us?',
+                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 14),
+                  GridView.count(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.45,
+                    children: [
+                      _ContactMethodCard(
+                        key: const ValueKey('contact-call'),
+                        icon: Icons.call_outlined,
+                        title: 'Call Clinic',
+                        subtitle: 'Speak with clinic staff',
+                        onTap: () => _confirmCall(context),
+                      ),
+                      _ContactMethodCard(
+                        key: const ValueKey('contact-chat'),
+                        icon: Icons.chat_bubble_outline_rounded,
+                        title: 'Chat',
+                        subtitle: 'Send a message in the app',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const ClinicConversationPage(),
+                          ),
+                        ),
+                      ),
+                      _ContactMethodCard(
+                        key: const ValueKey('contact-email'),
+                        icon: Icons.email_outlined,
+                        title: 'Email',
+                        subtitle: 'For non-urgent questions',
+                        onTap: () => _showEmail(context),
+                      ),
+                      _ContactMethodCard(
+                        key: const ValueKey('contact-directions'),
+                        icon: Icons.directions_outlined,
+                        title: 'Directions',
+                        subtitle: 'View or copy our address',
+                        onTap: () => _showDirections(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFECEC),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFFFCACA)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.emergency_rounded, color: _contactRed),
+                            SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                'Is your pet seriously ill or injured?',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Chat and email are not emergency channels. Call the clinic or submit an Emergency Service request.',
+                          style: TextStyle(height: 1.35),
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          key: const ValueKey('contact-emergency-service'),
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pushNamed(EmergencyServicePage.routeName),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _contactRed,
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.open_in_new_rounded),
+                          label: const Text('Emergency Service'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -170,51 +176,49 @@ class _ClinicConversationPageState extends State<ClinicConversationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF9),
-      appBar: AppBar(
-        title: const Text('Chat with Clinic'),
-        backgroundColor: _contactMint,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            color: const Color(0xFFFFF4D6),
-            child: const Text(
-              'Clinic hours: 8:00 AM–10:00 PM. After-hours replies depend on staff availability. Chat advice does not replace an examination.',
-              style: TextStyle(fontSize: 12.5, height: 1.3),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Chat with Clinic'),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              color: const Color(0xFFFFF4D6),
+              child: const Text(
+                'Clinic hours: 8:00 AM–10:00 PM. After-hours replies depend on staff availability. Chat advice does not replace an examination.',
+                style: TextStyle(fontSize: 12.5, height: 1.3),
+              ),
             ),
-          ),
-          Expanded(
-            child: AnimatedBuilder(
-              animation: ContactClinicStore.instance,
-              builder: (context, _) {
-                final messages = ContactClinicStore.instance.messages;
-                if (messages.isEmpty) {
-                  return const _EmptyConversation();
-                }
-                return ListView.builder(
-                  key: const ValueKey('clinic-conversation-list'),
-                  padding: const EdgeInsets.all(16),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) =>
-                      _MessageBubble(message: messages[index]),
-                );
-              },
+            Expanded(
+              child: AnimatedBuilder(
+                animation: ContactClinicStore.instance,
+                builder: (context, _) {
+                  final messages = ContactClinicStore.instance.messages;
+                  if (messages.isEmpty) {
+                    return const _EmptyConversation();
+                  }
+                  return ListView.builder(
+                    key: const ValueKey('clinic-conversation-list'),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) =>
+                        _MessageBubble(message: messages[index]),
+                  );
+                },
+              ),
             ),
-          ),
-          _MessageComposer(
-            formKey: _formKey,
-            controller: _messageController,
-            selectedPet: _selectedPet,
-            category: _category,
-            pets: _pets,
-            onPetChanged: (value) => setState(() => _selectedPet = value),
-            onCategoryChanged: (value) => setState(() => _category = value),
-            onSend: _sendMessage,
-          ),
-        ],
+            _MessageComposer(
+              formKey: _formKey,
+              controller: _messageController,
+              selectedPet: _selectedPet,
+              category: _category,
+              pets: _pets,
+              onPetChanged: (value) => setState(() => _selectedPet = value),
+              onCategoryChanged: (value) => setState(() => _category = value),
+              onSend: _sendMessage,
+            ),
+          ],
+        ),
       ),
     );
   }

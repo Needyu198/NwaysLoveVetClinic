@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/clinic_directory.dart';
 import 'appointment_booking_page.dart';
 import 'contact_clinic_page.dart';
 import 'emergency_service_page.dart';
@@ -24,27 +25,6 @@ class PetOwnerClinicPage extends StatelessWidget {
   static const Color mutedTextColor = Color(0xFF3F4845);
   static const String clinicBannerAsset =
       'assets/photos/logoandphoto/clinic_banner.png';
-
-  static const _doctors = [
-    _DoctorProfile(
-      name: 'Dr. Hnin Thiri Aung',
-      qualification: 'B.V.Sc',
-      specialty: 'General veterinary care',
-      nextAvailable: 'Today, 4:30 PM',
-    ),
-    _DoctorProfile(
-      name: 'Dr. Cindy Lynn',
-      qualification: 'B.V.Sc',
-      specialty: 'Pet wellness and surgery',
-      nextAvailable: 'Tomorrow, 10:00 AM',
-    ),
-    _DoctorProfile(
-      name: 'Dr. Myat Noe',
-      qualification: 'M.V.Sc',
-      specialty: 'Vaccination and consultation',
-      nextAvailable: 'Friday, 2:00 PM',
-    ),
-  ];
 
   static const _primaryServices = [
     _ClinicService(
@@ -126,7 +106,7 @@ class PetOwnerClinicPage extends StatelessWidget {
                       const SizedBox(height: 46),
                       const _SectionHeading('Doctor Profiles'),
                       const SizedBox(height: 18),
-                      const _DoctorProfileList(doctors: _doctors),
+                      const _DoctorProfileList(),
                       const SizedBox(height: 48),
                       const _SectionHeading('Categories'),
                       const SizedBox(height: 20),
@@ -434,21 +414,89 @@ class _SectionHeading extends StatelessWidget {
 }
 
 class _DoctorProfileList extends StatelessWidget {
-  const _DoctorProfileList({required this.doctors});
-
-  final List<_DoctorProfile> doctors;
+  const _DoctorProfileList();
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 302,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        physics: const BouncingScrollPhysics(),
-        itemBuilder: (context, index) => _DoctorCard(doctor: doctors[index]),
-        separatorBuilder: (context, index) => const SizedBox(width: 48),
-        itemCount: doctors.length,
+    // Real doctors come from the DB-backed clinic directory (same source the
+    // booking page uses for the veterinarian step).
+    return AnimatedBuilder(
+      animation: ClinicDirectory.instance,
+      builder: (context, _) {
+        final doctors = ClinicDirectory.instance.doctors
+            .map(
+              (name) => _DoctorProfile(
+                name: name,
+                qualification: 'Veterinarian',
+                specialty: 'Clinic veterinary care',
+                nextAvailable: 'Book to see availability',
+              ),
+            )
+            .toList();
+
+        if (doctors.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: _DoctorsEmpty(),
+          );
+        }
+
+        return SizedBox(
+          height: 302,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            physics: const BouncingScrollPhysics(),
+            itemBuilder: (context, index) =>
+                _DoctorCard(doctor: doctors[index]),
+            separatorBuilder: (context, index) => const SizedBox(width: 48),
+            itemCount: doctors.length,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DoctorsEmpty extends StatelessWidget {
+  const _DoctorsEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: PetOwnerClinicPage.softMintColor,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Column(
+        children: [
+          Icon(
+            Icons.medical_services_outlined,
+            size: 34,
+            color: Color(0xFF9FA8A5),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'No doctors listed yet',
+            style: TextStyle(
+              color: PetOwnerClinicPage.inkColor,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          SizedBox(height: 3),
+          Text(
+            'Clinic doctors will appear here once added by the clinic.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: PetOwnerClinicPage.mutedTextColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
