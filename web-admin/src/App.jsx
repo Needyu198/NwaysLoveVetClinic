@@ -2,43 +2,33 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { login, logout, getAccount } from './api.js';
 import { connectRealtime } from './realtime.js';
 import {
-  DashboardView,
-  AppointmentsView,
-  WalkInView,
-  QueueView,
-  PaymentsView,
-  InventoryView,
-  MedicalRecordsView,
-  HealthPostsView,
-  MessagesView,
-  ReportsView,
+  AdminDashboardView,
+  UsersView,
+  VerificationView,
+  InventoryApprovalView,
+  AuditLogsView,
 } from './views.jsx';
 
-// The staff feature areas, grouped like the reference dashboard sidebar.
+// Admin feature areas, mirroring the Flutter system-admin portal.
 const NAV_GROUPS = [
   {
     label: 'Main',
     items: [
-      { key: 'dashboard', label: 'Dashboard', icon: '📊', sub: "Today's clinic overview", View: DashboardView },
-      { key: 'appointments', label: 'Appointments', icon: '📅', sub: 'Scheduled visits', View: AppointmentsView },
-      { key: 'queue', label: 'Queue', icon: '⏳', sub: 'Live patient queue', View: QueueView },
-      { key: 'walkin', label: 'Walk-in', icon: '🚶', sub: 'Walk-in registrations', View: WalkInView },
+      { key: 'dashboard', label: 'Dashboard', icon: '📊', sub: 'System overview', View: AdminDashboardView },
+      { key: 'users', label: 'Users & Roles', icon: '👥', sub: 'Manage every account', View: UsersView },
     ],
   },
   {
-    label: 'Clinic',
+    label: 'Governance',
     items: [
-      { key: 'payments', label: 'Payments', icon: '💳', sub: 'Billing and revenue', View: PaymentsView },
-      { key: 'inventory', label: 'Inventory', icon: '📦', sub: 'Stock and supplies', View: InventoryView },
-      { key: 'records', label: 'Medical Records', icon: '🩺', sub: 'Patient histories', View: MedicalRecordsView },
-      { key: 'posts', label: 'Health Posts', icon: '📝', sub: 'Published articles', View: HealthPostsView },
+      { key: 'verification', label: 'Doctor Verification', icon: '✅', sub: 'Review applications', View: VerificationView },
+      { key: 'inventory', label: 'Inventory Approval', icon: '📦', sub: 'Restock requests', View: InventoryApprovalView },
     ],
   },
   {
     label: 'System',
     items: [
-      { key: 'messages', label: 'Messages', icon: '💬', sub: 'Owner conversations', View: MessagesView },
-      { key: 'reports', label: 'Reports', icon: '📈', sub: 'Clinic analytics', View: ReportsView },
+      { key: 'audit', label: 'Audit Logs', icon: '📜', sub: 'Sensitive action trail', View: AuditLogsView },
     ],
   },
 ];
@@ -67,9 +57,9 @@ function LoginScreen({ onSignedIn }) {
     setError('');
     try {
       const account = await login(username.trim(), password);
-      if (account.role !== 'staff' && account.role !== 'systemAdmin') {
+      if (account.role !== 'systemAdmin') {
         await logout();
-        setError('This portal is for clinic staff and administrators.');
+        setError('This portal is for system administrators only.');
         return;
       }
       onSignedIn(account);
@@ -84,7 +74,7 @@ function LoginScreen({ onSignedIn }) {
     <div className="login-wrap">
       <form className="login-card" onSubmit={submit}>
         <img className="login-logo" src="/logo.png" alt="Nway's Love Vet Clinic" />
-        <h1>Clinic Staff Portal</h1>
+        <h1>Clinic Admin Portal</h1>
         <p>Nway's Love Vet Clinic</p>
         <label>Username</label>
         <div className="field">
@@ -143,7 +133,7 @@ function Portal({ account, onSignOut }) {
           <img className="brand-logo" src="/logo.png" alt="logo" />
           <div>
             <div className="brand-title">Nway's Love</div>
-            <div className="brand-sub">Staff Portal</div>
+            <div className="brand-sub">Admin Portal</div>
           </div>
         </div>
         <nav>

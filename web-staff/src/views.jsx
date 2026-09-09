@@ -78,20 +78,20 @@ export function DashboardView({ refreshKey }) {
     .filter(v => Number(v.quantity) <= Number(v.reorderLevel || 0)).length;
 
   const cards = [
-    { label: 'Appointments', value: appts.records.length },
-    { label: 'In queue', value: queue.records.length },
-    { label: 'Payments', value: pay.records.length },
-    { label: 'Revenue (paid)', value: formatMmk(revenue) },
-    { label: 'Inventory items', value: inv.records.length },
-    { label: 'Low stock', value: lowStock },
+    { label: 'Appointments', value: appts.records.length, icon: '📅', tone: '' },
+    { label: 'In queue', value: queue.records.length, icon: '⏳', tone: 'orange' },
+    { label: 'Payments', value: pay.records.length, icon: '💳', tone: 'purple' },
+    { label: 'Revenue (paid)', value: formatMmk(revenue), icon: '💰', tone: '' },
+    { label: 'Inventory items', value: inv.records.length, icon: '📦', tone: 'orange' },
+    { label: 'Low stock', value: lowStock, icon: '⚠️', tone: 'purple' },
   ];
 
   return (
     <div>
-      <h1 className="view-title">Dashboard</h1>
       <div className="stat-grid">
         {cards.map(c => (
           <div className="stat-card" key={c.label}>
+            <div className={`stat-ico ${c.tone}`}>{c.icon}</div>
             <div className="stat-value">{c.value}</div>
             <div className="stat-label">{c.label}</div>
           </div>

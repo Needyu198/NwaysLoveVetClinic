@@ -1,54 +1,71 @@
 part of 'doctor_portal.dart';
 
+/// Shared doctor page header, styled to match the pet-owner Book Appointment
+/// page: a rounded mint banner with a back button, page title, optional
+/// trailing actions, and the clinic logo. Use at the top of a page body so
+/// every doctor sub-page shares one consistent look.
+class _DoctorPageHeader extends StatelessWidget {
+  const _DoctorPageHeader({required this.title, this.actions});
+
+  static const Color mint = Color(0xFFC5F7E3);
+  static const Color ink = Color(0xFF17211E);
+
+  final String title;
+
+  /// Optional trailing actions placed before the logo (e.g. "Mark all read").
+  final List<Widget>? actions;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(6, 8, 16, 16),
+    decoration: const BoxDecoration(
+      color: mint,
+      borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+    ),
+    child: SafeArea(
+      bottom: false,
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            tooltip: 'Back',
+          ),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: ink,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+          ...?actions,
+          const SizedBox(width: 4),
+          Image.asset(
+            LoginPage.logoAsset,
+            width: 48,
+            height: 48,
+            fit: BoxFit.contain,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _DoctorSubpageHeader extends StatelessWidget {
   const _DoctorSubpageHeader({required this.title});
 
   final String title;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(20, 16, 24, 18),
-    decoration: const BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-      boxShadow: [
-        BoxShadow(
-          color: Color(0x28000000),
-          blurRadius: 7,
-          offset: Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        InkWell(
-          onTap: () => Navigator.of(context).pop(),
-          borderRadius: BorderRadius.circular(22),
-          child: const Padding(
-            padding: EdgeInsets.all(7),
-            child: Icon(Icons.chevron_left_rounded, size: 30),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5,
-              ),
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) => _DoctorPageHeader(title: title);
 }
 
 class _DoctorMintSection extends StatelessWidget {

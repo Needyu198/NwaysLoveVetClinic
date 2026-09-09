@@ -35,132 +35,146 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+        bottom: false,
+        child: Column(
           children: [
-            _PostBackButton(onPressed: () => Navigator.of(context).pop()),
-            const SizedBox.shrink(child: Text('Create Post')),
-            const SizedBox(height: 22),
-            Container(
-              padding: const EdgeInsets.all(11),
-              decoration: BoxDecoration(
-                color: DoctorStyles.mint,
-                borderRadius: BorderRadius.circular(28),
-              ),
-              child: Column(
+            const _DoctorPageHeader(title: 'Create Post'),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
                 children: [
-                  _CoverPicker(asset: _coverAsset, onPressed: _chooseCover),
-                  const SizedBox(height: 16),
-                  TextField(
-                    key: const ValueKey('doctor-post-title'),
-                    controller: _title,
-                    textCapitalization: TextCapitalization.sentences,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    decoration: _composerDecoration('Write a headline....'),
-                  ),
-                  const SizedBox(height: 16),
                   Container(
-                    height: 448,
-                    padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+                    padding: const EdgeInsets.all(11),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: DoctorStyles.mint,
                       borderRadius: BorderRadius.circular(28),
                     ),
                     child: Column(
                       children: [
-                        Expanded(
-                          child: TextField(
-                            key: const ValueKey('doctor-post-content'),
-                            controller: _content,
-                            expands: true,
-                            maxLines: null,
-                            minLines: null,
-                            textAlignVertical: TextAlignVertical.top,
-                            textCapitalization: TextCapitalization.sentences,
-                            style: const TextStyle(fontSize: 16, height: 1.35),
-                            decoration: const InputDecoration(
-                              hintText: 'Write a post....',
-                              hintStyle: TextStyle(
-                                color: Color(0xFFB8B8B8),
-                                fontWeight: FontWeight.w700,
-                              ),
-                              border: InputBorder.none,
-                            ),
+                        _CoverPicker(
+                          asset: _coverAsset,
+                          onPressed: _chooseCover,
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          key: const ValueKey('doctor-post-title'),
+                          controller: _title,
+                          textCapitalization: TextCapitalization.sentences,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          decoration: _composerDecoration(
+                            'Write a headline....',
                           ),
                         ),
-                        InkWell(
-                          key: const ValueKey('attach-post-images'),
-                          onTap: _chooseAttachments,
-                          borderRadius: BorderRadius.circular(18),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 12,
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.add_photo_alternate_outlined,
-                                  color: Color(0xFF525C59),
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _attachments.isEmpty
-                                      ? 'Add photos.....'
-                                      : '${_attachments.length} photo(s) added • tap to add more',
+                        const SizedBox(height: 16),
+                        Container(
+                          height: 448,
+                          padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                          child: Column(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  key: const ValueKey('doctor-post-content'),
+                                  controller: _content,
+                                  expands: true,
+                                  maxLines: null,
+                                  minLines: null,
+                                  textAlignVertical: TextAlignVertical.top,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
                                   style: const TextStyle(
-                                    color: Color(0xFF777F7D),
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w700,
+                                    height: 1.35,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Write a post....',
+                                    hintStyle: TextStyle(
+                                      color: Color(0xFFB8B8B8),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    border: InputBorder.none,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              InkWell(
+                                key: const ValueKey('attach-post-images'),
+                                onTap: _chooseAttachments,
+                                borderRadius: BorderRadius.circular(18),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 12,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.add_photo_alternate_outlined,
+                                        color: Color(0xFF525C59),
+                                        size: 22,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        _attachments.isEmpty
+                                            ? 'Add photos.....'
+                                            : '${_attachments.length} photo(s) added • tap to add more',
+                                        style: const TextStyle(
+                                          color: Color(0xFF777F7D),
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                        if (_attachments.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _AttachmentStrip(
+                            attachments: _attachments,
+                            onRemove: _removeAttachment,
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                  if (_attachments.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    _AttachmentStrip(
-                      attachments: _attachments,
-                      onRemove: _removeAttachment,
-                    ),
-                  ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _PostActionButton(
+                          key: const ValueKey('save-doctor-post-draft'),
+                          label: 'Save to Draft',
+                          onPressed: _saveDraft,
+                        ),
+                      ),
+                      const SizedBox(width: 34),
+                      Expanded(
+                        child: _PostActionButton(
+                          key: const ValueKey('view-doctor-post-draft'),
+                          label: 'View Draft',
+                          onPressed: _viewDraft,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _PostActionButton(
+                    key: const ValueKey('publish-doctor-post'),
+                    label: 'Post',
+                    large: true,
+                    onPressed: _publish,
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _PostActionButton(
-                    key: const ValueKey('save-doctor-post-draft'),
-                    label: 'Save to Draft',
-                    onPressed: _saveDraft,
-                  ),
-                ),
-                const SizedBox(width: 34),
-                Expanded(
-                  child: _PostActionButton(
-                    key: const ValueKey('view-doctor-post-draft'),
-                    label: 'View Draft',
-                    onPressed: _viewDraft,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _PostActionButton(
-              key: const ValueKey('publish-doctor-post'),
-              label: 'Post',
-              large: true,
-              onPressed: _publish,
             ),
           ],
         ),
