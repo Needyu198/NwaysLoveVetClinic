@@ -41,9 +41,6 @@ class _AdminDashboardTab extends StatelessWidget {
             .length;
 
         final pendingDoctors = DoctorVerificationStore.instance.pendingCount;
-        final pendingRequests = StaffOperationsStore.instance.inventory
-            .where((item) => item.restockRequested)
-            .length;
 
         final lowStock = StaffOperationsStore.instance.inventory
             .where((item) => item.isLowStock && !item.archived)
@@ -116,13 +113,6 @@ class _AdminDashboardTab extends StatelessWidget {
                     title: 'Doctor Verifications',
                     count: pendingDoctors,
                     onTap: () => _open(context, const AdminVerificationPage()),
-                  ),
-                  const SizedBox(height: 12),
-                  _AdminApprovalCard(
-                    icon: Icons.inventory_2_rounded,
-                    title: 'Inventory Requests',
-                    count: pendingRequests,
-                    onTap: () => _open(context, const AdminInventoryPage()),
                   ),
                   const SizedBox(height: 12),
                   _AdminApprovalCard(

@@ -5,7 +5,6 @@ import {
   AdminDashboardView,
   UsersView,
   VerificationView,
-  InventoryApprovalView,
   AuditLogsView,
 } from './views.jsx';
 
@@ -22,7 +21,6 @@ const NAV_GROUPS = [
     label: 'Governance',
     items: [
       { key: 'verification', label: 'Doctor Verification', icon: '✅', sub: 'Review applications', View: VerificationView },
-      { key: 'inventory', label: 'Inventory Approval', icon: '📦', sub: 'Restock requests', View: InventoryApprovalView },
     ],
   },
   {

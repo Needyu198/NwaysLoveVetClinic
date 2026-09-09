@@ -288,6 +288,22 @@ class UserAccountStore extends ChangeNotifier {
     );
     notifyListeners();
   }
+
+  /// Permanently removes an account. Dropping it from the list makes
+  /// DatabaseSync send a deletion, which the backend uses to delete the
+  /// directory record and the underlying login.
+  void deleteUser(AdminUser user, String reason) {
+    _users.removeWhere((u) => u.id == user.id);
+    AuditLogStore.instance.record(
+      action: 'Deleted account',
+      module: 'Users and Roles',
+      record: '${user.name} (${user.id})',
+      previousValue: user.status.label,
+      newValue: 'Deleted',
+      reason: reason,
+    );
+    notifyListeners();
+  }
 }
 
 /// Doctor verification lifecycle per the spec:

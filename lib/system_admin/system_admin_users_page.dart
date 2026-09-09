@@ -297,10 +297,10 @@ class AdminUserDetailPage extends StatelessWidget {
                         },
                       ),
                     _AdminActionButton(
-                      icon: Icons.swap_horiz_rounded,
-                      label: 'Change role',
-                      color: const Color(0xFF2358A5),
-                      onTap: () => _changeRole(context),
+                      icon: Icons.delete_forever_rounded,
+                      label: 'Delete account',
+                      color: const Color(0xFFB3261E),
+                      onTap: () => _deleteAccount(context),
                     ),
                   ],
                 ),
@@ -312,43 +312,19 @@ class AdminUserDetailPage extends StatelessWidget {
     );
   }
 
-  Future<void> _changeRole(BuildContext context) async {
-    final role = await showModalBottomSheet<AdminUserRole>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Assign a new role',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-              ),
-            ),
-            for (final option in AdminUserRole.values)
-              ListTile(
-                leading: Icon(option.icon, color: _adminGreen),
-                title: Text(option.label),
-                trailing: option == user.role
-                    ? const Icon(Icons.check_rounded, color: _adminGreen)
-                    : null,
-                onTap: () => Navigator.of(sheetContext).pop(option),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (role == null || role == user.role || !context.mounted) return;
+  Future<void> _deleteAccount(BuildContext context) async {
     final reason = await _adminReasonDialog(
       context,
-      title: 'Change role to ${role.label}?',
-      actionLabel: 'Change role',
-      actionColor: const Color(0xFF2358A5),
+      title: 'Delete ${user.name}?',
+      actionLabel: 'Delete account',
+      actionColor: const Color(0xFFB3261E),
     );
     if (reason == null || !context.mounted) return;
-    UserAccountStore.instance.changeRole(user, role, reason);
-    _adminNotice(context, '${user.name} is now a ${role.label}.');
+    final navigator = Navigator.of(context);
+    UserAccountStore.instance.deleteUser(user, reason);
+    _adminNotice(context, '${user.name} deleted.');
+    // The account no longer exists; return to the users list.
+    navigator.maybePop();
   }
 }
 

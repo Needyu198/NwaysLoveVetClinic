@@ -1,12 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getTable,
-  syncTable,
-  formatMmk,
   createUser,
   updateUser,
   decideVerification,
-  decideRestock,
   recordAudit,
 } from './api.js';
 
@@ -72,7 +69,6 @@ function StatusPill({ status }) {
 export function AdminDashboardView({ refreshKey }) {
   const users = useTable('user_directory', refreshKey);
   const verifs = useTable('doctor_verifications', refreshKey);
-  const inv = useTable('inventory', refreshKey);
   const audit = useTable('audit_logs', refreshKey);
 
   const uv = users.records.map(val);
@@ -81,9 +77,6 @@ export function AdminDashboardView({ refreshKey }) {
   const pendingVerifs = verifs.records
     .map(val)
     .filter(v => ['submitted', 'underReview'].includes(v.status)).length;
-  const pendingRestock = inv.records
-    .map(val)
-    .filter(v => (v.restockStatus || '') === 'pending' || v.restockRequested).length;
 
   const cards = [
     { label: 'Total users', value: users.records.length, icon: '👥', tone: '' },
@@ -92,7 +85,6 @@ export function AdminDashboardView({ refreshKey }) {
     { label: 'Staff', value: countRole('staff'), icon: '🧑\u200d⚕️', tone: '' },
     { label: 'Pending users', value: pendingUsers, icon: '⏳', tone: 'orange' },
     { label: 'Pending verifications', value: pendingVerifs, icon: '✅', tone: 'purple' },
-    { label: 'Restock requests', value: pendingRestock, icon: '📦', tone: 'orange' },
     { label: 'Audit entries', value: audit.records.length, icon: '📜', tone: '' },
   ];
 
@@ -390,89 +382,6 @@ export function VerificationView({ refreshKey }) {
                       </>
                     ) : (
                       <span className="muted small">{v.decisionReason || 'Decided'}</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </StateWrap>
-  );
-}
-
-// ---- Inventory approval --------------------------------------------------
-
-export function InventoryApprovalView({ refreshKey }) {
-  const { records, loading, error, reload } = useTable('inventory', refreshKey);
-  const [busyId, setBusyId] = useState('');
-
-  const requests = records.filter(r => {
-    const v = val(r);
-    return v.restockRequested || ['pending', 'approved', 'declined'].includes(v.restockStatus || '');
-  });
-
-  async function decide(record, restockStatus) {
-    setBusyId(record.id);
-    try {
-      await decideRestock(record, restockStatus);
-      await recordAudit({
-        action: restockStatus === 'approved' ? 'Approved restock' : 'Declined restock',
-        module: 'Inventory Approval',
-        record: `${val(record).name}`,
-        newValue: restockStatus,
-        reason: 'Restock request reviewed',
-      });
-      reload();
-    } catch (e) {
-      alert(e.message);
-    } finally {
-      setBusyId('');
-    }
-  }
-
-  return (
-    <StateWrap loading={loading} error={error} empty={requests.length === 0} emptyText="No restock requests.">
-      <div className="card">
-        <table>
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Category</th>
-              <th>In stock</th>
-              <th>Requested qty</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {requests.map(r => {
-              const v = val(r);
-              const status = v.restockStatus || 'pending';
-              const pending = status === 'pending' || (v.restockRequested && !v.restockStatus);
-              return (
-                <tr key={r.id}>
-                  <td>
-                    <div style={{ fontWeight: 700 }}>{v.name}</div>
-                    {v.restockNote ? <div className="muted small">{v.restockNote}</div> : null}
-                  </td>
-                  <td>{v.category}</td>
-                  <td>{v.quantity} {v.unit || ''}</td>
-                  <td>{v.restockQuantity || '—'}</td>
-                  <td><StatusPill status={status} /></td>
-                  <td className="row-actions">
-                    {pending ? (
-                      <>
-                        <button className="link-btn" disabled={busyId === r.id} onClick={() => decide(r, 'approved')}>
-                          Approve
-                        </button>
-                        <button className="link-btn danger" disabled={busyId === r.id} onClick={() => decide(r, 'declined')}>
-                          Decline
-                        </button>
-                      </>
-                    ) : (
-                      <span className="muted small">Reviewed</span>
                     )}
                   </td>
                 </tr>

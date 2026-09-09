@@ -18,7 +18,6 @@ part 'system_admin_styles.dart';
 part 'system_admin_models.dart';
 part 'system_admin_users_page.dart';
 part 'system_admin_verification_page.dart';
-part 'system_admin_inventory_page.dart';
 part 'system_admin_audit_page.dart';
 part 'system_admin_profile_page.dart';
 

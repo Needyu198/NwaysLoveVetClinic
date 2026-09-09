@@ -100,6 +100,17 @@ function installApi(app, pool) {
         if ((existing?.version || 0) !== item.version) throw fail(409, 'This record changed on another device. Reload before saving.');
         if (p.appendOnly && (existing || item.deleting)) throw fail(403, 'Audit entries cannot be changed or deleted.');
         if (item.deleting) {
+          // Deleting a directory record removes the whole account: the login
+          // (app_accounts), its sessions and device tokens, then the row.
+          if (req.params.table === 'user_directory' && existing) {
+            const accountId = existing.data.value?.id;
+            if (accountId) {
+              if (accountId === req.session.account_id) throw fail(400, 'You cannot delete your own administrator account.');
+              await client.query('DELETE FROM app_sessions WHERE account_id=$1', [accountId]);
+              await client.query('DELETE FROM device_tokens WHERE account_id=$1', [accountId]);
+              await client.query('DELETE FROM app_accounts WHERE id=$1', [accountId]);
+            }
+          }
           await client.query(`DELETE FROM ${req.params.table} WHERE id=$1`, [item.id]);
           continue;
         }

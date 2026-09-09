@@ -13,15 +13,11 @@ class _AdminManagementTab extends StatelessWidget {
             animation: Listenable.merge([
               UserAccountStore.instance,
               DoctorVerificationStore.instance,
-              StaffOperationsStore.instance,
             ]),
             builder: (context, _) {
               final pendingUsers = UserAccountStore.instance.pendingCount;
               final pendingDoctors =
                   DoctorVerificationStore.instance.pendingCount;
-              final pendingRequests = StaffOperationsStore.instance.inventory
-                  .where((item) => item.restockRequested)
-                  .length;
               return ListView(
                 key: const ValueKey('system-admin-management'),
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
@@ -41,14 +37,6 @@ class _AdminManagementTab extends StatelessWidget {
                     badge: pendingDoctors,
                     keyValue: 'admin-menu-verification',
                     onTap: () => _open(context, const AdminVerificationPage()),
-                  ),
-                  _AdminMenuTile(
-                    icon: Icons.inventory_2_rounded,
-                    title: 'Inventory Approval',
-                    subtitle: 'Restock and adjustment requests',
-                    badge: pendingRequests,
-                    keyValue: 'admin-menu-inventory',
-                    onTap: () => _open(context, const AdminInventoryPage()),
                   ),
                   _AdminMenuTile(
                     icon: Icons.receipt_long_rounded,

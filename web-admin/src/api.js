@@ -136,14 +136,6 @@ export async function decideVerification(record, status, reason = '') {
   ]);
 }
 
-// ---- Inventory approval --------------------------------------------------
-export async function decideRestock(record, restockStatus) {
-  const value = { ...record.data.value, restockStatus };
-  return syncTable('inventory', [
-    { id: record.id, version: record.version, data: { key: record.data.key, value } },
-  ]);
-}
-
 // ---- Audit log -----------------------------------------------------------
 // Append-only. Records a sensitive admin action so it shows in Audit Logs.
 export async function recordAudit({ action, module, record, previousValue = '', newValue = '', reason = '' }) {
