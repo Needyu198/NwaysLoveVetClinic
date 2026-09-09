@@ -4,6 +4,14 @@
 *.pyc
 *.swp
 .DS_Store
+
+# Environment files (contain secrets like DB credentials) — never commit
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 .atom/
 .build/a
 .buildlog/

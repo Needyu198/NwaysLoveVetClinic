@@ -17,6 +17,9 @@ class ClinicApi {
   ClinicApi._();
   static final instance = ClinicApi._();
   static const configuredUrl = String.fromEnvironment('API_BASE_URL');
+  // Hosted backend (Render). Used automatically by the production web build and
+  // as the default for release mobile builds.
+  static const productionUrl = 'https://nwayslovevetclinic.onrender.com';
   // Address of the machine running the backend, used by physical iOS/Android
   // devices (which cannot reach the host via 127.0.0.1).
   //
@@ -25,15 +28,33 @@ class ClinicApi {
   // stable and is resolved automatically by devices on the same network.
   // To override at run time: --dart-define=API_BASE_URL=http://<host-or-ip>:5050
   static const lanUrl = 'http://Apples-MacBook-Air-2.local:5050';
-  String get baseUrl => configuredUrl.isNotEmpty
-      ? configuredUrl.replaceAll(RegExp(r'/$'), '')
-      : !kIsWeb && defaultTargetPlatform == TargetPlatform.android
-      ? 'http://10.0.2.2:5050'
-      : !kIsWeb &&
-            (defaultTargetPlatform == TargetPlatform.iOS ||
-                defaultTargetPlatform == TargetPlatform.android)
-      ? lanUrl
-      : 'http://127.0.0.1:5050';
+  String get baseUrl {
+    // Explicit override always wins (e.g. --dart-define=API_BASE_URL=...).
+    if (configuredUrl.isNotEmpty) {
+      return configuredUrl.replaceAll(RegExp(r'/$'), '');
+    }
+    // Web: decide from where the page itself is served so the same build
+    // works both locally and in production without rebuilding.
+    if (kIsWeb) {
+      final host = Uri.base.host;
+      final isLocal =
+          host == 'localhost' || host == '127.0.0.1' || host == '0.0.0.0';
+      return isLocal ? 'http://127.0.0.1:5050' : productionUrl;
+    }
+    // Android emulator reaches the host machine via 10.0.2.2.
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return kReleaseMode ? productionUrl : 'http://10.0.2.2:5050';
+    }
+    // Physical iOS/Android devices on the same LAN (debug) or the hosted
+    // backend (release).
+    if (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android) {
+      return kReleaseMode ? productionUrl : lanUrl;
+    }
+    // Desktop / tests default to the local backend.
+    return 'http://127.0.0.1:5050';
+  }
+
   @visibleForTesting
   http.Client Function()? clientFactory;
   String? token;
