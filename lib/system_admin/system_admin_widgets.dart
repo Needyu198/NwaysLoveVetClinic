@@ -1,5 +1,10 @@
 part of 'system_admin_portal.dart';
 
+/// The mint banner colour shared with the pet-owner Book Appointment header.
+const _adminHeaderMint = Color(0xFFC5F7E3);
+const _adminHeaderInk = Color(0xFF17211E);
+const _adminLogoAsset = 'assets/photos/logoandphoto/nways_love_logo.png';
+
 class _AdminSimpleHeader extends StatelessWidget {
   const _AdminSimpleHeader({required this.title, this.trailing});
 
@@ -9,17 +14,10 @@ class _AdminSimpleHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(20, 8, 12, 14),
+    padding: const EdgeInsets.fromLTRB(20, 8, 16, 16),
     decoration: const BoxDecoration(
-      color: Colors.white,
+      color: _adminHeaderMint,
       borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-      boxShadow: [
-        BoxShadow(
-          color: Color(0x28000000),
-          blurRadius: 7,
-          offset: Offset(0, 4),
-        ),
-      ],
     ),
     child: SafeArea(
       bottom: false,
@@ -28,8 +26,10 @@ class _AdminSimpleHeader extends StatelessWidget {
           Expanded(
             child: Text(
               title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Colors.black,
+                color: _adminHeaderInk,
                 fontSize: 24,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.5,
@@ -37,6 +37,13 @@ class _AdminSimpleHeader extends StatelessWidget {
             ),
           ),
           ?trailing,
+          const SizedBox(width: 4),
+          Image.asset(
+            _adminLogoAsset,
+            width: 48,
+            height: 48,
+            fit: BoxFit.contain,
+          ),
         ],
       ),
     ),
@@ -61,17 +68,10 @@ class _AdminPageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(8, 6, 12, 16),
+    padding: const EdgeInsets.fromLTRB(6, 6, 16, 16),
     decoration: const BoxDecoration(
-      color: Colors.white,
+      color: _adminHeaderMint,
       borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-      boxShadow: [
-        BoxShadow(
-          color: Color(0x22000000),
-          blurRadius: 8,
-          offset: Offset(0, 4),
-        ),
-      ],
     ),
     child: SafeArea(
       bottom: false,
@@ -79,12 +79,13 @@ class _AdminPageHeader extends StatelessWidget {
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            tooltip: 'Back',
           ),
           if (icon != null) ...[
             CircleAvatar(
               radius: 20,
-              backgroundColor: _adminSoftMint,
+              backgroundColor: Colors.white,
               foregroundColor: _adminGreen,
               child: Icon(icon),
             ),
@@ -96,8 +97,10 @@ class _AdminPageHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.black,
+                    color: _adminHeaderInk,
                     fontSize: 21,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.4,
@@ -106,12 +109,24 @@ class _AdminPageHeader extends StatelessWidget {
                 if (subtitle != null)
                   Text(
                     subtitle!,
-                    style: const TextStyle(color: _adminMuted, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF3F5B52),
+                      fontSize: 13,
+                    ),
                   ),
               ],
             ),
           ),
           ?trailing,
+          const SizedBox(width: 4),
+          Image.asset(
+            _adminLogoAsset,
+            width: 44,
+            height: 44,
+            fit: BoxFit.contain,
+          ),
         ],
       ),
     ),
