@@ -1,7 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'owner_shared_stores.dart';
 import 'pet_add_reminder_styles.dart';
+import 'pet_owner_page_header.dart';
 
 class PetAddReminderPage extends StatefulWidget {
   const PetAddReminderPage({super.key});
@@ -51,7 +53,7 @@ class _PetAddReminderPageState extends State<PetAddReminderPage> {
         bottom: false,
         child: Column(
           children: [
-            const _AddReminderHeader(),
+            const PetOwnerPageHeader(title: 'Add New Reminder'),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -192,13 +194,91 @@ class _PetAddReminderPageState extends State<PetAddReminderPage> {
   }
 
   Future<void> _pickTime() async {
-    final time = await showTimePicker(
+    final now = TimeOfDay.now();
+    final initial = _selectedTime ?? now;
+    var picked = DateTime(2024, 1, 1, initial.hour, initial.minute);
+
+    final result = await showModalBottomSheet<TimeOfDay>(
       context: context,
-      initialTime: _selectedTime ?? TimeOfDay.now(),
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Grab handle
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE1E4EA),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(24, 16, 24, 6),
+                  child: Row(
+                    children: [
+                      Icon(Icons.schedule_rounded, color: Color(0xFF20B978)),
+                      SizedBox(width: 10),
+                      Text(
+                        'Select time',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF17211E),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  height: 196,
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.time,
+                    use24hFormat: false,
+                    initialDateTime: picked,
+                    onDateTimeChanged: (value) => picked = value,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 18),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(
+                        TimeOfDay(hour: picked.hour, minute: picked.minute),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF20B978),
+                        foregroundColor: Colors.white,
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      child: const Text('Confirm Time'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
 
-    if (time == null) return;
-    setState(() => _selectedTime = time);
+    if (result == null) return;
+    setState(() => _selectedTime = result);
   }
 
   void _submit() {
@@ -292,46 +372,6 @@ enum ReminderType {
   final String helper;
   final IconData icon;
   final Color selectedColor;
-}
-
-class _AddReminderHeader extends StatelessWidget {
-  const _AddReminderHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 20, 20, 22),
-      decoration: const BoxDecoration(
-        color: Color(0xFFC2FBE3),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
-      ),
-      child: Row(
-        children: [
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Add New Reminder', style: AddReminderStyles.pageTitle),
-                SizedBox(height: 4),
-                Text(
-                  'Set a care task for your pet',
-                  style: AddReminderStyles.pageSubtitle,
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded),
-            color: const Color(0xFF6B7280),
-            iconSize: 32,
-            tooltip: 'Close',
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _FormHint extends StatelessWidget {
