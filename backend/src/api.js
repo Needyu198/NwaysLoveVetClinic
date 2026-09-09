@@ -66,10 +66,18 @@ function installApi(app, pool) {
   app.get('/data/:table', wrap(async (req, res) => {
     const p = policy(req);
     if (req.params.table === 'clinic_directory') {
-      const result = await pool.query(`SELECT id, id AS owner_id, 1 AS version,
-        jsonb_build_object('key',id,'value',jsonb_build_object(
-          'id',id,'name',COALESCE(NULLIF(full_name, ''),username),'role',role)) AS data
-        FROM app_accounts WHERE active AND role IN ('doctor','staff') ORDER BY full_name,id`);
+      // Public directory of doctors/staff. Includes the doctor's public photo
+      // (from their doctor_profiles record) and specialty when available.
+      const result = await pool.query(`SELECT a.id, a.id AS owner_id, 1 AS version,
+        jsonb_build_object('key',a.id,'value',jsonb_build_object(
+          'id',a.id,
+          'name',COALESCE(NULLIF(a.full_name, ''),a.username),
+          'role',a.role,
+          'photoUrl',dp.data->'value'->>'photoUrl',
+          'specialty',dp.data->'value'->>'specialty')) AS data
+        FROM app_accounts a
+        LEFT JOIN doctor_profiles dp ON dp.owner_id = a.id
+        WHERE a.active AND a.role IN ('doctor','staff') ORDER BY a.full_name,a.id`);
       return res.json({records:result.rows});
     }
     const restricted = ownOnly(p, req.session);

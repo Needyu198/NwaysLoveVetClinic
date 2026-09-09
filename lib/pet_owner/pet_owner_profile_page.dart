@@ -490,81 +490,218 @@ class _UpcomingAppointmentCard extends StatelessWidget {
   const _UpcomingAppointmentCard({required this.appointment});
   final BookedAppointment appointment;
 
+  static const _green = Color(0xFF16855E);
+  static const _ink = Color(0xFF17211E);
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+        return _green;
+      case 'pending':
+        return const Color(0xFFB76E00);
+      case 'cancelled':
+        return const Color(0xFFC0392B);
+      default:
+        return const Color(0xFF2F80FF);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => Card(
-    key: ValueKey('profile-appointment-${appointment.id}'),
-    elevation: 0,
-    color: const Color(0xFFF3FFF9),
-    child: InkWell(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => AppointmentDetailsPage(appointment: appointment),
-        ),
+  Widget build(BuildContext context) {
+    final statusColor = _statusColor(appointment.status);
+    return Container(
+      key: ValueKey('profile-appointment-${appointment.id}'),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFDCEBE4)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x140B2F25),
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => AppointmentDetailsPage(appointment: appointment),
+          ),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${appointment.pet.name} • ${appointment.service.name}',
-                    style: const TextStyle(fontWeight: FontWeight.w900),
+            // Colored accent strip + header
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+              decoration: const BoxDecoration(color: Color(0xFFEAF8F0)),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.event_available_rounded,
+                      color: _green,
+                      size: 22,
+                    ),
                   ),
-                ),
-                Chip(
-                  label: Text(appointment.status),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
-            Text(appointment.veterinarian),
-            Text('${_profileDate(appointment.date)} • ${appointment.time}'),
-            const SizedBox(height: 9),
-            Wrap(
-              spacing: 7,
-              runSpacing: 7,
-              children: [
-                OutlinedButton(
-                  key: ValueKey('appointment-reminder-${appointment.id}'),
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Reminder scheduled for ${appointment.pet.name}’s appointment',
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '${appointment.pet.name} • ${appointment.service.name}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ink,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
                       ),
                     ),
                   ),
-                  child: const Text('Set Reminder'),
-                ),
-                OutlinedButton(
-                  key: ValueKey('appointment-reschedule-${appointment.id}'),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          RescheduleAppointmentPage(appointment: appointment),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      appointment.status,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
-                  child: const Text('Reschedule'),
-                ),
-                TextButton(
-                  key: ValueKey('appointment-cancel-${appointment.id}'),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          BookingCancellationPage(appointment: appointment),
-                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.person_outline_rounded,
+                        size: 17,
+                        color: Color(0xFF60756E),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          appointment.veterinarian,
+                          style: const TextStyle(
+                            color: _ink,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Text('Cancel Booking'),
-                ),
-              ],
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.schedule_rounded,
+                        size: 17,
+                        color: Color(0xFF60756E),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${_profileDate(appointment.date)} • ${appointment.time}',
+                        style: const TextStyle(
+                          color: Color(0xFF3F4845),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.icon(
+                        key: ValueKey(
+                          'appointment-reschedule-${appointment.id}',
+                        ),
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => RescheduleAppointmentPage(
+                              appointment: appointment,
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.event_repeat_rounded, size: 17),
+                        label: const Text('Reschedule'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _green,
+                          foregroundColor: Colors.white,
+                          visualDensity: VisualDensity.compact,
+                          shape: const StadiumBorder(),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        key: ValueKey('appointment-reminder-${appointment.id}'),
+                        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Reminder scheduled for ${appointment.pet.name}\u2019s appointment',
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.notifications_none_rounded,
+                          size: 17,
+                        ),
+                        label: const Text('Remind'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _ink,
+                          side: const BorderSide(color: Color(0xFFCED9D4)),
+                          visualDensity: VisualDensity.compact,
+                          shape: const StadiumBorder(),
+                        ),
+                      ),
+                      TextButton.icon(
+                        key: ValueKey('appointment-cancel-${appointment.id}'),
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => BookingCancellationPage(
+                              appointment: appointment,
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.close_rounded, size: 17),
+                        label: const Text('Cancel'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFC0392B),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _FeatureSection extends StatelessWidget {

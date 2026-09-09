@@ -718,102 +718,111 @@ class AppointmentDetailsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _BookingColors.page,
-      appBar: AppBar(
-        title: const Text('Appointment Details'),
-        backgroundColor: _BookingColors.mint,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: AnimatedBuilder(
-        animation: Listenable.merge([
-          AppointmentStore.instance,
-          QueueStore.instance,
-        ]),
-        builder: (context, _) {
-          final queueEntry = QueueStore.instance.entryFor(appointment);
-          final cancellation = appointment.cancellation;
-          final eligibility = AppointmentStore.instance.cancellationEligibility(
-            appointment,
-          );
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              _SummaryCard(
-                rows: [
-                  ('Booking ID', '#${appointment.id}'),
-                  ('Pet', '${appointment.pet.name} • ${appointment.pet.breed}'),
-                  ('Service', appointment.service.name),
-                  ('Veterinarian', appointment.veterinarian),
-                  ('Date', _longDate(appointment.date)),
-                  ('Time', appointment.time),
-                  ('Status', appointment.status),
-                  ('Reason', appointment.reason),
-                  ('Symptoms', appointment.symptoms),
-                  if (cancellation != null)
-                    ('Cancellation ID', cancellation.id),
-                ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Appointment Details'),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([
+                  AppointmentStore.instance,
+                  QueueStore.instance,
+                ]),
+                builder: (context, _) {
+                  final queueEntry = QueueStore.instance.entryFor(appointment);
+                  final cancellation = appointment.cancellation;
+                  final eligibility = AppointmentStore.instance
+                      .cancellationEligibility(appointment);
+                  return ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      _SummaryCard(
+                        rows: [
+                          ('Booking ID', '#${appointment.id}'),
+                          (
+                            'Pet',
+                            '${appointment.pet.name} • ${appointment.pet.breed}',
+                          ),
+                          ('Service', appointment.service.name),
+                          ('Veterinarian', appointment.veterinarian),
+                          ('Date', _longDate(appointment.date)),
+                          ('Time', appointment.time),
+                          ('Status', appointment.status),
+                          ('Reason', appointment.reason),
+                          ('Symptoms', appointment.symptoms),
+                          if (cancellation != null)
+                            ('Cancellation ID', cancellation.id),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _NoticeBox(
+                        icon: Icons.badge_outlined,
+                        text: queueEntry == null
+                            ? appointment.service.homeVisit
+                                  ? 'Home Visit appointments do not use the clinic queue.'
+                                  : cancellation != null
+                                  ? 'This booking was cancelled and its time slot was released.'
+                                  : 'Clinic queue information will appear after staff check-in.'
+                            : 'Clinic staff verifies the booking and updates check-in and queue status. Pet owners can only view these updates.',
+                      ),
+                      if (queueEntry != null) ...[
+                        const SizedBox(height: 18),
+                        FilledButton.icon(
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pushNamed(MyQueuePage.routeName),
+                          icon: const Icon(Icons.groups_2_outlined),
+                          label: const Text('Open My Queue'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _BookingColors.green,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(52),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      if (cancellation != null)
+                        OutlinedButton.icon(
+                          key: const ValueKey('view-cancellation'),
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => BookingCancellationPage(
+                                appointment: appointment,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.event_busy_outlined),
+                          label: const Text('View Cancellation'),
+                        )
+                      else if (eligibility.allowed)
+                        OutlinedButton.icon(
+                          key: const ValueKey('cancel-booking'),
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => BookingCancellationPage(
+                                appointment: appointment,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.event_busy_outlined),
+                          label: const Text('Cancel Booking'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFB3261E),
+                            minimumSize: const Size.fromHeight(50),
+                          ),
+                        )
+                      else
+                        _NoticeBox(
+                          icon: Icons.info_outline_rounded,
+                          text: eligibility.message,
+                        ),
+                    ],
+                  );
+                },
               ),
-              const SizedBox(height: 16),
-              _NoticeBox(
-                icon: Icons.badge_outlined,
-                text: queueEntry == null
-                    ? appointment.service.homeVisit
-                          ? 'Home Visit appointments do not use the clinic queue.'
-                          : cancellation != null
-                          ? 'This booking was cancelled and its time slot was released.'
-                          : 'Clinic queue information will appear after staff check-in.'
-                    : 'Clinic staff verifies the booking and updates check-in and queue status. Pet owners can only view these updates.',
-              ),
-              if (queueEntry != null) ...[
-                const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: () =>
-                      Navigator.of(context).pushNamed(MyQueuePage.routeName),
-                  icon: const Icon(Icons.groups_2_outlined),
-                  label: const Text('Open My Queue'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _BookingColors.green,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(52),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              if (cancellation != null)
-                OutlinedButton.icon(
-                  key: const ValueKey('view-cancellation'),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          BookingCancellationPage(appointment: appointment),
-                    ),
-                  ),
-                  icon: const Icon(Icons.event_busy_outlined),
-                  label: const Text('View Cancellation'),
-                )
-              else if (eligibility.allowed)
-                OutlinedButton.icon(
-                  key: const ValueKey('cancel-booking'),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          BookingCancellationPage(appointment: appointment),
-                    ),
-                  ),
-                  icon: const Icon(Icons.event_busy_outlined),
-                  label: const Text('Cancel Booking'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFB3261E),
-                    minimumSize: const Size.fromHeight(50),
-                  ),
-                )
-              else
-                _NoticeBox(
-                  icon: Icons.info_outline_rounded,
-                  text: eligibility.message,
-                ),
-            ],
-          );
-        },
+            ),
+          ],
+        ),
       ),
     );
   }

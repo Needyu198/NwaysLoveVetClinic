@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/clinic_directory.dart';
 import 'appointment_booking_page.dart';
 import 'contact_clinic_page.dart';
+import 'pet_image.dart';
 import 'emergency_service_page.dart';
 import 'first_aid_information_page.dart';
 import 'home_visit_booking_page.dart';
@@ -423,13 +424,16 @@ class _DoctorProfileList extends StatelessWidget {
     return AnimatedBuilder(
       animation: ClinicDirectory.instance,
       builder: (context, _) {
-        final doctors = ClinicDirectory.instance.doctors
+        final doctors = ClinicDirectory.instance.doctorProfiles
             .map(
-              (name) => _DoctorProfile(
-                name: name,
+              (person) => _DoctorProfile(
+                name: person.name,
                 qualification: 'Veterinarian',
-                specialty: 'Clinic veterinary care',
+                specialty: (person.specialty?.trim().isNotEmpty ?? false)
+                    ? person.specialty!.trim()
+                    : 'Clinic veterinary care',
                 nextAvailable: 'Book to see availability',
+                photoUrl: person.photoUrl,
               ),
             )
             .toList();
@@ -521,15 +525,10 @@ class _DoctorCard extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Container(
+            child: SizedBox(
               height: 116,
               width: double.infinity,
-              color: const Color(0xFFD8D8D8),
-              child: const Icon(
-                Icons.person_rounded,
-                color: Color(0xFF9FA8A5),
-                size: 64,
-              ),
+              child: _doctorPhoto(doctor.photoUrl),
             ),
           ),
           const SizedBox(height: 14),
@@ -834,12 +833,28 @@ class _DoctorProfile {
     required this.qualification,
     required this.specialty,
     required this.nextAvailable,
+    this.photoUrl,
   });
 
   final String name;
   final String qualification;
   final String specialty;
   final String nextAvailable;
+
+  /// Base64 data URI of the doctor's uploaded photo, or null.
+  final String? photoUrl;
+}
+
+/// Renders a doctor's uploaded photo (base64 data URI) or an icon placeholder.
+Widget _doctorPhoto(String? photoUrl) {
+  final bytes = photoUrl != null ? PetPhoto.decodeDataUri(photoUrl) : null;
+  if (bytes != null) {
+    return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+  }
+  return Container(
+    color: const Color(0xFFD8D8D8),
+    child: const Icon(Icons.person_rounded, color: Color(0xFF9FA8A5), size: 64),
+  );
 }
 
 class _ClinicService {
