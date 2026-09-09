@@ -47,6 +47,10 @@ class AdminUser {
     'status': status.name,
     'lastActive': lastActive,
     'createdOn': createdOn.toIso8601String(),
+    // Sent once, only when provisioning a brand-new login. The backend uses it
+    // to create the account's password and strips it before storing, so it is
+    // never persisted or read back.
+    if (password.isNotEmpty) 'password': password,
   };
   static AdminUser fromDb(Map<String, dynamic> data) {
     final value = AdminUser(
@@ -70,6 +74,7 @@ class AdminUser {
     required this.role,
     this.status = AdminAccountStatus.active,
     this.lastActive = 'Today',
+    this.password = '',
     DateTime? createdOn,
   }) : createdOn = createdOn ?? DateTime.now();
 
@@ -81,6 +86,11 @@ class AdminUser {
   AdminAccountStatus status;
   String lastActive;
   final DateTime createdOn;
+
+  /// Transient plaintext password, populated only when an admin creates a new
+  /// account. Included in [toDb] once so the backend can provision the login,
+  /// never restored by [fromDb].
+  String password;
 }
 
 /// In-memory directory of every account in the system. Drives the Users and
@@ -207,6 +217,7 @@ class UserAccountStore extends ChangeNotifier {
     required String email,
     required String phone,
     required AdminUserRole role,
+    String password = '',
   }) {
     final prefix = switch (role) {
       AdminUserRole.owner => 'USR',
@@ -222,6 +233,7 @@ class UserAccountStore extends ChangeNotifier {
       role: role,
       status: AdminAccountStatus.pending,
       lastActive: 'Never',
+      password: password,
     );
     _users.insert(0, user);
     AuditLogStore.instance.record(

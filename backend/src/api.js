@@ -118,7 +118,27 @@ function installApi(app, pool) {
           if (!roles[value.role] || !['pending','active','suspended'].includes(value.status)) throw fail(400, 'Invalid user role or status.');
           if (value.id === req.session.account_id && (value.status !== 'active' || roles[value.role] !== 'systemAdmin')) throw fail(400, 'You cannot remove your own administrator access.');
           if (existing && value.id !== existing.data.value.id) throw fail(400, 'Account identity cannot change.');
-          await client.query('UPDATE app_accounts SET full_name=$2,role=$3,active=$4 WHERE id=$1', [value.id,value.name,roles[value.role],value.status==='active']);
+          // A password is only ever sent when the admin first creates the
+          // account. Use it to provision a real login, then strip it so it is
+          // never persisted into the directory JSON.
+          const newPassword = typeof value.password === 'string' ? value.password : '';
+          delete value.password;
+          const account = (await client.query('SELECT id FROM app_accounts WHERE id=$1', [value.id])).rows[0];
+          if (account) {
+            // Existing login: keep name/role/active in sync (password unchanged).
+            await client.query('UPDATE app_accounts SET full_name=$2,role=$3,active=$4 WHERE id=$1', [value.id,value.name,roles[value.role],value.status==='active']);
+          } else {
+            // Brand-new admin-created user: create the login so they can sign in.
+            if (newPassword.length < 8 || newPassword.length > 1024) throw fail(400, 'A password of at least 8 characters is required for a new account.');
+            const username = String(value.email || '').trim().toLowerCase();
+            if (!username) throw fail(400, 'An email is required to create the login username.');
+            const clash = (await client.query('SELECT 1 FROM app_accounts WHERE username=$1', [username])).rows[0];
+            if (clash) throw fail(409, 'An account with this email already exists.');
+            await client.query(
+              'INSERT INTO app_accounts(id,username,password_hash,full_name,role,active) VALUES($1,$2,$3,$4,$5,$6)',
+              [value.id, username, await bcrypt.hash(newPassword, 12), value.name, roles[value.role], value.status==='active'],
+            );
+          }
         }
         if (existing) {
           saved.push((await client.query(`UPDATE ${req.params.table} SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1 RETURNING id,owner_id,data,version`, [item.id, item.data])).rows[0]);

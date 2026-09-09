@@ -154,9 +154,9 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     ),
   );
 
-  void _openDetail(AdminUser user) => Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => AdminUserDetailPage(user: user)),
-  );
+  void _openDetail(AdminUser user) => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => AdminUserDetailPage(user: user)));
 
   void _openAddUser() => Navigator.of(
     context,
@@ -276,10 +276,7 @@ class AdminUserDetailPage extends StatelessWidget {
                         color: _adminGreen,
                         onTap: () {
                           UserAccountStore.instance.activate(user);
-                          _adminNotice(
-                            context,
-                            '${user.name} is now active.',
-                          );
+                          _adminNotice(context, '${user.name} is now active.');
                         },
                       ),
                     if (user.status != AdminAccountStatus.suspended)
@@ -368,13 +365,27 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _phone = TextEditingController();
+  final _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
   AdminUserRole _role = AdminUserRole.owner;
+
+  // Admins provision Pet Owner, Doctor, and Staff accounts here. Administrator
+  // accounts are intentionally not creatable from this screen.
+  static const _assignableRoles = [
+    AdminUserRole.owner,
+    AdminUserRole.doctor,
+    AdminUserRole.staff,
+  ];
 
   @override
   void dispose() {
     _name.dispose();
     _email.dispose();
     _phone.dispose();
+    _password.dispose();
+    _confirmPassword.dispose();
     super.dispose();
   }
 
@@ -428,6 +439,43 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
                         ? 'Enter a valid phone number'
                         : null,
                   ),
+                  const SizedBox(height: 14),
+                  _field(
+                    controller: _password,
+                    label: 'Password',
+                    icon: Icons.lock_rounded,
+                    obscureText: _obscurePassword,
+                    suffix: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_rounded
+                            : Icons.visibility_off_rounded,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                    validator: (v) => (v == null || v.length < 8)
+                        ? 'Password must be at least 8 characters'
+                        : null,
+                  ),
+                  const SizedBox(height: 14),
+                  _field(
+                    controller: _confirmPassword,
+                    label: 'Confirm password',
+                    icon: Icons.lock_outline_rounded,
+                    obscureText: _obscureConfirm,
+                    suffix: IconButton(
+                      icon: Icon(
+                        _obscureConfirm
+                            ? Icons.visibility_rounded
+                            : Icons.visibility_off_rounded,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscureConfirm = !_obscureConfirm),
+                    ),
+                    validator: (v) =>
+                        (v != _password.text) ? 'Passwords do not match' : null,
+                  ),
                   const SizedBox(height: 18),
                   const Text(
                     'Role',
@@ -445,11 +493,8 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
                       ),
                     ),
                     items: [
-                      for (final role in AdminUserRole.values)
-                        DropdownMenuItem(
-                          value: role,
-                          child: Text(role.label),
-                        ),
+                      for (final role in _assignableRoles)
+                        DropdownMenuItem(value: role, child: Text(role.label)),
                     ],
                     onChanged: (value) =>
                         setState(() => _role = value ?? _role),
@@ -500,13 +545,17 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
     required IconData icon,
     String? Function(String?)? validator,
     TextInputType? keyboardType,
+    bool obscureText = false,
+    Widget? suffix,
   }) => TextFormField(
     controller: controller,
     keyboardType: keyboardType,
     validator: validator,
+    obscureText: obscureText,
     decoration: InputDecoration(
       labelText: label,
       prefixIcon: Icon(icon),
+      suffixIcon: suffix,
       filled: true,
       fillColor: _adminSoftMint,
       border: OutlineInputBorder(
@@ -523,8 +572,13 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
       email: _email.text.trim(),
       phone: _phone.text.trim(),
       role: _role,
+      password: _password.text,
     );
-    _adminNotice(context, 'Account created as Pending.');
+    _adminNotice(
+      context,
+      'Account created as Pending. Activate it to allow sign-in with the '
+      'email and password.',
+    );
     Navigator.of(context).pop();
   }
 }
