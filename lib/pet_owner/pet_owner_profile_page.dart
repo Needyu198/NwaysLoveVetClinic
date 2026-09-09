@@ -229,42 +229,58 @@ class _OwnerInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _MintPanel(
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    child: Column(
       children: [
-        Container(
-          width: 104,
-          height: 148,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: _ownerPhoto(owner.photoSource),
+        Row(
+          children: [
+            // Circular avatar to match the doctor profile box design.
+            Container(
+              width: 112,
+              height: 112,
+              clipBehavior: Clip.antiAlias,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: _ownerPhoto(owner.photoSource),
+            ),
+            const SizedBox(width: 24),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    owner.fullName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 25,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _ContactLine(
+                    icon: Icons.phone_in_talk_rounded,
+                    text: owner.phone,
+                  ),
+                  const SizedBox(height: 8),
+                  _ContactLine(icon: Icons.email_outlined, text: owner.email),
+                  const SizedBox(height: 8),
+                  _ContactLine(icon: Icons.home_rounded, text: owner.address),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 15),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(owner.fullName, style: PetOwnerProfileStyles.name),
-              const SizedBox(height: 9),
-              _ContactLine(
-                icon: Icons.phone_in_talk_rounded,
-                text: owner.phone,
-              ),
-              const SizedBox(height: 6),
-              _ContactLine(icon: Icons.email_outlined, text: owner.email),
-              const SizedBox(height: 6),
-              _ContactLine(icon: Icons.home_rounded, text: owner.address),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                key: const ValueKey('owner-edit-profile'),
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_rounded, size: 17),
-                label: const Text('Edit Profile'),
-              ),
-            ],
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            key: const ValueKey('owner-edit-profile'),
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_rounded, size: 17),
+            label: const Text('Edit Profile'),
           ),
         ),
       ],
@@ -486,6 +502,8 @@ class _UpcomingAppointmentsSection extends StatelessWidget {
   }
 }
 
+/// Info-sharing feed of the clinic doctors' written posts, shown under the
+/// appointment section on the profile / My Pet page.
 class _UpcomingAppointmentCard extends StatelessWidget {
   const _UpcomingAppointmentCard({required this.appointment});
   final BookedAppointment appointment;

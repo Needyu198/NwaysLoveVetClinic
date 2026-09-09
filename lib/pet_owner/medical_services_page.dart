@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'pet_owner_page_header.dart';
+
 class MedicalServicesPage extends StatelessWidget {
   const MedicalServicesPage({super.key});
 
@@ -53,37 +55,34 @@ class MedicalServicesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Medical Services',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
-        ),
-        centerTitle: true,
-        toolbarHeight: 112,
-        backgroundColor: const Color(0xFFA1FDD8),
-        surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
-        ),
-      ),
-      body: ListView(
-        key: const ValueKey('medical-services-catalog'),
-        padding: const EdgeInsets.fromLTRB(22, 22, 22, 40),
-        children: [
-          for (final group in _groups) ...[
-            Text(
-              group.title,
-              style: const TextStyle(
-                color: Color(0xFF111815),
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Medical Services'),
+            Expanded(
+              child: ListView(
+                key: const ValueKey('medical-services-catalog'),
+                padding: const EdgeInsets.fromLTRB(22, 22, 22, 40),
+                children: [
+                  for (final group in _groups) ...[
+                    Text(
+                      group.title,
+                      style: const TextStyle(
+                        color: Color(0xFF111815),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _ServiceGroupCard(group: group),
+                    const SizedBox(height: 24),
+                  ],
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            _ServiceGroupCard(group: group),
-            const SizedBox(height: 24),
           ],
-        ],
+        ),
       ),
     );
   }

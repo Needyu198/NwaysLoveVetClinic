@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../doctor/doctor_portal.dart';
 import 'appointment_booking_page.dart';
 import 'owner_shared_stores.dart';
 import 'pet_add_reminder_page.dart';
@@ -71,12 +72,14 @@ class _HomeContentState extends State<_HomeContent> {
     super.initState();
     _reminderStore.addListener(_onChanged);
     _appointmentStore.addListener(_onChanged);
+    DoctorPostStore.instance.addListener(_onChanged);
   }
 
   @override
   void dispose() {
     _reminderStore.removeListener(_onChanged);
     _appointmentStore.removeListener(_onChanged);
+    DoctorPostStore.instance.removeListener(_onChanged);
     super.dispose();
   }
 
@@ -216,6 +219,23 @@ class _HomeContentState extends State<_HomeContent> {
                       icon: Icons.event_available_rounded,
                     ),
                   ),
+                  const SizedBox(height: 14),
+                ],
+              const SizedBox(height: 10),
+              _SectionTitle(
+                title: 'Info Sharing',
+                subtitle: 'Latest posts from the clinic',
+              ),
+              const SizedBox(height: 14),
+              if (DoctorPostStore.instance.posts.isEmpty)
+                _EmptyHomeCard(
+                  icon: Icons.campaign_rounded,
+                  title: 'No posts yet',
+                  detail: 'Health tips and clinic updates will appear here.',
+                )
+              else
+                for (final post in DoctorPostStore.instance.posts.take(3)) ...[
+                  _InfoSharingCard(post: post),
                   const SizedBox(height: 14),
                 ],
             ],
@@ -607,15 +627,15 @@ class _EmptyHomeCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.detail,
-    required this.actionLabel,
-    required this.onAction,
+    this.actionLabel,
+    this.onAction,
   });
 
   final IconData icon;
   final String title;
   final String detail;
-  final String actionLabel;
-  final VoidCallback onAction;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -654,18 +674,107 @@ class _EmptyHomeCard extends StatelessWidget {
               fontSize: 13,
             ),
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: onAction,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: Text(actionLabel),
-            style: FilledButton.styleFrom(
-              backgroundColor: PetOwnerHomePage.inkColor,
-              foregroundColor: Colors.white,
-              shape: const StadiumBorder(),
+          if (onAction != null && actionLabel != null) ...[
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: onAction,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text(actionLabel!),
+              style: FilledButton.styleFrom(
+                backgroundColor: PetOwnerHomePage.inkColor,
+                foregroundColor: Colors.white,
+                shape: const StadiumBorder(),
+              ),
             ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A single doctor health post shown in the My Pet page's Info Sharing feed.
+class _InfoSharingCard extends StatelessWidget {
+  const _InfoSharingCard({required this.post});
+
+  final DoctorPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: ValueKey('home-info-post-${post.id}'),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2F4EC)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x120B2F25),
+            blurRadius: 14,
+            offset: Offset(0, 7),
           ),
         ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => DoctorPostDetailPage(post: post),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(15),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEAF8F0),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.campaign_rounded,
+                  color: Color(0xFF16855E),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      post.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: PetOwnerHomePage.inkColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      post.content,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: PetOwnerHomePage.mutedTextColor,
+                        fontSize: 13,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFF9FB2AB)),
+            ],
+          ),
+        ),
       ),
     );
   }

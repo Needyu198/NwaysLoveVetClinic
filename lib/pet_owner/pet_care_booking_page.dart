@@ -3,6 +3,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'pet_owner_page_header.dart';
+
 class PetCareServicesPage extends StatelessWidget {
   const PetCareServicesPage({super.key});
 
@@ -12,35 +14,42 @@ class PetCareServicesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _CareColors.page,
-      appBar: AppBar(
-        title: const Text('Pet Care Services'),
-        backgroundColor: _CareColors.mint,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          IconButton(
-            tooltip: 'My Service Bookings',
-            onPressed: () => Navigator.of(
-              context,
-            ).pushNamed(MyServiceBookingsPage.routeName),
-            icon: const Icon(Icons.assignment_outlined),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-        children: [
-          const Text('Care made comfortable', style: _CareText.title),
-          const SizedBox(height: 7),
-          const Text(
-            'Choose a service to view requirements, prices, duration, providers, and available schedules.',
-            style: _CareText.body,
-          ),
-          const SizedBox(height: 22),
-          for (final service in PetCareCatalog.services) ...[
-            _ServiceCard(service: service),
-            const SizedBox(height: 14),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            PetOwnerPageHeader(
+              title: 'Pet Care Services',
+              actions: [
+                IconButton(
+                  tooltip: 'My Service Bookings',
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pushNamed(MyServiceBookingsPage.routeName),
+                  icon: const Icon(Icons.assignment_outlined),
+                ),
+              ],
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+                children: [
+                  const Text('Care made comfortable', style: _CareText.title),
+                  const SizedBox(height: 7),
+                  const Text(
+                    'Choose a service to view requirements, prices, duration, providers, and available schedules.',
+                    style: _CareText.body,
+                  ),
+                  const SizedBox(height: 22),
+                  for (final service in PetCareCatalog.services) ...[
+                    _ServiceCard(service: service),
+                    const SizedBox(height: 14),
+                  ],
+                ],
+              ),
+            ),
           ],
-        ],
+        ),
       ),
     );
   }

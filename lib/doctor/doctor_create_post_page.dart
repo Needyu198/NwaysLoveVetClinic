@@ -365,29 +365,6 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
   }
 }
 
-class _PostBackButton extends StatelessWidget {
-  const _PostBackButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.centerLeft,
-    child: TextButton.icon(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        foregroundColor: Colors.black,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      ),
-      icon: const Icon(Icons.chevron_left_rounded, size: 28),
-      label: const Text(
-        'Back',
-        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-      ),
-    ),
-  );
-}
-
 class _CoverPicker extends StatelessWidget {
   const _CoverPicker({required this.asset, required this.onPressed});
 
@@ -527,22 +504,22 @@ class _DoctorPostDetailPageState extends State<DoctorPostDetailPage> {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.white,
     body: SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
+      bottom: false,
+      child: Column(
         children: [
-          _PostBackButton(onPressed: () => Navigator.of(context).pop()),
-          if (widget.title != null)
-            Padding(
-              padding: const EdgeInsets.only(left: 8, bottom: 14),
-              child: Text(widget.title!, style: DoctorStyles.muted),
-            )
-          else
-            const SizedBox(height: 22),
-          DoctorPostCard(
-            post: widget.post,
-            compact: !_expanded,
-            onExpand: () => setState(() => _expanded = true),
-            onCollapse: () => setState(() => _expanded = false),
+          _DoctorPageHeader(title: widget.title ?? 'Info Sharing'),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
+              children: [
+                DoctorPostCard(
+                  post: widget.post,
+                  compact: !_expanded,
+                  onExpand: () => setState(() => _expanded = true),
+                  onCollapse: () => setState(() => _expanded = false),
+                ),
+              ],
+            ),
           ),
         ],
       ),
