@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../login/login_page.dart';
 import 'appointment_booking_page.dart';
 import 'home_visit_booking_page.dart';
+import 'pet_owner_page_header.dart';
 import 'profile_flows.dart';
 
 const _profileMint = Color(0xFFA1FDD8);
@@ -663,52 +664,63 @@ class SavedAddressesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Saved Addresses'),
-      backgroundColor: _profileMint,
-    ),
-    body: AnimatedBuilder(
-      animation: SavedAddressStore.instance,
-      builder: (context, _) => ListView(
-        padding: const EdgeInsets.all(20),
+    backgroundColor: const Color(0xFFF7FAF9),
+    body: SafeArea(
+      child: Column(
         children: [
-          for (final address in SavedAddressStore.instance.addresses)
-            Card(
-              child: ListTile(
-                title: Row(
-                  children: [
-                    Text(
-                      address.label,
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    if (address.isDefault)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: Chip(label: Text('Default')),
+          const PetOwnerPageHeader(title: 'Saved Addresses'),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: SavedAddressStore.instance,
+              builder: (context, _) => ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  for (final address in SavedAddressStore.instance.addresses)
+                    Card(
+                      child: ListTile(
+                        title: Row(
+                          children: [
+                            Text(
+                              address.label,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            if (address.isDefault)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 8),
+                                child: Chip(label: Text('Default')),
+                              ),
+                          ],
+                        ),
+                        subtitle: Text(
+                          '${address.recipient} • ${address.phone}\n${address.fullAddress}\nLandmark: ${address.landmark}',
+                        ),
+                        isThreeLine: true,
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (value) => value == 'edit'
+                              ? _openAddressForm(context, address)
+                              : _deleteAddress(context, address),
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(value: 'edit', child: Text('Edit')),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Text('Delete'),
+                            ),
+                          ],
+                        ),
                       ),
-                  ],
-                ),
-                subtitle: Text(
-                  '${address.recipient} • ${address.phone}\n${address.fullAddress}\nLandmark: ${address.landmark}',
-                ),
-                isThreeLine: true,
-                trailing: PopupMenuButton<String>(
-                  onSelected: (value) => value == 'edit'
-                      ? _openAddressForm(context, address)
-                      : _deleteAddress(context, address),
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'edit', child: Text('Edit')),
-                    PopupMenuItem(value: 'delete', child: Text('Delete')),
-                  ],
-                ),
+                    ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    key: const ValueKey('add-saved-address'),
+                    onPressed: () => _openAddressForm(context, null),
+                    icon: const Icon(Icons.add_location_alt_outlined),
+                    label: const Text('Add New Address'),
+                  ),
+                ],
               ),
             ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            key: const ValueKey('add-saved-address'),
-            onPressed: () => _openAddressForm(context, null),
-            icon: const Icon(Icons.add_location_alt_outlined),
-            label: const Text('Add New Address'),
           ),
         ],
       ),
@@ -934,71 +946,80 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Notification Settings'),
-      backgroundColor: _profileMint,
-    ),
-    body: ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        SwitchListTile(
-          key: const ValueKey('notifications-enabled'),
-          title: const Text('Enable Notifications'),
-          subtitle: const Text(
-            'Device permission is requested when notifications are enabled.',
+    backgroundColor: const Color(0xFFF7FAF9),
+    body: SafeArea(
+      child: Column(
+        children: [
+          const PetOwnerPageHeader(title: 'Notification Settings'),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                SwitchListTile(
+                  key: const ValueKey('notifications-enabled'),
+                  title: const Text('Enable Notifications'),
+                  subtitle: const Text(
+                    'Device permission is requested when notifications are enabled.',
+                  ),
+                  value: settings.enabled,
+                  onChanged: (value) =>
+                      setState(() => settings.enabled = value),
+                ),
+                const Divider(),
+                _notificationSwitch(
+                  'Appointment confirmations and reminders',
+                  settings.appointments,
+                  (v) => settings.appointments = v,
+                ),
+                _notificationSwitch(
+                  'Queue updates',
+                  settings.queue,
+                  (v) => settings.queue = v,
+                ),
+                _notificationSwitch(
+                  'Vaccination and follow-up reminders',
+                  settings.medical,
+                  (v) => settings.medical = v,
+                ),
+                _notificationSwitch(
+                  'Pet Care and Home Visit status',
+                  settings.services,
+                  (v) => settings.services = v,
+                ),
+                _notificationSwitch(
+                  'Clinic chat messages',
+                  settings.messages,
+                  (v) => settings.messages = v,
+                ),
+                _notificationSwitch(
+                  'Clinic news and promotions',
+                  settings.promotions,
+                  (v) => settings.promotions = v,
+                ),
+                const ListTile(
+                  leading: Icon(Icons.lock_rounded, color: _profileGreen),
+                  title: Text('Emergency and account-security alerts'),
+                  subtitle: Text('Always enabled and cannot be disabled.'),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  key: const ValueKey('save-notification-settings'),
+                  onPressed: () {
+                    NotificationSettingsStore.instance.save(settings);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Notification settings updated'),
+                      ),
+                    );
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Save Settings'),
+                ),
+              ],
+            ),
           ),
-          value: settings.enabled,
-          onChanged: (value) => setState(() => settings.enabled = value),
-        ),
-        const Divider(),
-        _notificationSwitch(
-          'Appointment confirmations and reminders',
-          settings.appointments,
-          (v) => settings.appointments = v,
-        ),
-        _notificationSwitch(
-          'Queue updates',
-          settings.queue,
-          (v) => settings.queue = v,
-        ),
-        _notificationSwitch(
-          'Vaccination and follow-up reminders',
-          settings.medical,
-          (v) => settings.medical = v,
-        ),
-        _notificationSwitch(
-          'Pet Care and Home Visit status',
-          settings.services,
-          (v) => settings.services = v,
-        ),
-        _notificationSwitch(
-          'Clinic chat messages',
-          settings.messages,
-          (v) => settings.messages = v,
-        ),
-        _notificationSwitch(
-          'Clinic news and promotions',
-          settings.promotions,
-          (v) => settings.promotions = v,
-        ),
-        const ListTile(
-          leading: Icon(Icons.lock_rounded, color: _profileGreen),
-          title: Text('Emergency and account-security alerts'),
-          subtitle: Text('Always enabled and cannot be disabled.'),
-        ),
-        const SizedBox(height: 16),
-        FilledButton(
-          key: const ValueKey('save-notification-settings'),
-          onPressed: () {
-            NotificationSettingsStore.instance.save(settings);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Notification settings updated')),
-            );
-            Navigator.of(context).pop();
-          },
-          child: const Text('Save Settings'),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 
@@ -1360,13 +1381,15 @@ class _MedicalScaffold extends StatelessWidget {
   final Widget child;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(title),
-      backgroundColor: _profileMint,
-      surfaceTintColor: Colors.transparent,
-    ),
     backgroundColor: const Color(0xFFF7FAF9),
-    body: child,
+    body: SafeArea(
+      child: Column(
+        children: [
+          PetOwnerPageHeader(title: title),
+          Expanded(child: child),
+        ],
+      ),
+    ),
   );
 }
 

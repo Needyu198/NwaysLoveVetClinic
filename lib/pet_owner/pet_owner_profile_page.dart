@@ -4,6 +4,7 @@ import 'appointment_booking_page.dart';
 import 'emergency_service_page.dart';
 import 'pet_owner_clinic_page.dart';
 import 'pet_owner_home_page.dart';
+import 'pet_image.dart';
 import 'pet_owner_nav_bar.dart';
 import 'pet_owner_profile_styles.dart';
 import 'pet_products_page.dart';
@@ -238,13 +239,8 @@ class _OwnerInfoCard extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(28),
           ),
-          child: Icon(
-            owner.photoSource == null
-                ? Icons.person_rounded
-                : Icons.person_pin_rounded,
-            color: const Color(0xFF7C958E),
-            size: 68,
-          ),
+          clipBehavior: Clip.antiAlias,
+          child: _ownerPhoto(owner.photoSource),
         ),
         const SizedBox(width: 15),
         Expanded(
@@ -274,6 +270,17 @@ class _OwnerInfoCard extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Renders the owner's uploaded photo (base64 data URI) or an icon fallback.
+Widget _ownerPhoto(String? photoSource) {
+  final bytes = photoSource != null
+      ? PetPhoto.decodeDataUri(photoSource)
+      : null;
+  if (bytes != null) {
+    return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+  }
+  return const Icon(Icons.person_rounded, color: Color(0xFF7C958E), size: 68);
 }
 
 class _ContactLine extends StatelessWidget {

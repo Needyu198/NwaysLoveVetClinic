@@ -33,61 +33,65 @@ class MyAppointmentsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _BookingColors.page,
-      appBar: AppBar(
-        title: const Text('My Appointments'),
-        backgroundColor: _BookingColors.mint,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: AnimatedBuilder(
-        animation: AppointmentStore.instance,
-        builder: (context, _) {
-          final appointments = AppointmentStore.instance.appointments;
-          if (appointments.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.event_busy_rounded,
-                      size: 72,
-                      color: _BookingColors.muted,
-                    ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      'No appointments yet',
-                      style: _BookingText.title,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Book a clinic or home visit for one of your pets.',
-                      textAlign: TextAlign.center,
-                      style: _BookingText.body,
-                    ),
-                    const SizedBox(height: 24),
-                    FilledButton.icon(
-                      onPressed: () => Navigator.of(
-                        context,
-                      ).pushNamed(AppointmentBookingPage.routeName),
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('Book Appointment'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'My Appointments'),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: AppointmentStore.instance,
+                builder: (context, _) {
+                  final appointments = AppointmentStore.instance.appointments;
+                  if (appointments.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.event_busy_rounded,
+                              size: 72,
+                              color: _BookingColors.muted,
+                            ),
+                            const SizedBox(height: 18),
+                            const Text(
+                              'No appointments yet',
+                              style: _BookingText.title,
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Book a clinic or home visit for one of your pets.',
+                              textAlign: TextAlign.center,
+                              style: _BookingText.body,
+                            ),
+                            const SizedBox(height: 24),
+                            FilledButton.icon(
+                              onPressed: () => Navigator.of(
+                                context,
+                              ).pushNamed(AppointmentBookingPage.routeName),
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text('Book Appointment'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
 
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-            itemCount: appointments.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 14),
-            itemBuilder: (context, index) {
-              return _AppointmentCard(appointment: appointments[index]);
-            },
-          );
-        },
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+                    itemCount: appointments.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) {
+                      return _AppointmentCard(appointment: appointments[index]);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () =>

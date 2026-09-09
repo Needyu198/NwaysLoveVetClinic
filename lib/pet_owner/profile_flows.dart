@@ -1,10 +1,16 @@
 import '../data/clinic_api.dart';
+import 'dart:convert';
+
 import '../data/database_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'appointment_booking_page.dart';
 import 'contact_clinic_page.dart';
+import 'pet_image.dart';
+import 'pet_owner_page_header.dart';
 import 'pet_profile_page.dart';
 
 class OwnerProfileData {
@@ -104,6 +110,34 @@ class OwnerProfileStore extends ChangeNotifier {
       address: 'Nay Pyi Taw',
     );
     notifyListeners();
+  }
+}
+
+/// Circular owner avatar that shows the uploaded photo (base64 data URI) when
+/// available, otherwise a person icon placeholder.
+class _OwnerPhotoAvatar extends StatelessWidget {
+  const _OwnerPhotoAvatar({required this.photoUrl});
+  final String? photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = photoUrl != null ? PetPhoto.decodeDataUri(photoUrl!) : null;
+    return Container(
+      width: 108,
+      height: 108,
+      decoration: const BoxDecoration(
+        color: Color(0xFFD9FFF0),
+        shape: BoxShape.circle,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: bytes != null
+          ? Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true)
+          : const Icon(
+              Icons.person_rounded,
+              size: 58,
+              color: Color(0xFF5F8177),
+            ),
+    );
   }
 }
 
@@ -384,137 +418,153 @@ class _EditOwnerProfilePageState extends State<EditOwnerProfilePage> {
         if (!didPop) _leavePage();
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Edit Profile'),
-          backgroundColor: const Color(0xFFA1FDD8),
-          surfaceTintColor: Colors.transparent,
-          leading: IconButton(
-            onPressed: _leavePage,
-            icon: const Icon(Icons.arrow_back_rounded),
-          ),
-        ),
-        body: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+        backgroundColor: const Color(0xFFF7FAF9),
+        body: SafeArea(
+          child: Column(
             children: [
-              Center(
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 48,
-                      backgroundColor: const Color(0xFFD9FFF0),
-                      child: _photoSource == null
-                          ? const Icon(Icons.person_rounded, size: 58)
-                          : const Icon(Icons.check_rounded, size: 48),
-                    ),
-                    TextButton.icon(
-                      key: const ValueKey('change-owner-photo'),
-                      onPressed: _choosePhoto,
-                      icon: const Icon(Icons.add_a_photo_outlined),
-                      label: Text(
-                        _photoSource == null ? 'Change Photo' : _photoSource!,
+              PetOwnerPageHeader(title: 'Edit Profile', onBack: _leavePage),
+              Expanded(
+                child: Form(
+                  key: _formKey,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+                    children: [
+                      Center(
+                        child: Column(
+                          children: [
+                            _OwnerPhotoAvatar(photoUrl: _photoSource),
+                            TextButton.icon(
+                              key: const ValueKey('change-owner-photo'),
+                              onPressed: _choosePhoto,
+                              icon: const Icon(Icons.add_a_photo_outlined),
+                              label: Text(
+                                (_photoSource != null &&
+                                        _photoSource!.startsWith('data:'))
+                                    ? 'Change Photo'
+                                    : 'Add Photo',
+                              ),
+                            ),
+                            if (_photoSource != null &&
+                                _photoSource!.startsWith('data:'))
+                              TextButton(
+                                onPressed: () =>
+                                    setState(() => _photoSource = null),
+                                child: const Text('Remove Photo'),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        key: const ValueKey('edit-owner-name'),
+                        controller: _name,
+                        decoration: const InputDecoration(
+                          labelText: 'Full name *',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: _required,
+                      ),
+                      const SizedBox(height: 14),
+                      ListTile(
+                        key: const ValueKey('edit-owner-dob'),
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(color: Color(0xFF7A7A7A)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        title: const Text('Date of birth'),
+                        subtitle: Text(_formatDate(_dateOfBirth)),
+                        trailing: const Icon(Icons.calendar_month_outlined),
+                        onTap: _pickDate,
+                      ),
+                      const SizedBox(height: 14),
+                      DropdownButtonFormField<String>(
+                        key: const ValueKey('edit-owner-gender'),
+                        initialValue: _genderOptions.contains(_gender)
+                            ? _gender
+                            : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Gender *',
+                          border: OutlineInputBorder(),
+                        ),
+                        hint: const Text('Select gender'),
+                        items: _genderOptions
+                            .map(
+                              (value) => DropdownMenuItem(
+                                value: value,
+                                child: Text(value),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) => setState(() => _gender = value!),
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        key: const ValueKey('edit-owner-phone'),
+                        controller: _phone,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: 'Phone number *',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          final normalized = value?.replaceAll(
+                            RegExp(r'[^0-9+]'),
+                            '',
+                          );
+                          if (normalized == null ||
+                              !RegExp(
+                                r'^\+?[0-9]{7,15}$',
+                              ).hasMatch(normalized)) {
+                            return 'Enter a valid phone number';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        key: const ValueKey('edit-owner-email'),
+                        controller: _email,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'Email *',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null ||
+                              !RegExp(
+                                r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                              ).hasMatch(value)) {
+                            return 'Enter a valid email address';
+                          }
+                          if (value.toLowerCase() == 'registered@email.com') {
+                            return 'This email is already registered';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        key: const ValueKey('edit-owner-address'),
+                        controller: _address,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'Address *',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: _required,
+                      ),
+                      const SizedBox(height: 22),
+                      FilledButton(
+                        key: const ValueKey('save-owner-profile'),
+                        onPressed: _save,
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(52),
+                        ),
+                        child: const Text('Save Changes'),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                key: const ValueKey('edit-owner-name'),
-                controller: _name,
-                decoration: const InputDecoration(
-                  labelText: 'Full name *',
-                  border: OutlineInputBorder(),
-                ),
-                validator: _required,
-              ),
-              const SizedBox(height: 14),
-              ListTile(
-                key: const ValueKey('edit-owner-dob'),
-                shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: Color(0xFF7A7A7A)),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                title: const Text('Date of birth'),
-                subtitle: Text(_formatDate(_dateOfBirth)),
-                trailing: const Icon(Icons.calendar_month_outlined),
-                onTap: _pickDate,
-              ),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                key: const ValueKey('edit-owner-gender'),
-                initialValue: _genderOptions.contains(_gender) ? _gender : null,
-                decoration: const InputDecoration(
-                  labelText: 'Gender *',
-                  border: OutlineInputBorder(),
-                ),
-                hint: const Text('Select gender'),
-                items: _genderOptions
-                    .map(
-                      (value) =>
-                          DropdownMenuItem(value: value, child: Text(value)),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() => _gender = value!),
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                key: const ValueKey('edit-owner-phone'),
-                controller: _phone,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Phone number *',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  final normalized = value?.replaceAll(RegExp(r'[^0-9+]'), '');
-                  if (normalized == null ||
-                      !RegExp(r'^\+?[0-9]{7,15}$').hasMatch(normalized)) {
-                    return 'Enter a valid phone number';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                key: const ValueKey('edit-owner-email'),
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Email *',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null ||
-                      !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
-                    return 'Enter a valid email address';
-                  }
-                  if (value.toLowerCase() == 'registered@email.com') {
-                    return 'This email is already registered';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                key: const ValueKey('edit-owner-address'),
-                controller: _address,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Address *',
-                  border: OutlineInputBorder(),
-                ),
-                validator: _required,
-              ),
-              const SizedBox(height: 22),
-              FilledButton(
-                key: const ValueKey('save-owner-profile'),
-                onPressed: _save,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-                child: const Text('Save Changes'),
               ),
             ],
           ),
@@ -537,7 +587,7 @@ class _EditOwnerProfilePageState extends State<EditOwnerProfilePage> {
   }
 
   Future<void> _choosePhoto() async {
-    final value = await showModalBottomSheet<String>(
+    final source = await showModalBottomSheet<ImageSource>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
@@ -549,27 +599,56 @@ class _EditOwnerProfilePageState extends State<EditOwnerProfilePage> {
                 'Profile Photo',
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
-              subtitle: Text(
-                'Choose a source. Device access is used when available.',
-              ),
+              subtitle: Text('Choose a photo from your device.'),
             ),
             ListTile(
               key: const ValueKey('owner-photo-camera'),
               leading: const Icon(Icons.camera_alt_outlined),
               title: const Text('Camera'),
-              onTap: () => Navigator.of(context).pop('Camera photo selected'),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
             ),
             ListTile(
               key: const ValueKey('owner-photo-gallery'),
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Photo Gallery'),
-              onTap: () => Navigator.of(context).pop('Gallery photo selected'),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
             ),
           ],
         ),
       ),
     );
-    if (value != null) setState(() => _photoSource = value);
+    if (!mounted || source == null) return;
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 82,
+      );
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      if (bytes.length > 2 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please choose a photo smaller than 2 MB.'),
+            ),
+          );
+        }
+        return;
+      }
+      if (mounted) {
+        setState(
+          () => _photoSource = 'data:image/jpeg;base64,${base64Encode(bytes)}',
+        );
+      }
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the image picker.')),
+        );
+      }
+    }
   }
 
   Future<void> _save() async {
@@ -678,74 +757,86 @@ class ClinicLocationPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Clinic Location'),
-        backgroundColor: const Color(0xFFA1FDD8),
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Container(
-            key: const ValueKey('clinic-map-placeholder'),
-            height: 260,
-            decoration: BoxDecoration(
-              color: const Color(0xFFDCEAE5),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.location_pin, size: 70, color: Color(0xFFD52D2D)),
-                Text(
-                  "Nway's Love Vet Clinic",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-                Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    'Saved clinic destination available offline',
-                    textAlign: TextAlign.center,
+      backgroundColor: const Color(0xFFF7FAF9),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Clinic Location'),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  Container(
+                    key: const ValueKey('clinic-map-placeholder'),
+                    height: 260,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDCEAE5),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.location_pin,
+                          size: 70,
+                          color: Color(0xFFD52D2D),
+                        ),
+                        Text(
+                          "Nway's Love Vet Clinic",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Text(
+                            'Saved clinic destination available offline',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 18),
+                  const _LocationInfo(
+                    icon: Icons.location_on_outlined,
+                    title: 'Address',
+                    value: ContactClinicPage.address,
+                  ),
+                  const _LocationInfo(
+                    icon: Icons.schedule_outlined,
+                    title: 'Operating hours',
+                    value: '8:00 AM–10:00 PM',
+                  ),
+                  const _LocationInfo(
+                    icon: Icons.call_outlined,
+                    title: 'Phone',
+                    value:
+                        '${ContactClinicPage.phonePrimary} • ${ContactClinicPage.phoneSecondary}',
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    key: const ValueKey('get-clinic-directions'),
+                    onPressed: () => _chooseMap(context),
+                    icon: const Icon(Icons.directions_rounded),
+                    label: const Text('Get Directions'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    key: const ValueKey('location-call-clinic'),
+                    onPressed: () => _confirmLocationCall(context),
+                    icon: const Icon(Icons.call_outlined),
+                    label: const Text('Call Clinic'),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 18),
-          const _LocationInfo(
-            icon: Icons.location_on_outlined,
-            title: 'Address',
-            value: ContactClinicPage.address,
-          ),
-          const _LocationInfo(
-            icon: Icons.schedule_outlined,
-            title: 'Operating hours',
-            value: '8:00 AM–10:00 PM',
-          ),
-          const _LocationInfo(
-            icon: Icons.call_outlined,
-            title: 'Phone',
-            value:
-                '${ContactClinicPage.phonePrimary} • ${ContactClinicPage.phoneSecondary}',
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            key: const ValueKey('get-clinic-directions'),
-            onPressed: () => _chooseMap(context),
-            icon: const Icon(Icons.directions_rounded),
-            label: const Text('Get Directions'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-            ),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            key: const ValueKey('location-call-clinic'),
-            onPressed: () => _confirmLocationCall(context),
-            icon: const Icon(Icons.call_outlined),
-            label: const Text('Call Clinic'),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -766,22 +857,26 @@ class ClinicLocationPage extends StatelessWidget {
               'If location or a map app is unavailable, copy the saved address.',
             ),
           ),
-          for (final name in ['Google Maps', 'Apple Maps'])
-            ListTile(
-              leading: const Icon(Icons.map_outlined),
-              title: Text(name),
-              subtitle: const Text('Open clinic destination'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '$name is unavailable in this build. The clinic address remains visible for manual navigation.',
-                    ),
-                  ),
-                );
-              },
-            ),
+          ListTile(
+            key: const ValueKey('open-google-maps'),
+            leading: const Icon(Icons.map_outlined, color: Color(0xFF34A853)),
+            title: const Text('Google Maps'),
+            subtitle: const Text('Open directions to the clinic'),
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _openMap(context, _MapApp.google);
+            },
+          ),
+          ListTile(
+            key: const ValueKey('open-apple-maps'),
+            leading: const Icon(Icons.map_rounded, color: Color(0xFF1E88E5)),
+            title: const Text('Apple Maps'),
+            subtitle: const Text('Open directions to the clinic'),
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _openMap(context, _MapApp.apple);
+            },
+          ),
           ListTile(
             key: const ValueKey('copy-clinic-address'),
             leading: const Icon(Icons.copy_rounded),
@@ -791,13 +886,52 @@ class ClinicLocationPage extends StatelessWidget {
                 const ClipboardData(text: ContactClinicPage.address),
               );
               Navigator.of(sheetContext).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Clinic address copied.')),
+              );
             },
           ),
         ],
       ),
     ),
   );
+
+  /// Opens the clinic destination in the chosen map app. Falls back to a web
+  /// maps URL if the native app can't be launched, and shows a message if
+  /// nothing can handle it.
+  Future<void> _openMap(BuildContext context, _MapApp app) async {
+    final query = Uri.encodeComponent(ContactClinicPage.address);
+    final uris = switch (app) {
+      _MapApp.google => [
+        Uri.parse('comgooglemaps://?daddr=$query&directionsmode=driving'),
+        Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$query'),
+      ],
+      _MapApp.apple => [Uri.parse('https://maps.apple.com/?daddr=$query')],
+    };
+
+    for (final uri in uris) {
+      try {
+        if (await canLaunchUrl(uri) &&
+            await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+          return;
+        }
+      } catch (_) {
+        // Try the next URL.
+      }
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not open a map app. The clinic address is shown above.',
+          ),
+        ),
+      );
+    }
+  }
 }
+
+enum _MapApp { google, apple }
 
 class _LocationInfo extends StatelessWidget {
   const _LocationInfo({

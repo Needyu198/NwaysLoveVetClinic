@@ -333,9 +333,12 @@ class ProductDetailsPage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Price row.
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                          // Let long MMK amounts and discounts move onto a
+                          // second line on narrow phones.
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.end,
                             children: [
                               Text(
                                 formatMmk(product.price),
@@ -345,7 +348,6 @@ class ProductDetailsPage extends StatelessWidget {
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
-                              const SizedBox(width: 10),
                               if (product.discountPercent > 0) ...[
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 4),
@@ -359,7 +361,6 @@ class ProductDetailsPage extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
                                 _DiscountBadge(
                                   percent: product.discountPercent,
                                 ),
@@ -1163,7 +1164,10 @@ class _RelatedRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 200,
+      // A related card is 150 px wide, so its square artwork alone is 148 px
+      // after the border. Leave enough room for the name, price, and stock
+      // label below it; 200 px forced that content to overflow by ~60 px.
+      height: 280,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: products.length,
