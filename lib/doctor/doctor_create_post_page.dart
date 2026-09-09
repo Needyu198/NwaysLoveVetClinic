@@ -103,17 +103,17 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
                             child: Row(
                               children: [
                                 const Icon(
-                                  Icons.attach_file_rounded,
-                                  color: Color(0xFFB8B8B8),
-                                  size: 21,
+                                  Icons.add_photo_alternate_outlined,
+                                  color: Color(0xFF525C59),
+                                  size: 22,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
                                   _attachments.isEmpty
-                                      ? 'Attach Images.....'
-                                      : '${_attachments.length} images attached',
+                                      ? 'Add photos.....'
+                                      : '${_attachments.length} photo(s) added • tap to add more',
                                   style: const TextStyle(
-                                    color: Color(0xFFB8B8B8),
+                                    color: Color(0xFF777F7D),
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -125,6 +125,13 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
                       ],
                     ),
                   ),
+                  if (_attachments.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _AttachmentStrip(
+                      attachments: _attachments,
+                      onRemove: _removeAttachment,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -177,54 +184,119 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
   );
 
   Future<void> _chooseCover() async {
-    final asset = await showModalBottomSheet<String>(
+    final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
       showDragHandle: true,
-      builder: (context) => _PostAssetSheet(
-        title: 'Choose a cover image',
-        assets: const [
-          DoctorPostStore.defaultCover,
-          'assets/photos/logoandphoto/nways_photo.png',
-        ],
-      ),
-    );
-    if (asset != null && mounted) setState(() => _coverAsset = asset);
-  }
-
-  Future<void> _chooseAttachments() async {
-    final add = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: Colors.white,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Attach images', style: DoctorStyles.title),
-              const SizedBox(height: 14),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text('Cover image', style: DoctorStyles.title),
+            ),
+            ListTile(
+              key: const ValueKey('post-cover-gallery'),
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Upload from gallery'),
+              onTap: () => Navigator.of(sheetContext).pop('gallery'),
+            ),
+            ListTile(
+              key: const ValueKey('post-cover-camera'),
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.of(sheetContext).pop('camera'),
+            ),
+            if (_coverAsset.isNotEmpty)
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Add clinic gallery'),
-                subtitle: const Text('Attach three pet photos'),
-                onTap: () => Navigator.of(context).pop(true),
-              ),
-              if (_attachments.isNotEmpty)
-                ListTile(
-                  leading: const Icon(Icons.delete_outline_rounded),
-                  title: const Text('Remove attached images'),
-                  onTap: () => Navigator.of(context).pop(false),
+                leading: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Color(0xFFB3261E),
                 ),
-            ],
-          ),
+                title: const Text(
+                  'Remove cover',
+                  style: TextStyle(color: Color(0xFFB3261E)),
+                ),
+                onTap: () => Navigator.of(sheetContext).pop('remove'),
+              ),
+          ],
         ),
       ),
     );
-    if (add == null || !mounted) return;
-    setState(() => _attachments = add ? [...DoctorPostStore.gallery] : []);
+    if (!mounted || action == null) return;
+    if (action == 'remove') {
+      setState(() => _coverAsset = '');
+      return;
+    }
+    final dataUri = await _pickImageDataUri(
+      action == 'camera' ? ImageSource.camera : ImageSource.gallery,
+    );
+    if (dataUri != null && mounted) setState(() => _coverAsset = dataUri);
+  }
+
+  Future<void> _chooseAttachments() async {
+    try {
+      final picked = await ImagePicker().pickMultiImage(
+        maxWidth: 1280,
+        imageQuality: 80,
+      );
+      if (picked.isEmpty || !mounted) return;
+      final added = <String>[];
+      for (final file in picked) {
+        final bytes = await file.readAsBytes();
+        if (bytes.length > 2 * 1024 * 1024) continue; // skip >2MB
+        added.add('data:image/jpeg;base64,${base64Encode(bytes)}');
+      }
+      if (!mounted) return;
+      if (added.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Each photo must be under 2 MB.')),
+        );
+        return;
+      }
+      setState(() => _attachments = [..._attachments, ...added]);
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the image picker.')),
+        );
+      }
+    }
+  }
+
+  /// Picks a single image and returns it as a base64 data URI (or null).
+  Future<String?> _pickImageDataUri(ImageSource source) async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1280,
+        imageQuality: 82,
+      );
+      if (picked == null) return null;
+      final bytes = await picked.readAsBytes();
+      if (bytes.length > 2 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please choose a photo smaller than 2 MB.'),
+            ),
+          );
+        }
+        return null;
+      }
+      return 'data:image/jpeg;base64,${base64Encode(bytes)}';
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the image picker.')),
+        );
+      }
+      return null;
+    }
+  }
+
+  void _removeAttachment(int index) {
+    setState(() => _attachments = [..._attachments]..removeAt(index));
   }
 
   DoctorPostDraft _currentDraft() => DoctorPostDraft(
@@ -270,9 +342,7 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
       coverAsset: _coverAsset.isEmpty
           ? DoctorPostStore.defaultCover
           : _coverAsset,
-      attachmentAssets: _attachments.isEmpty
-          ? DoctorPostStore.gallery
-          : _attachments,
+      attachmentAssets: _attachments,
     );
     ScaffoldMessenger.of(
       context,
@@ -344,6 +414,57 @@ class _CoverPicker extends StatelessWidget {
   );
 }
 
+class _AttachmentStrip extends StatelessWidget {
+  const _AttachmentStrip({required this.attachments, required this.onRemove});
+
+  final List<String> attachments;
+  final void Function(int index) onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 92,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: attachments.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) => Stack(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox(
+                width: 92,
+                height: 92,
+                child: _PostImage(asset: attachments[index]),
+              ),
+            ),
+            Positioned(
+              right: 4,
+              top: 4,
+              child: GestureDetector(
+                key: ValueKey('remove-post-attachment-$index'),
+                onTap: () => onRemove(index),
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: const BoxDecoration(
+                    color: Color(0xCC000000),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PostActionButton extends StatelessWidget {
   const _PostActionButton({
     required this.label,
@@ -372,48 +493,6 @@ class _PostActionButton extends StatelessWidget {
       ),
     ),
     child: FittedBox(child: Text(label)),
-  );
-}
-
-class _PostAssetSheet extends StatelessWidget {
-  const _PostAssetSheet({required this.title, required this.assets});
-
-  final String title;
-  final List<String> assets;
-
-  @override
-  Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: DoctorStyles.title),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              for (final asset in assets) ...[
-                Expanded(
-                  child: GestureDetector(
-                    key: ValueKey('doctor-post-asset-$asset'),
-                    onTap: () => Navigator.of(context).pop(asset),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: SizedBox(
-                        height: 130,
-                        child: _PostImage(asset: asset, cover: true),
-                      ),
-                    ),
-                  ),
-                ),
-                if (asset != assets.last) const SizedBox(width: 12),
-              ],
-            ],
-          ),
-        ],
-      ),
-    ),
   );
 }
 
@@ -705,6 +784,18 @@ class _GalleryTile extends StatelessWidget {
   );
 }
 
+/// Decodes a base64 data URI (`data:image/...;base64,...`) to bytes, or null.
+Uint8List? _decodePostDataUri(String value) {
+  if (!value.startsWith('data:')) return null;
+  final comma = value.indexOf(',');
+  if (comma < 0) return null;
+  try {
+    return base64Decode(value.substring(comma + 1));
+  } catch (_) {
+    return null;
+  }
+}
+
 class _PostImage extends StatelessWidget {
   const _PostImage({required this.asset, this.cover = false});
 
@@ -713,6 +804,16 @@ class _PostImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Uploaded photos are stored inline as base64 data URIs.
+    final bytes = _decodePostDataUri(asset);
+    if (bytes != null) {
+      return Image.memory(
+        bytes,
+        fit: BoxFit.cover,
+        alignment: cover ? Alignment.center : Alignment.topCenter,
+        gaplessPlayback: true,
+      );
+    }
     if (asset == DoctorPostStore.defaultCover) {
       return DecoratedBox(
         decoration: const BoxDecoration(

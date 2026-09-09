@@ -120,32 +120,14 @@ class DoctorDashboardPage extends StatelessWidget {
                   const SizedBox(height: 4),
                   const Text('Quick Menu', style: DoctorStyles.heroSection),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _DashboardMenuButton(
-                          key: const ValueKey('doctor-write-post'),
-                          label: 'Write a post',
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const DoctorCreatePostPage(),
-                            ),
-                          ),
-                        ),
+                  _DashboardMenuButton(
+                    key: const ValueKey('doctor-write-post'),
+                    label: 'Write a post',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DoctorCreatePostPage(),
                       ),
-                      const SizedBox(width: 24),
-                      Expanded(
-                        child: _DashboardMenuButton(
-                          key: const ValueKey('doctor-inventory'),
-                          label: 'Inventory',
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const DoctorInventoryPage(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 24),
                   const Text('New Feeds', style: DoctorStyles.heroSection),

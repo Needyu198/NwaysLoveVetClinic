@@ -1,7 +1,5 @@
 part of 'system_admin_portal.dart';
 
-/// The admin profile screen (§12). Reactive to [AdminProfileStore] and wires
-/// every tile to a real, working page.
 class AdminProfileTab extends StatelessWidget {
   const AdminProfileTab({required this.onLogout, super.key});
 
@@ -241,10 +239,6 @@ class _AdminProfileTile extends StatelessWidget {
     ),
   );
 }
-
-// ---------------------------------------------------------------------------
-// Edit Profile
-// ---------------------------------------------------------------------------
 
 class AdminEditProfilePage extends StatefulWidget {
   const AdminEditProfilePage({super.key});
@@ -555,10 +549,6 @@ class _AdminEditAvatar extends StatelessWidget {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Change Password
-// ---------------------------------------------------------------------------
-
 class AdminChangePasswordPage extends StatefulWidget {
   const AdminChangePasswordPage({super.key});
 
@@ -676,10 +666,6 @@ class _AdminChangePasswordPageState extends State<AdminChangePasswordPage> {
     ),
   );
 }
-
-// ---------------------------------------------------------------------------
-// Security (two-factor + active sessions)
-// ---------------------------------------------------------------------------
 
 class AdminSecurityPage extends StatelessWidget {
   const AdminSecurityPage({super.key});
@@ -839,10 +825,6 @@ class _AdminSessionTile extends StatelessWidget {
     ),
   );
 }
-
-// ---------------------------------------------------------------------------
-// Notification Settings
-// ---------------------------------------------------------------------------
 
 class AdminNotificationSettingsPage extends StatelessWidget {
   const AdminNotificationSettingsPage({super.key});

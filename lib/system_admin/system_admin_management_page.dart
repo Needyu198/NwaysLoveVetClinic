@@ -1,6 +1,5 @@
 part of 'system_admin_portal.dart';
 
-/// The Management tab is a menu that routes into each admin capability.
 class _AdminManagementTab extends StatelessWidget {
   const _AdminManagementTab();
 

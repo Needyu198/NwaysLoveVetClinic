@@ -2,6 +2,7 @@ import 'dart:convert';
 import '../data/database_sync.dart';
 import '../data/clinic_api.dart';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,7 +13,6 @@ import '../pet_owner/contact_clinic_page.dart';
 import '../pet_owner/emergency_service_page.dart';
 import '../pet_owner/home_visit_booking_page.dart';
 import '../pet_owner/profile_flows.dart';
-import '../staff/staff_portal.dart';
 
 part 'doctor_navigation_bar.dart';
 part 'doctor_models.dart';
@@ -23,7 +23,6 @@ part 'doctor_pet_history_page.dart';
 part 'doctor_consultation_page.dart';
 part 'doctor_queue_page.dart';
 part 'doctor_medical_records_page.dart';
-part 'doctor_inventory_page.dart';
 part 'doctor_notifications_page.dart';
 part 'doctor_emergency_cases_page.dart';
 part 'doctor_home_visits_page.dart';
