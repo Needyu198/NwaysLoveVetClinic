@@ -19,7 +19,12 @@ const pool = new Pool({
   database: process.env.DB_NAME || "NwayLoveVetClinicSever",
   user: dbUser,
   password: dbPassword,
-  connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT_MS || 5000),
+  ssl: process.env.DB_SSL === "true"
+    ? { rejectUnauthorized: true }
+    : false,
+  connectionTimeoutMillis: Number(
+    process.env.DB_CONNECTION_TIMEOUT_MS || 5000
+  ),
 });
 
 module.exports = { getDatabaseConfigError, pool };
