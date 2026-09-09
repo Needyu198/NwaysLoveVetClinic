@@ -50,6 +50,6 @@ async function start() {
   return server.listen(port, host, () => console.log(`Clinic API + realtime ready at http://${host}:${port}`));
 }
 if (require.main === module) {
-  start().catch(error => { console.error('API startup failed:', error.message); pool.end(); process.exitCode = 1; });
+  start().catch(error => { console.error('API startup failed:', error); pool.end(); process.exitCode = 1; });
 }
 module.exports = { app, server, pool, start };
