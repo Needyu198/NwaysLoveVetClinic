@@ -1,6 +1,7 @@
 import '../data/database_sync.dart';
 import 'package:flutter/material.dart';
 
+import '../data/clinic_api.dart';
 import '../login/login_page.dart';
 import 'appointment_booking_page.dart';
 import 'home_visit_booking_page.dart';
@@ -1571,3 +1572,187 @@ String _supportStatus(SupportStatus status) => switch (status) {
   SupportStatus.resolved => 'Resolved',
   SupportStatus.closed => 'Closed',
 };
+
+/// Lets the signed-in pet owner change their account password. Styled like the
+/// Book Appointment page (mint + logo header). Updates the password in the
+/// database via ClinicApi.changePassword.
+class ChangePasswordPage extends StatefulWidget {
+  const ChangePasswordPage({super.key});
+
+  static const routeName = '/pet-owner-change-password';
+
+  @override
+  State<ChangePasswordPage> createState() => _ChangePasswordPageState();
+}
+
+class _ChangePasswordPageState extends State<ChangePasswordPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _current = TextEditingController();
+  final _next = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _obscureCurrent = true;
+  bool _obscureNext = true;
+  bool _obscureConfirm = true;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _next.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() => _saving = true);
+    try {
+      await ClinicApi.instance.changePassword(
+        currentPassword: _current.text,
+        newPassword: _next.text,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password changed successfully.')),
+      );
+      Navigator.of(context).pop();
+    } on ClinicApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not change the password.')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Change Password'),
+            Expanded(
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFFFF8),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFC9F5E5)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.lock_reset_rounded, color: _profileGreen),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Choose a new password with at least 8 '
+                              'characters. You stay signed in on this device.',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    _passwordField(
+                      controller: _current,
+                      label: 'Current password',
+                      obscure: _obscureCurrent,
+                      onToggle: () =>
+                          setState(() => _obscureCurrent = !_obscureCurrent),
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? 'Enter your current password'
+                          : null,
+                    ),
+                    const SizedBox(height: 14),
+                    _passwordField(
+                      controller: _next,
+                      label: 'New password',
+                      obscure: _obscureNext,
+                      onToggle: () =>
+                          setState(() => _obscureNext = !_obscureNext),
+                      validator: (v) => (v == null || v.length < 8)
+                          ? 'New password must be at least 8 characters'
+                          : null,
+                    ),
+                    const SizedBox(height: 14),
+                    _passwordField(
+                      controller: _confirm,
+                      label: 'Confirm new password',
+                      obscure: _obscureConfirm,
+                      onToggle: () =>
+                          setState(() => _obscureConfirm = !_obscureConfirm),
+                      validator: (v) =>
+                          (v != _next.text) ? 'Passwords do not match' : null,
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      key: const ValueKey('save-change-password'),
+                      onPressed: _saving ? null : _save,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _profileGreen,
+                        minimumSize: const Size.fromHeight(52),
+                        shape: const StadiumBorder(),
+                      ),
+                      child: _saving
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Update Password'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _passwordField({
+    required TextEditingController controller,
+    required String label,
+    required bool obscure,
+    required VoidCallback onToggle,
+    String? Function(String?)? validator,
+  }) => TextFormField(
+    controller: controller,
+    obscureText: obscure,
+    validator: validator,
+    decoration: InputDecoration(
+      labelText: label,
+      prefixIcon: const Icon(Icons.lock_outline_rounded),
+      suffixIcon: IconButton(
+        icon: Icon(
+          obscure ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+        ),
+        onPressed: onToggle,
+      ),
+      filled: true,
+      fillColor: const Color(0xFFF3FBF7),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+    ),
+  );
+}

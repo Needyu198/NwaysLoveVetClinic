@@ -25,7 +25,7 @@ function installApi(app, pool) {
     await pool.query("INSERT INTO app_sessions(token_hash, account_id, role, expires_at) VALUES($1,$2,$3,NOW() + INTERVAL '12 hours')", [hash(token), account.id, account.role]);
     res.json({ token, account: { id: account.id, username: account.username, fullName: account.full_name, role: account.role } });
   }));
-  app.use(['/data', '/auth/logout', '/devices'], async (req, res, next) => {
+  app.use(['/data', '/auth/logout', '/auth/change-password', '/devices'], async (req, res, next) => {
     try {
       const token = (req.headers.authorization || '').replace(/^Bearer /, '');
       const session = (await pool.query('SELECT s.* FROM app_sessions s JOIN app_accounts a ON a.id=s.account_id AND a.active AND a.role=s.role WHERE s.token_hash=$1 AND s.expires_at>NOW()', [hash(token)])).rows[0];
@@ -36,6 +36,23 @@ function installApi(app, pool) {
   });
   app.post('/auth/logout', wrap(async (req, res) => {
     await pool.query('DELETE FROM app_sessions WHERE token_hash=$1', [req.session.token_hash]);
+    res.json({ ok: true });
+  }));
+  // Change the signed-in account's password. Verifies the current password,
+  // then updates the bcrypt hash and revokes every OTHER session so stale
+  // logins can't linger (the current device keeps its session).
+  app.post('/auth/change-password', wrap(async (req, res) => {
+    const currentPassword = String(req.body.currentPassword || '');
+    const newPassword = String(req.body.newPassword || '');
+    if (!currentPassword || !newPassword) throw fail(400, 'Current and new passwords are required.');
+    if (newPassword.length < 8 || newPassword.length > 1024) throw fail(400, 'New password must be at least 8 characters.');
+    const account = (await pool.query('SELECT id, password_hash FROM app_accounts WHERE id=$1 AND active=TRUE', [req.session.account_id])).rows[0];
+    if (!account) throw fail(404, 'Account not found.');
+    if (!(await bcrypt.compare(currentPassword, account.password_hash))) throw fail(401, 'Current password is incorrect.');
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await pool.query('UPDATE app_accounts SET password_hash=$2 WHERE id=$1', [account.id, newHash]);
+    // Keep this device signed in; drop all other sessions for the account.
+    await pool.query('DELETE FROM app_sessions WHERE account_id=$1 AND token_hash<>$2', [account.id, req.session.token_hash]);
     res.json({ ok: true });
   }));
   // Register (or refresh) this device's FCM token for the signed-in account.

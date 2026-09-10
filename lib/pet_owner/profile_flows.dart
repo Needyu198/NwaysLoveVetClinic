@@ -996,151 +996,173 @@ class _AddPetPageState extends State<AddPetPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Pet'),
-        backgroundColor: const Color(0xFFA1FDD8),
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 38),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
           children: [
-            Center(
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundColor: const Color(0xFFD9FFF0),
-                    child: Icon(
-                      _hasPhoto ? Icons.check_rounded : Icons.pets_rounded,
-                      size: 50,
+            const PetOwnerPageHeader(title: 'Add Pet'),
+            Expanded(
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 38),
+                  children: [
+                    Center(
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 48,
+                            backgroundColor: const Color(0xFFD9FFF0),
+                            child: Icon(
+                              _hasPhoto
+                                  ? Icons.check_rounded
+                                  : Icons.pets_rounded,
+                              size: 50,
+                            ),
+                          ),
+                          TextButton.icon(
+                            key: const ValueKey('add-pet-photo'),
+                            onPressed: _choosePetPhoto,
+                            icon: const Icon(Icons.add_a_photo_outlined),
+                            label: Text(
+                              _hasPhoto
+                                  ? 'Pet photo selected'
+                                  : 'Add Photo (optional)',
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  TextButton.icon(
-                    key: const ValueKey('add-pet-photo'),
-                    onPressed: _choosePetPhoto,
-                    icon: const Icon(Icons.add_a_photo_outlined),
-                    label: Text(
-                      _hasPhoto ? 'Pet photo selected' : 'Add Photo (optional)',
+                    _field(
+                      _name,
+                      'Pet name *',
+                      key: const ValueKey('add-pet-name'),
+                      required: true,
                     ),
-                  ),
-                ],
-              ),
-            ),
-            _field(
-              _name,
-              'Pet name *',
-              key: const ValueKey('add-pet-name'),
-              required: true,
-            ),
-            const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              key: const ValueKey('add-pet-type'),
-              initialValue: _type,
-              decoration: const InputDecoration(
-                labelText: 'Pet type *',
-                border: OutlineInputBorder(),
-              ),
-              items: const ['Dog', 'Cat', 'Other']
-                  .map(
-                    (value) =>
-                        DropdownMenuItem(value: value, child: Text(value)),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() {
-                _type = value;
-                _breed.clear();
-              }),
-              validator: (value) => value == null ? 'Select a pet type' : null,
-            ),
-            const SizedBox(height: 14),
-            _field(
-              _breed,
-              _type == null ? 'Breed *' : '$_type breed *',
-              required: true,
-            ),
-            const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              key: const ValueKey('add-pet-sex'),
-              initialValue: _sex,
-              decoration: const InputDecoration(
-                labelText: 'Sex *',
-                border: OutlineInputBorder(),
-              ),
-              items: const ['Female', 'Male', 'Unknown']
-                  .map(
-                    (value) =>
-                        DropdownMenuItem(value: value, child: Text(value)),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => _sex = value),
-              validator: (value) => value == null ? 'Select the pet sex' : null,
-            ),
-            const SizedBox(height: 14),
-            ListTile(
-              key: const ValueKey('add-pet-dob'),
-              shape: RoundedRectangleBorder(
-                side: const BorderSide(color: Color(0xFF7A7A7A)),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              title: const Text('Date of birth *'),
-              subtitle: Text(
-                _dateOfBirth == null
-                    ? 'Select date'
-                    : '${_formatDate(_dateOfBirth!)} • Age ${_calculatedAge(_dateOfBirth!)}',
-              ),
-              trailing: const Icon(Icons.calendar_month_outlined),
-              onTap: _pickPetDate,
-            ),
-            if (_showErrors && _dateOfBirth == null)
-              const Padding(
-                padding: EdgeInsets.only(left: 14, top: 5),
-                child: Text(
-                  'Select the pet date of birth',
-                  style: TextStyle(color: Color(0xFFB3261E), fontSize: 12),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      key: const ValueKey('add-pet-type'),
+                      initialValue: _type,
+                      decoration: const InputDecoration(
+                        labelText: 'Pet type *',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const ['Dog', 'Cat', 'Other']
+                          .map(
+                            (value) => DropdownMenuItem(
+                              value: value,
+                              child: Text(value),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) => setState(() {
+                        _type = value;
+                        _breed.clear();
+                      }),
+                      validator: (value) =>
+                          value == null ? 'Select a pet type' : null,
+                    ),
+                    const SizedBox(height: 14),
+                    _field(
+                      _breed,
+                      _type == null ? 'Breed *' : '$_type breed *',
+                      required: true,
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      key: const ValueKey('add-pet-sex'),
+                      initialValue: _sex,
+                      decoration: const InputDecoration(
+                        labelText: 'Sex *',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const ['Female', 'Male', 'Unknown']
+                          .map(
+                            (value) => DropdownMenuItem(
+                              value: value,
+                              child: Text(value),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) => setState(() => _sex = value),
+                      validator: (value) =>
+                          value == null ? 'Select the pet sex' : null,
+                    ),
+                    const SizedBox(height: 14),
+                    ListTile(
+                      key: const ValueKey('add-pet-dob'),
+                      shape: RoundedRectangleBorder(
+                        side: const BorderSide(color: Color(0xFF7A7A7A)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      title: const Text('Date of birth *'),
+                      subtitle: Text(
+                        _dateOfBirth == null
+                            ? 'Select date'
+                            : '${_formatDate(_dateOfBirth!)} • Age ${_calculatedAge(_dateOfBirth!)}',
+                      ),
+                      trailing: const Icon(Icons.calendar_month_outlined),
+                      onTap: _pickPetDate,
+                    ),
+                    if (_showErrors && _dateOfBirth == null)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 14, top: 5),
+                        child: Text(
+                          'Select the pet date of birth',
+                          style: TextStyle(
+                            color: Color(0xFFB3261E),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 14),
+                    _field(
+                      _weight,
+                      'Weight in kg *',
+                      key: const ValueKey('add-pet-weight'),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      validator: (value) {
+                        final number = double.tryParse(value?.trim() ?? '');
+                        return number == null || number <= 0
+                            ? 'Enter a valid positive weight'
+                            : null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    _field(_color, 'Colour'),
+                    const SizedBox(height: 14),
+                    _field(_features, 'Identifying features', maxLines: 2),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Medical Information',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _field(_allergies, 'Allergies', maxLines: 2),
+                    const SizedBox(height: 14),
+                    _field(_conditions, 'Existing conditions', maxLines: 2),
+                    const SizedBox(height: 14),
+                    _field(_medicines, 'Current medicines', maxLines: 2),
+                    const SizedBox(height: 14),
+                    _field(_vaccination, 'Vaccination details', maxLines: 2),
+                    const SizedBox(height: 22),
+                    FilledButton(
+                      key: const ValueKey('review-add-pet'),
+                      onPressed: _review,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                      ),
+                      child: const Text('Review Pet'),
+                    ),
+                  ],
                 ),
               ),
-            const SizedBox(height: 14),
-            _field(
-              _weight,
-              'Weight in kg *',
-              key: const ValueKey('add-pet-weight'),
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              validator: (value) {
-                final number = double.tryParse(value?.trim() ?? '');
-                return number == null || number <= 0
-                    ? 'Enter a valid positive weight'
-                    : null;
-              },
-            ),
-            const SizedBox(height: 14),
-            _field(_color, 'Colour'),
-            const SizedBox(height: 14),
-            _field(_features, 'Identifying features', maxLines: 2),
-            const SizedBox(height: 20),
-            const Text(
-              'Medical Information',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 12),
-            _field(_allergies, 'Allergies', maxLines: 2),
-            const SizedBox(height: 14),
-            _field(_conditions, 'Existing conditions', maxLines: 2),
-            const SizedBox(height: 14),
-            _field(_medicines, 'Current medicines', maxLines: 2),
-            const SizedBox(height: 14),
-            _field(_vaccination, 'Vaccination details', maxLines: 2),
-            const SizedBox(height: 22),
-            FilledButton(
-              key: const ValueKey('review-add-pet'),
-              onPressed: _review,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-              ),
-              child: const Text('Review Pet'),
             ),
           ],
         ),

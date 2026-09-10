@@ -133,6 +133,16 @@ class _PetOwnerProfilePageState extends State<PetOwnerProfilePage> {
                           ),
                         ),
                         _FeatureRow(
+                          icon: Icons.lock_reset_rounded,
+                          title: 'Change Password',
+                          color: const Color(0xFF2F80FF),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ChangePasswordPage(),
+                            ),
+                          ),
+                        ),
+                        _FeatureRow(
                           icon: Icons.support_agent_rounded,
                           title: 'Help & Support',
                           color: Color(0xFF8B3DFF),

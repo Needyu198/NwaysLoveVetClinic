@@ -140,4 +140,17 @@ class ClinicApi {
       });
     }
   }
+
+  /// Changes the signed-in account's password. Verifies [currentPassword] and
+  /// sets [newPassword] on the server (updates the stored hash in the database).
+  /// Throws [ClinicApiException] with a friendly message on failure.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await request('POST', '/auth/change-password', {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+    });
+  }
 }
