@@ -37,6 +37,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '664771128258',
     projectId: 'nwayslovevetclinic',
     storageBucket: 'nwayslovevetclinic.firebasestorage.app',
-    iosBundleId: 'com.example.seniorProject',
+    iosBundleId: 'com.htinaunglynn.nwaysvetclinic',
   );
 }
