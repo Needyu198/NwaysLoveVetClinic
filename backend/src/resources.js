@@ -21,7 +21,9 @@ const resources = {
   saved_first_aid_guides: { roles: ['petOwner'], scope: 'private' },
   doctor_profiles: { roles: ['doctor'], scope: 'private' },
   doctor_appointment_state: { roles: clinic, scope: 'clinic' },
-  medical_records: { roles: clinic, scope: 'clinic' },
+  // Pet owners can READ their pets' medical/treatment records (uploaded by
+  // clinic staff/doctors). Only clinic roles may write them.
+  medical_records: { roles: owner, scope: 'clinic', writers: clinic },
   health_posts: { roles: owner, scope: 'clinic', writers: clinic },
   health_post_drafts: { roles: ['doctor'], scope: 'private' },
   doctor_notifications: { roles: ['doctor'], scope: 'private' },

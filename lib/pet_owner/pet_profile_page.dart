@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../data/clinic_api.dart';
 import '../data/database_sync.dart';
+import '../doctor/doctor_portal.dart';
 import 'pet_image.dart';
 import 'pet_owner_home_page.dart';
 import 'pet_reminder_page.dart';
@@ -167,11 +168,22 @@ class _PetProfilePageState extends State<PetProfilePage> {
                 children: [
                   _BasicInfoPanel(profile: profile),
                   const SizedBox(height: 18),
-                  const _MedicalInfoPanel(),
-                  const SizedBox(height: 18),
-                  const _AppointmentHistoryPanel(),
-                  const SizedBox(height: 18),
-                  const _TreatmentRecordPanel(),
+                  // Medical info + treatment records are uploaded by clinic
+                  // staff/doctors and read live from the medical_records table.
+                  AnimatedBuilder(
+                    animation: DoctorMedicalRecordStore.instance,
+                    builder: (context, _) {
+                      final records = DoctorMedicalRecordStore.instance
+                          .recordsFor(profile.name);
+                      return Column(
+                        children: [
+                          _MedicalInfoPanel(records: records),
+                          const SizedBox(height: 18),
+                          _TreatmentRecordPanel(records: records),
+                        ],
+                      );
+                    },
+                  ),
                   const SizedBox(height: 26),
                   const _EmergencyButton(),
                   const SizedBox(height: 34),
@@ -373,10 +385,16 @@ class _BasicInfoPanel extends StatelessWidget {
 }
 
 class _MedicalInfoPanel extends StatelessWidget {
-  const _MedicalInfoPanel();
+  const _MedicalInfoPanel({required this.records});
+
+  final List<DoctorMedicalRecord> records;
 
   @override
   Widget build(BuildContext context) {
+    // Vaccination + follow-up info from the clinic's uploaded records.
+    final vaccinations = records
+        .where((r) => r.vaccination.trim().isNotEmpty)
+        .toList();
     return _SectionPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,60 +433,26 @@ class _MedicalInfoPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const _MedicalCard(
-            icon: Icons.vaccines_rounded,
-            title: 'Vaccination history',
-            detail: 'Rabies vaccine completed',
-            meta: 'Last update: May 2026',
-          ),
-          const SizedBox(height: 12),
-          const _MedicalCard(
-            icon: Icons.event_available_rounded,
-            title: 'Upcoming vaccination',
-            detail: 'Annual booster check',
-            meta: 'Due this week',
-            accentColor: Color(0xFFEF5B4E),
-          ),
-          const SizedBox(height: 12),
-          const _MedicalCard(
-            icon: Icons.health_and_safety_rounded,
-            title: 'Allergies',
-            detail: 'No known allergies',
-            meta: 'Confirmed by clinic',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AppointmentHistoryPanel extends StatelessWidget {
-  const _AppointmentHistoryPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _SectionPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeader(
-            title: 'Appointment History',
-            icon: Icons.history_rounded,
-          ),
-          SizedBox(height: 18),
-          _TimelineVisit(
-            doctor: 'Dr. Nway',
-            time: 'Jun 12, 2026 - 10:30 AM',
-            reason: 'Checkup',
-            status: 'Completed',
-          ),
-          SizedBox(height: 14),
-          _TimelineVisit(
-            doctor: 'Clinic Team',
-            time: 'May 21, 2026 - 2:00 PM',
-            reason: 'Grooming consultation',
-            status: 'Completed',
-          ),
+          if (vaccinations.isEmpty)
+            const _EmptyRecordsNote(
+              text:
+                  'No medical info yet. Vaccination and health updates added '
+                  'by the clinic will appear here.',
+            )
+          else
+            for (var i = 0; i < vaccinations.length; i++) ...[
+              _MedicalCard(
+                icon: Icons.vaccines_rounded,
+                title: vaccinations[i].vaccination,
+                detail: vaccinations[i].findings.isNotEmpty
+                    ? vaccinations[i].findings
+                    : 'Recorded by ${vaccinations[i].ownerName.isNotEmpty ? 'the clinic' : 'the clinic'}',
+                meta: vaccinations[i].nextDoseDate.isNotEmpty
+                    ? 'Next dose: ${vaccinations[i].nextDoseDate}'
+                    : 'Recorded ${_shortDate(vaccinations[i].date)}',
+              ),
+              if (i != vaccinations.length - 1) const SizedBox(height: 12),
+            ],
         ],
       ),
     );
@@ -476,27 +460,172 @@ class _AppointmentHistoryPanel extends StatelessWidget {
 }
 
 class _TreatmentRecordPanel extends StatelessWidget {
-  const _TreatmentRecordPanel();
+  const _TreatmentRecordPanel({required this.records});
+
+  final List<DoctorMedicalRecord> records;
 
   @override
   Widget build(BuildContext context) {
-    return const _SectionPanel(
+    return _SectionPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionHeader(
+          const _SectionHeader(
             title: 'Treatment Records',
             icon: Icons.receipt_long_rounded,
           ),
-          SizedBox(height: 18),
-          _RecordRow(icon: Icons.fact_check_rounded, text: 'Diagnosis'),
-          _RecordRow(icon: Icons.healing_rounded, text: 'Treatment details'),
-          _RecordRow(icon: Icons.medication_rounded, text: 'Medicines'),
-          _RecordRow(icon: Icons.schedule_rounded, text: 'Dosage instructions'),
+          const SizedBox(height: 16),
+          if (records.isEmpty)
+            const _EmptyRecordsNote(
+              text:
+                  'No treatment records yet. Diagnoses and treatments added '
+                  'by your veterinarian will appear here.',
+            )
+          else
+            for (var i = 0; i < records.length; i++) ...[
+              _TreatmentRecordCard(record: records[i]),
+              if (i != records.length - 1) const SizedBox(height: 12),
+            ],
         ],
       ),
     );
   }
+}
+
+/// A single doctor-authored treatment record (read-only for the owner).
+class _TreatmentRecordCard extends StatelessWidget {
+  const _TreatmentRecordCard({required this.record});
+
+  final DoctorMedicalRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <(IconData, String, String)>[
+      if (record.diagnosis.trim().isNotEmpty)
+        (Icons.fact_check_rounded, 'Diagnosis', record.diagnosis),
+      if (record.treatment.trim().isNotEmpty)
+        (Icons.healing_rounded, 'Treatment', record.treatment),
+      if (record.prescription.trim().isNotEmpty)
+        (Icons.medication_rounded, 'Medicines', record.prescription),
+      if (record.followUp.trim().isNotEmpty)
+        (Icons.schedule_rounded, 'Follow-up', record.followUp),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FFFC),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFD8F4EA)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  record.service.isNotEmpty ? record.service : 'Consultation',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF16785B),
+                  ),
+                ),
+              ),
+              Text(
+                _shortDate(record.date),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF6C817A),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          if (rows.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'No treatment details recorded.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF6C817A)),
+              ),
+            )
+          else
+            for (final row in rows)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(row.$1, size: 18, color: const Color(0xFF16785B)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            color: Color(0xFF17332B),
+                            height: 1.3,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: '${row.$2}: ',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            TextSpan(text: row.$3),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small placeholder shown when a pet has no clinic records yet.
+class _EmptyRecordsNote extends StatelessWidget {
+  const _EmptyRecordsNote({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF3FBF7),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFD8F4EA)),
+    ),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 13.5, color: Color(0xFF6C817A)),
+    ),
+  );
+}
+
+String _shortDate(DateTime date) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${months[date.month - 1]} ${date.day}, ${date.year}';
 }
 
 class _InfoTile extends StatelessWidget {
@@ -559,14 +688,14 @@ class _MedicalCard extends StatelessWidget {
     required this.title,
     required this.detail,
     required this.meta,
-    this.accentColor = const Color(0xFF16785B),
   });
+
+  static const Color _accent = Color(0xFF16785B);
 
   final IconData icon;
   final String title;
   final String detail;
   final String meta;
-  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -583,10 +712,10 @@ class _MedicalCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.12),
+              color: _accent.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: accentColor, size: 25),
+            child: Icon(icon, color: _accent, size: 25),
           ),
           const SizedBox(width: 13),
           Expanded(
@@ -599,106 +728,11 @@ class _MedicalCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   meta,
-                  style: _PetProfileStyles.cardMeta.copyWith(
-                    color: accentColor,
-                  ),
+                  style: _PetProfileStyles.cardMeta.copyWith(color: _accent),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TimelineVisit extends StatelessWidget {
-  const _TimelineVisit({
-    required this.doctor,
-    required this.time,
-    required this.reason,
-    required this.status,
-  });
-
-  final String doctor;
-  final String time;
-  final String reason;
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          children: [
-            Container(
-              width: 14,
-              height: 14,
-              decoration: const BoxDecoration(
-                color: Color(0xFF18A77B),
-                shape: BoxShape.circle,
-              ),
-            ),
-            Container(width: 2, height: 72, color: const Color(0xFFD3EFE5)),
-          ],
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: const Color(0xFFE3F3ED)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(doctor, style: _PetProfileStyles.cardTitle),
-                    ),
-                    _StatusPill(label: status),
-                  ],
-                ),
-                const SizedBox(height: 7),
-                Text(time, style: _PetProfileStyles.cardDetail),
-                const SizedBox(height: 5),
-                Text(reason, style: _PetProfileStyles.cardMeta),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RecordRow extends StatelessWidget {
-  const _RecordRow({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE8FFF5),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: Color(0xFF16785B), size: 21),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(text, style: _PetProfileStyles.recordText)),
         ],
       ),
     );
@@ -956,24 +990,6 @@ class _HeroChip extends StatelessWidget {
   }
 }
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8FFF5),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(label, style: _PetProfileStyles.status),
-    );
-  }
-}
-
 class _PetProfileStyles {
   static const pageTitle = TextStyle(
     color: Colors.black,
@@ -1039,20 +1055,6 @@ class _PetProfileStyles {
     color: Color(0xFF16785B),
     fontSize: 13,
     fontWeight: FontWeight.w800,
-    letterSpacing: 0,
-  );
-
-  static const recordText = TextStyle(
-    color: Colors.black,
-    fontSize: 18,
-    fontWeight: FontWeight.w800,
-    letterSpacing: 0,
-  );
-
-  static const status = TextStyle(
-    color: Color(0xFF16785B),
-    fontSize: 12,
-    fontWeight: FontWeight.w900,
     letterSpacing: 0,
   );
 }
