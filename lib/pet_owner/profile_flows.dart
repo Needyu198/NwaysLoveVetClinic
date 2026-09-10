@@ -141,6 +141,30 @@ class _OwnerPhotoAvatar extends StatelessWidget {
   }
 }
 
+/// Circular pet avatar that shows the uploaded photo (base64 data URI) when
+/// available, otherwise a paw-print placeholder.
+class _PetPhotoAvatar extends StatelessWidget {
+  const _PetPhotoAvatar({required this.photoUrl});
+  final String? photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = photoUrl != null ? PetPhoto.decodeDataUri(photoUrl!) : null;
+    return Container(
+      width: 108,
+      height: 108,
+      decoration: const BoxDecoration(
+        color: Color(0xFFD9FFF0),
+        shape: BoxShape.circle,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: bytes != null
+          ? Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true)
+          : const Icon(Icons.pets_rounded, size: 54, color: Color(0xFF5F8177)),
+    );
+  }
+}
+
 class ProfilePet {
   Map<String, dynamic> toDb() => {
     'name': name,
@@ -962,34 +986,19 @@ class _AddPetPageState extends State<AddPetPage> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _breed = TextEditingController();
-  final _weight = TextEditingController();
-  final _color = TextEditingController();
-  final _features = TextEditingController();
-  final _allergies = TextEditingController();
-  final _conditions = TextEditingController();
-  final _medicines = TextEditingController();
-  final _vaccination = TextEditingController();
   String? _type;
   String? _sex;
-  DateTime? _dateOfBirth;
-  bool _hasPhoto = false;
-  bool _showErrors = false;
+
+  /// Uploaded pet photo as a base64 data URI (or null when none chosen).
+  String? _photoSource;
+
+  bool get _hasPhoto =>
+      _photoSource != null && _photoSource!.startsWith('data:');
 
   @override
   void dispose() {
-    for (final controller in [
-      _name,
-      _breed,
-      _weight,
-      _color,
-      _features,
-      _allergies,
-      _conditions,
-      _medicines,
-      _vaccination,
-    ]) {
-      controller.dispose();
-    }
+    _name.dispose();
+    _breed.dispose();
     super.dispose();
   }
 
@@ -1011,29 +1020,28 @@ class _AddPetPageState extends State<AddPetPage> {
                     Center(
                       child: Column(
                         children: [
-                          CircleAvatar(
-                            radius: 48,
-                            backgroundColor: const Color(0xFFD9FFF0),
-                            child: Icon(
-                              _hasPhoto
-                                  ? Icons.check_rounded
-                                  : Icons.pets_rounded,
-                              size: 50,
-                            ),
-                          ),
+                          _PetPhotoAvatar(photoUrl: _photoSource),
                           TextButton.icon(
                             key: const ValueKey('add-pet-photo'),
                             onPressed: _choosePetPhoto,
                             icon: const Icon(Icons.add_a_photo_outlined),
                             label: Text(
-                              _hasPhoto
-                                  ? 'Pet photo selected'
-                                  : 'Add Photo (optional)',
+                              _hasPhoto ? 'Change Photo' : 'Add Photo',
                             ),
                           ),
+                          if (_hasPhoto)
+                            TextButton(
+                              onPressed: () =>
+                                  setState(() => _photoSource = null),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFFB3261E),
+                              ),
+                              child: const Text('Remove Photo'),
+                            ),
                         ],
                       ),
                     ),
+                    const SizedBox(height: 8),
                     _field(
                       _name,
                       'Pet name *',
@@ -1089,76 +1097,14 @@ class _AddPetPageState extends State<AddPetPage> {
                       validator: (value) =>
                           value == null ? 'Select the pet sex' : null,
                     ),
-                    const SizedBox(height: 14),
-                    ListTile(
-                      key: const ValueKey('add-pet-dob'),
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(color: Color(0xFF7A7A7A)),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      title: const Text('Date of birth *'),
-                      subtitle: Text(
-                        _dateOfBirth == null
-                            ? 'Select date'
-                            : '${_formatDate(_dateOfBirth!)} • Age ${_calculatedAge(_dateOfBirth!)}',
-                      ),
-                      trailing: const Icon(Icons.calendar_month_outlined),
-                      onTap: _pickPetDate,
-                    ),
-                    if (_showErrors && _dateOfBirth == null)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 14, top: 5),
-                        child: Text(
-                          'Select the pet date of birth',
-                          style: TextStyle(
-                            color: Color(0xFFB3261E),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 14),
-                    _field(
-                      _weight,
-                      'Weight in kg *',
-                      key: const ValueKey('add-pet-weight'),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      validator: (value) {
-                        final number = double.tryParse(value?.trim() ?? '');
-                        return number == null || number <= 0
-                            ? 'Enter a valid positive weight'
-                            : null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    _field(_color, 'Colour'),
-                    const SizedBox(height: 14),
-                    _field(_features, 'Identifying features', maxLines: 2),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Medical Information',
-                      style: TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _field(_allergies, 'Allergies', maxLines: 2),
-                    const SizedBox(height: 14),
-                    _field(_conditions, 'Existing conditions', maxLines: 2),
-                    const SizedBox(height: 14),
-                    _field(_medicines, 'Current medicines', maxLines: 2),
-                    const SizedBox(height: 14),
-                    _field(_vaccination, 'Vaccination details', maxLines: 2),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 24),
                     FilledButton(
                       key: const ValueKey('review-add-pet'),
                       onPressed: _review,
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(52),
                       ),
-                      child: const Text('Review Pet'),
+                      child: const Text('Add Pet'),
                     ),
                   ],
                 ),
@@ -1197,7 +1143,7 @@ class _AddPetPageState extends State<AddPetPage> {
   );
 
   Future<void> _choosePetPhoto() async {
-    final selected = await showModalBottomSheet<bool>(
+    final source = await showModalBottomSheet<ImageSource>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
@@ -1207,33 +1153,49 @@ class _AddPetPageState extends State<AddPetPage> {
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
               title: const Text('Camera'),
-              onTap: () => Navigator.of(context).pop(true),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Photo Gallery'),
-              onTap: () => Navigator.of(context).pop(true),
-            ),
-            ListTile(
-              leading: const Icon(Icons.image_not_supported_outlined),
-              title: const Text('Use default pet image'),
-              onTap: () => Navigator.of(context).pop(false),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
             ),
           ],
         ),
       ),
     );
-    if (selected != null) setState(() => _hasPhoto = selected);
-  }
-
-  Future<void> _pickPetDate() async {
-    final value = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now().subtract(const Duration(days: 365)),
-      firstDate: DateTime(1990),
-      lastDate: DateTime.now(),
-    );
-    if (value != null) setState(() => _dateOfBirth = value);
+    if (!mounted || source == null) return;
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 82,
+      );
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      if (bytes.length > 2 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please choose a photo smaller than 2 MB.'),
+            ),
+          );
+        }
+        return;
+      }
+      if (mounted) {
+        setState(
+          () => _photoSource = 'data:image/jpeg;base64,${base64Encode(bytes)}',
+        );
+      }
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the image picker.')),
+        );
+      }
+    }
   }
 
   ProfilePet _buildPet() => ProfilePet(
@@ -1241,25 +1203,21 @@ class _AddPetPageState extends State<AddPetPage> {
     type: _type!,
     breed: _breed.text.trim(),
     sex: _sex!,
-    dateOfBirth: _dateOfBirth!,
-    weightKg: double.parse(_weight.text.trim()),
-    color: _color.text.trim(),
-    identifyingFeatures: _features.text.trim(),
-    allergies: _allergies.text.trim(),
-    conditions: _conditions.text.trim(),
-    medicines: _medicines.text.trim(),
-    vaccination: _vaccination.text.trim(),
+    // Not collected on this form; sensible defaults keep the model valid.
+    dateOfBirth: DateTime(2020),
+    weightKg: 0,
+    color: '',
+    identifyingFeatures: '',
+    allergies: 'None known',
+    conditions: 'None known',
+    medicines: 'None',
+    vaccination: '',
     hasCustomPhoto: _hasPhoto,
+    photoUrl: _photoSource ?? '',
   );
 
   Future<void> _review() async {
-    setState(() => _showErrors = true);
-    final valid = _formKey.currentState!.validate();
-    if (_dateOfBirth == null) {
-      setState(() {});
-      return;
-    }
-    if (!valid) return;
+    if (!_formKey.currentState!.validate()) return;
     final pet = _buildPet();
     if (ProfilePetStore.instance.isDuplicate(pet)) {
       final proceed = await showDialog<bool>(
@@ -1288,9 +1246,7 @@ class _AddPetPageState extends State<AddPetPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Review Pet'),
-        content: Text(
-          '${pet.name}\n${pet.type} • ${pet.breed}\n${pet.sex} • ${_calculatedAge(pet.dateOfBirth)}\n${pet.weightKg} kg\nVaccination: ${pet.vaccination.isEmpty ? 'Not provided' : pet.vaccination}',
-        ),
+        content: Text('${pet.name}\n${pet.type} • ${pet.breed}\n${pet.sex}'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -1433,24 +1389,6 @@ class _RescheduleAppointmentPageState extends State<RescheduleAppointmentPage> {
 
 String _formatDate(DateTime date) =>
     '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-
-String _calculatedAge(DateTime date) {
-  final pet = ProfilePet(
-    name: '',
-    type: '',
-    breed: '',
-    sex: '',
-    dateOfBirth: date,
-    weightKg: 1,
-    color: '',
-    identifyingFeatures: '',
-    allergies: '',
-    conditions: '',
-    medicines: '',
-    vaccination: '',
-  );
-  return pet.ageYears == 0 ? 'Under 1 year' : '${pet.ageYears} years';
-}
 
 Future<void> _confirmLocationCall(BuildContext context) async {
   final confirmed = await showDialog<bool>(
