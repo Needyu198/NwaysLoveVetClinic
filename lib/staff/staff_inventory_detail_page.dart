@@ -33,6 +33,7 @@ class StaffInventoryDetailPage extends StatelessWidget {
                   child: Row(
                     children: [
                       Container(
+                        key: ValueKey('inventory-detail-image-${item.id}'),
                         width: 84,
                         height: 84,
                         decoration: BoxDecoration(

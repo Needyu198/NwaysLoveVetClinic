@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'appointment_booking_page.dart';
 import 'contact_clinic_page.dart';
 import 'pet_owner_page_header.dart';
+import 'profile_pet_avatar.dart';
 
 class EmergencyServicePage extends StatefulWidget {
   const EmergencyServicePage({super.key});
@@ -414,6 +415,7 @@ class _EmergencyServicePageState extends State<EmergencyServicePage> {
           children: [
             PetOwnerPageHeader(
               title: 'Emergency Service',
+              logoKey: const ValueKey('emergency-service-logo'),
               onBack: _back,
               actions: [
                 IconButton(
@@ -534,8 +536,14 @@ class _EmergencyServicePageState extends State<EmergencyServicePage> {
           return _EmergencySelectTile(
             key: ValueKey('emergency-pet-${pet.name}'),
             selected: _pet == pet,
-            icon: Icons.pets_rounded,
             color: pet.color,
+            leading: ProfilePetAvatar(
+              petName: pet.name,
+              radius: 27,
+              fallbackBackground: pet.color.withValues(alpha: 0.14),
+              fallbackForeground: pet.color,
+              photoKey: ValueKey('emergency-pet-photo-${pet.name}'),
+            ),
             title: pet.name,
             subtitle:
                 '${pet.breed} • ${pet.age}\nMedical history: ${pet.medicalHistory}',
@@ -1001,8 +1009,8 @@ class _EmergencyStep extends StatelessWidget {
 class _EmergencySelectTile extends StatelessWidget {
   const _EmergencySelectTile({
     required this.selected,
-    required this.icon,
     required this.color,
+    required this.leading,
     required this.title,
     required this.subtitle,
     required this.onTap,
@@ -1010,8 +1018,8 @@ class _EmergencySelectTile extends StatelessWidget {
   });
 
   final bool selected;
-  final IconData icon;
   final Color color;
+  final Widget leading;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -1035,11 +1043,7 @@ class _EmergencySelectTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                backgroundColor: color.withValues(alpha: 0.14),
-                foregroundColor: color,
-                child: Icon(icon),
-              ),
+              leading,
               const SizedBox(width: 13),
               Expanded(
                 child: Column(

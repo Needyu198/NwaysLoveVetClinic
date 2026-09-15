@@ -81,7 +81,7 @@ class PetOwnerClinicPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF7FAF8),
       body: Stack(
         children: [
           CustomScrollView(
@@ -93,18 +93,10 @@ class PetOwnerClinicPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 18),
-                      const Center(
-                        child: Image(
-                          image: AssetImage(PetOwnerHomePage.logoAsset),
-                          width: 132,
-                          height: 132,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                      const SizedBox(height: 34),
+                      const _ClinicPageHeader(),
+                      const SizedBox(height: 20),
                       const _ClinicInfoCard(),
-                      const SizedBox(height: 46),
+                      const SizedBox(height: 34),
                       const _SectionHeading('Doctor Profiles'),
                       const SizedBox(height: 18),
                       const _DoctorProfileList(),
@@ -148,33 +140,92 @@ class PetOwnerClinicPage extends StatelessWidget {
   }
 }
 
+class _ClinicPageHeader extends StatelessWidget {
+  const _ClinicPageHeader();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 20),
+    padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFC5F7E3),
+      borderRadius: BorderRadius.circular(28),
+    ),
+    child: Row(
+      children: [
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Clinic Information',
+                style: TextStyle(
+                  color: PetOwnerClinicPage.inkColor,
+                  fontSize: 25,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Care, services and support in one place.',
+                style: TextStyle(
+                  color: PetOwnerClinicPage.mutedTextColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Image(
+          key: ValueKey('clinic-information-logo'),
+          image: AssetImage(PetOwnerHomePage.logoAsset),
+          width: 64,
+          height: 64,
+          fit: BoxFit.contain,
+        ),
+      ],
+    ),
+  );
+}
+
 class _ClinicInfoCard extends StatelessWidget {
   const _ClinicInfoCard();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(26),
         child: DecoratedBox(
-          decoration: const BoxDecoration(color: PetOwnerClinicPage.infoColor),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0xFFDDE9E4)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x100B2F25),
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AspectRatio(
-                aspectRatio: 2.08,
+                aspectRatio: 2.25,
                 child: Image.asset(
                   PetOwnerClinicPage.clinicBannerAsset,
                   fit: BoxFit.cover,
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(28, 24, 24, 34),
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
                 child: Column(
                   children: [
                     const _StatusStrip(),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 16),
                     _InfoRow(
                       icon: Icons.location_on,
                       iconColor: Color(0xFFD71920),
@@ -182,21 +233,21 @@ class _ClinicInfoCard extends StatelessWidget {
                       value:
                           'Chindwin street,Mingalardipa quarter,\nPopba Thiri Township,Nay Pyi Taw',
                     ),
-                    SizedBox(height: 18),
+                    SizedBox(height: 12),
                     _InfoRow(
                       icon: Icons.phone,
                       iconColor: Color(0xFF0099BD),
                       title: 'Phone',
                       value: '09-5312717, 09-965805940',
                     ),
-                    SizedBox(height: 18),
+                    SizedBox(height: 12),
                     _InfoRow(
                       icon: Icons.alarm_on_rounded,
                       iconColor: Color(0xFFFF6B00),
                       title: 'Clinic Hours',
                       value: '8AM - 10PM',
                     ),
-                    SizedBox(height: 24),
+                    SizedBox(height: 18),
                     Row(
                       children: [
                         Expanded(
@@ -253,7 +304,7 @@ class _StatusStrip extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
+        color: const Color(0xFFE8FFF5),
         borderRadius: BorderRadius.circular(18),
       ),
       child: const Row(
@@ -272,7 +323,7 @@ class _StatusStrip extends StatelessWidget {
             ),
           ),
           Text(
-            'Next closes 7:00 PM',
+            '8:00 AM–10:00 PM',
             style: TextStyle(
               color: PetOwnerClinicPage.mutedTextColor,
               fontSize: 13,
@@ -358,8 +409,16 @@ class _InfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 58, child: Icon(icon, color: iconColor, size: 45)),
-        const SizedBox(width: 8),
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Icon(icon, color: iconColor, size: 23),
+        ),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,9 +426,9 @@ class _InfoRow extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  color: PetOwnerClinicPage.inkColor,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w500,
+                  color: PetOwnerClinicPage.mutedTextColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 0,
                 ),
               ),
@@ -378,9 +437,9 @@ class _InfoRow extends StatelessWidget {
                 value,
                 style: const TextStyle(
                   color: PetOwnerClinicPage.inkColor,
-                  fontSize: 23,
-                  height: 1.22,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  height: 1.28,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 0,
                 ),
               ),

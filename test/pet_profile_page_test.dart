@@ -72,6 +72,13 @@ void main() {
       500,
       scrollable: find.byType(Scrollable).first,
     );
+    expect(
+      find.descendant(
+        of: emergencyButton,
+        matching: find.byIcon(Icons.emergency_rounded),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(emergencyButton);
     await tester.pumpAndSettle();
 

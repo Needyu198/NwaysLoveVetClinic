@@ -16,6 +16,12 @@ const { Server } = require('socket.io');
 const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 
 let io = null;
+const queueTables = Object.freeze([
+  'appointments',
+  'queue_entries',
+  'walk_in_appointments',
+  'doctor_appointment_state',
+]);
 
 /**
  * Attach Socket.io to the given HTTP server.
@@ -66,6 +72,16 @@ function attachRealtime(httpServer, pool) {
 function broadcastChange(table, meta = {}) {
   if (!io) return;
   io.emit('data:changed', { table, at: Date.now(), ...meta });
+  if (queueTables.includes(table)) {
+    // Queue screens use different tables depending on the signed-in role.
+    // One domain event lets every path refresh its permitted queue snapshot.
+    io.emit('queue:changed', {
+      sourceTable: table,
+      tables: queueTables,
+      at: Date.now(),
+      ...meta,
+    });
+  }
 }
 
-module.exports = { attachRealtime, broadcastChange };
+module.exports = { attachRealtime, broadcastChange, queueTables };

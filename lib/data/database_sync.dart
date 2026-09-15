@@ -166,18 +166,30 @@ class DatabaseSync extends ChangeNotifier {
   /// No-op when the session is inactive, currently syncing, or the table has
   /// local unsaved edits (to avoid clobbering the user's in-flight changes).
   Future<void> refreshTable(String table) async {
+    await refreshTables([table]);
+  }
+
+  /// Re-hydrate several related tables under one busy window. Socket.IO uses
+  /// this for queue domain events because staff, doctor and owner queue pages
+  /// are backed by different role-scoped tables.
+  Future<void> refreshTables(Iterable<String> tables) async {
     if (!active || busy) return;
-    final matches = _bindings.where((b) => b.table == table && b.allowed);
+    final requested = tables.toSet();
+    final matches = _bindings
+        .where((b) => requested.contains(b.table) && b.allowed)
+        .toList();
     if (matches.isEmpty) return;
-    for (final b in matches) {
-      if (b.dirty) return; // defer; the pending flush will reconcile
-    }
+    if (matches.any((b) => b.dirty)) await flush();
+    final cleanMatches = matches.where((b) => !b.dirty).toList();
+    if (cleanMatches.isEmpty) return;
     busy = true;
     try {
-      for (final b in matches) {
+      for (final table in cleanMatches.map((b) => b.table).toSet()) {
         final result = await ClinicApi.instance.request('GET', '/data/$table');
-        b.hydrate(result['records'] as List);
-        b.store.notifyListeners();
+        for (final b in cleanMatches.where((b) => b.table == table)) {
+          b.hydrate(result['records'] as List);
+          b.store.notifyListeners();
+        }
       }
     } on ClinicApiException catch (e) {
       if (e.statusCode != 403) error = e.toString();

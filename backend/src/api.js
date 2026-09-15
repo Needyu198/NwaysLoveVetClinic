@@ -83,17 +83,22 @@ function installApi(app, pool) {
   app.get('/data/:table', wrap(async (req, res) => {
     const p = policy(req);
     if (req.params.table === 'clinic_directory') {
-      // Public directory of doctors/staff. Includes the doctor's public photo
-      // (from their doctor_profiles record) and specialty when available.
+      // Public directory of doctors/staff. Only exposes booking-relevant public
+      // fields; private contact and credential data remain in role-owned tables.
       const result = await pool.query(`SELECT a.id, a.id AS owner_id, 1 AS version,
         jsonb_build_object('key',a.id,'value',jsonb_build_object(
           'id',a.id,
           'name',COALESCE(NULLIF(a.full_name, ''),a.username),
           'role',a.role,
-          'photoUrl',dp.data->'value'->>'photoUrl',
-          'specialty',dp.data->'value'->>'specialty')) AS data
+          'photoUrl',COALESCE(dp.data->'value'->>'photoUrl',sp.data->'value'->>'photoPath'),
+          'specialty',COALESCE(dp.data->'value'->>'specialty',sp.data->'value'->>'shift'),
+          'available',CASE WHEN a.role='staff'
+            THEN COALESCE(sp.data->'value'->>'onShift' = 'true', FALSE)
+            ELSE COALESCE(dp.data->'value'->>'acceptingAppointments' = 'true', TRUE)
+          END)) AS data
         FROM app_accounts a
         LEFT JOIN doctor_profiles dp ON dp.owner_id = a.id
+        LEFT JOIN staff_profiles sp ON sp.owner_id = a.id
         WHERE a.active AND a.role IN ('doctor','staff') ORDER BY a.full_name,a.id`);
       return res.json({records:result.rows});
     }
@@ -177,7 +182,14 @@ function installApi(app, pool) {
       await client.query('COMMIT');
       // Notify connected clients that this table changed so they refresh live
       // (drives the real-time queue). Only emit when something actually changed.
-      if (changes.length || deletions.length) broadcastChange(req.params.table);
+      if (changes.length || deletions.length) {
+        broadcastChange(req.params.table);
+        // clinic_directory is a computed view over accounts + doctor profiles.
+        // Refresh staff/owner doctor pickers as soon as availability changes.
+        if (req.params.table === 'doctor_profiles' || req.params.table === 'staff_profiles' || req.params.table === 'user_directory') {
+          broadcastChange('clinic_directory');
+        }
+      }
       res.json({ records: saved });
     } catch (e) { await client.query('ROLLBACK'); if (e.code === '23505') throw fail(409, 'Record already exists. Reload before saving.'); throw e; }
     finally { client.release(); }

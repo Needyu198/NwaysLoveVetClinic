@@ -3,7 +3,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../data/clinic_api.dart';
+import '../data/clinic_directory.dart';
 import 'pet_owner_page_header.dart';
+import 'profile_flows.dart';
+import 'profile_pet_avatar.dart';
 
 class PetCareServicesPage extends StatelessWidget {
   const PetCareServicesPage({super.key});
@@ -20,6 +24,7 @@ class PetCareServicesPage extends StatelessWidget {
           children: [
             PetOwnerPageHeader(
               title: 'Pet Care Services',
+              logoKey: const ValueKey('pet-care-services-logo'),
               actions: [
                 IconButton(
                   tooltip: 'My Service Bookings',
@@ -64,52 +69,60 @@ class MyServiceBookingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _CareColors.page,
-      appBar: AppBar(
-        title: const Text('My Service Bookings'),
-        backgroundColor: _CareColors.mint,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: AnimatedBuilder(
-        animation: PetCareBookingStore.instance,
-        builder: (context, _) {
-          final bookings = PetCareBookingStore.instance.bookings;
-          if (bookings.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.content_cut_rounded,
-                      size: 70,
-                      color: _CareColors.muted,
-                    ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      'No service bookings yet',
-                      style: _CareText.title,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Choose Pet Care Services from the Clinic categories to make a booking.',
-                      textAlign: TextAlign.center,
-                      style: _CareText.body,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(
+              title: 'My Service Bookings',
+              logoKey: ValueKey('my-service-bookings-logo'),
+            ),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: PetCareBookingStore.instance,
+                builder: (context, _) {
+                  final bookings = PetCareBookingStore.instance.bookings;
+                  if (bookings.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.content_cut_rounded,
+                              size: 70,
+                              color: _CareColors.muted,
+                            ),
+                            const SizedBox(height: 18),
+                            const Text(
+                              'No service bookings yet',
+                              style: _CareText.title,
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Choose Pet Care Services from the Clinic categories to make a booking.',
+                              textAlign: TextAlign.center,
+                              style: _CareText.body,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
 
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-            itemCount: bookings.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 14),
-            itemBuilder: (context, index) =>
-                _ServiceBookingCard(booking: bookings[index]),
-          );
-        },
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+                    itemCount: bookings.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) =>
+                        _ServiceBookingCard(booking: bookings[index]),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -187,6 +200,7 @@ class PetCareBooking {
   Map<String, dynamic> toDb() => {
     'id': id,
     'service': service.toDb(),
+    'option': option,
     'pet': pet.toDb(),
     'provider': provider,
     'date': date.toIso8601String(),
@@ -202,6 +216,7 @@ class PetCareBooking {
       service: PetCareService.fromDb(
         Map<String, dynamic>.from(data['service'] as Map),
       ),
+      option: data['option'] as String? ?? '',
       pet: CarePet.fromDb(Map<String, dynamic>.from(data['pet'] as Map)),
       provider: data['provider'] as String,
       date: DateTime.parse(data['date'] as String),
@@ -217,6 +232,7 @@ class PetCareBooking {
   PetCareBooking({
     required this.id,
     required this.service,
+    this.option = '',
     required this.pet,
     required this.provider,
     required this.date,
@@ -227,6 +243,7 @@ class PetCareBooking {
 
   final String id;
   final PetCareService service;
+  final String option;
   final CarePet pet;
   final String provider;
   final DateTime date;
@@ -315,6 +332,7 @@ class CarePet {
     'age': age,
     'health': health,
     'color': color.toARGB32(),
+    'petKey': petKey,
   };
   static CarePet fromDb(Map<String, dynamic> data) {
     final value = CarePet(
@@ -323,6 +341,7 @@ class CarePet {
       age: data['age'] as String,
       health: data['health'] as String,
       color: Color(data['color'] as int),
+      petKey: data['petKey'] as String? ?? '',
     );
     return value;
   }
@@ -333,6 +352,7 @@ class CarePet {
     required this.age,
     required this.health,
     required this.color,
+    this.petKey = '',
   });
 
   final String name;
@@ -340,6 +360,7 @@ class CarePet {
   final String age;
   final String health;
   final Color color;
+  final String petKey;
 }
 
 class PetCareCatalog {
@@ -503,73 +524,131 @@ class _ServiceCard extends StatelessWidget {
   }
 }
 
-class PetCareServiceDetailsPage extends StatelessWidget {
+class PetCareServiceDetailsPage extends StatefulWidget {
   const PetCareServiceDetailsPage({required this.service, super.key});
 
   final PetCareService service;
 
   @override
+  State<PetCareServiceDetailsPage> createState() =>
+      _PetCareServiceDetailsPageState();
+}
+
+class _PetCareServiceDetailsPageState extends State<PetCareServiceDetailsPage> {
+  late ServicePriceOption _selectedOption;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedOption = widget.service.options.first;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _CareColors.page,
-      appBar: AppBar(
-        title: Text('${service.name} Services'),
-        backgroundColor: _CareColors.mint,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 118),
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: const BoxDecoration(
-                  color: _CareColors.mint,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(service.icon, size: 32),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            PetOwnerPageHeader(
+              title: '${widget.service.name} Services',
+              logoKey: ValueKey(
+                'pet-care-${widget.service.name.toLowerCase()}-logo',
               ),
-              const SizedBox(width: 15),
-              Expanded(child: Text(service.name, style: _CareText.title)),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text(service.description, style: _CareText.body),
-          const SizedBox(height: 18),
-          _DetailPanel(
-            title: 'Service information',
-            children: [
-              _DetailRow('Price', service.price),
-              _DetailRow('Duration', service.duration),
-              _DetailRow('Availability', service.availability),
-              _DetailRow('Requirements', service.requirements),
-              _DetailRow('Providers', service.providers.join(', ')),
-            ],
-          ),
-          const SizedBox(height: 18),
-          const Text('Service menu', style: _CareText.section),
-          const SizedBox(height: 10),
-          for (final option in service.options) ...[
-            Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _CareColors.mint,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 118),
                 children: [
-                  Text(option.name, style: _CareText.cardTitle),
-                  const SizedBox(height: 7),
-                  Text(option.prices, style: _CareText.bodyDark),
+                  Row(
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: const BoxDecoration(
+                          color: _CareColors.mint,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(widget.service.icon, size: 32),
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: Text(
+                          widget.service.name,
+                          style: _CareText.title,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Text(widget.service.description, style: _CareText.body),
+                  const SizedBox(height: 18),
+                  _DetailPanel(
+                    title: 'Service information',
+                    children: [
+                      _DetailRow('Price', widget.service.price),
+                      _DetailRow('Duration', widget.service.duration),
+                      _DetailRow('Availability', widget.service.availability),
+                      _DetailRow('Requirements', widget.service.requirements),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  const Text('Select a service', style: _CareText.section),
+                  const SizedBox(height: 10),
+                  for (final option in widget.service.options) ...[
+                    InkWell(
+                      key: ValueKey('care-option-${option.name}'),
+                      onTap: () => setState(() => _selectedOption = option),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: _selectedOption == option
+                              ? _CareColors.mint
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _selectedOption == option
+                                ? _CareColors.green
+                                : const Color(0xFFD7E4DF),
+                            width: _selectedOption == option ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(option.name, style: _CareText.cardTitle),
+                                  const SizedBox(height: 7),
+                                  Text(
+                                    option.prices,
+                                    style: _CareText.bodyDark,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              _selectedOption == option
+                                  ? Icons.check_circle_rounded
+                                  : Icons.circle_outlined,
+                              color: _selectedOption == option
+                                  ? _CareColors.green
+                                  : _CareColors.muted,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ],
-        ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -577,7 +656,10 @@ class PetCareServiceDetailsPage extends StatelessWidget {
           key: const ValueKey('start-service-booking'),
           onPressed: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (_) => PetCareBookingPage(service: service),
+              builder: (_) => PetCareBookingPage(
+                service: widget.service,
+                option: _selectedOption,
+              ),
             ),
           ),
           icon: const Icon(Icons.calendar_month_outlined),
@@ -590,15 +672,53 @@ class PetCareServiceDetailsPage extends StatelessWidget {
 }
 
 class PetCareBookingPage extends StatefulWidget {
-  const PetCareBookingPage({required this.service, super.key});
+  const PetCareBookingPage({required this.service, this.option, super.key});
 
   final PetCareService service;
+  final ServicePriceOption? option;
 
   @override
   State<PetCareBookingPage> createState() => _PetCareBookingPageState();
 }
 
 class _PetCareBookingPageState extends State<PetCareBookingPage> {
+  List<CarePet> get _pets => ClinicApi.instance.token == null
+      ? PetCareCatalog.pets
+      : ProfilePetStore.instance.pets
+            .map(
+              (pet) => CarePet(
+                name: pet.name,
+                breed: pet.breed,
+                age: pet.ageYears == 0
+                    ? 'Under 1 year'
+                    : '${pet.ageYears} years',
+                health: [
+                  if (pet.vaccination.trim().isNotEmpty) pet.vaccination,
+                  if (pet.conditions.trim().isNotEmpty) pet.conditions,
+                ].join(' • '),
+                color: const Color(0xFF2F80FF),
+                petKey: ProfilePetStore.keyOf(pet),
+              ),
+            )
+            .toList(growable: false);
+
+  List<String> get _availableProviders {
+    if (ClinicApi.instance.token == null) return widget.service.providers;
+    return ClinicDirectory.instance.availableStaffProfiles
+        .map((staff) => staff.name)
+        .toList(growable: false);
+  }
+
+  ClinicPerson? _staffEntry(String name) {
+    for (final staff in ClinicDirectory.instance.availableStaffProfiles) {
+      if (staff.name == name) return staff;
+    }
+    return null;
+  }
+
+  ServicePriceOption get _selectedOption =>
+      widget.option ?? widget.service.options.first;
+
   int _step = 0;
   CarePet? _pet;
   String? _provider;
@@ -682,6 +802,7 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
 
   void _confirm() {
     if (_holdSeconds == 0 ||
+        !_availableProviders.contains(_provider) ||
         !PetCareBookingStore.instance.isSlotAvailable(
           provider: _provider!,
           date: _date!,
@@ -698,6 +819,7 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
     final booking = PetCareBooking(
       id: 'CARE${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
       service: widget.service,
+      option: _selectedOption.name,
       pet: _pet!,
       provider: _provider!,
       date: _date!,
@@ -715,46 +837,51 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
 
     return Scaffold(
       backgroundColor: _CareColors.page,
-      appBar: AppBar(
-        leading: IconButton(
-          onPressed: _back,
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: Text('Book ${widget.service.name}'),
-        backgroundColor: _CareColors.mint,
-        surfaceTintColor: Colors.transparent,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(5),
-          child: LinearProgressIndicator(
-            value: (_step + 1) / 4,
-            backgroundColor: Colors.white54,
-            color: _CareColors.green,
+      body: SafeArea(
+        bottom: false,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([
+            ProfilePetStore.instance,
+            ClinicDirectory.instance,
+          ]),
+          builder: (context, _) => Column(
+            children: [
+              PetOwnerPageHeader(
+                title: 'Book ${widget.service.name}',
+                onBack: _back,
+                logoKey: ValueKey(
+                  'book-${widget.service.name.toLowerCase()}-logo',
+                ),
+              ),
+              LinearProgressIndicator(
+                value: (_step + 1) / 4,
+                minHeight: 5,
+                backgroundColor: const Color(0xFFDCEBE5),
+                color: _CareColors.green,
+              ),
+              if (_error != null)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFE8E5),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Color(0xFFB3261E)),
+                  ),
+                ),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: KeyedSubtree(key: ValueKey(_step), child: _stepBody()),
+                ),
+              ),
+            ],
           ),
         ),
-      ),
-      body: Column(
-        children: [
-          if (_error != null)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFE8E5),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                _error!,
-                style: const TextStyle(color: Color(0xFFB3261E)),
-              ),
-            ),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: KeyedSubtree(key: ValueKey(_step), child: _stepBody()),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -774,48 +901,73 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
       action: 'Check Eligibility',
       enabled: _pet != null,
       onAction: _next,
-      child: ListView.separated(
-        itemCount: PetCareCatalog.pets.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final pet = PetCareCatalog.pets[index];
-          return _SelectTile(
-            key: ValueKey('care-pet-${pet.name}'),
-            selected: _pet == pet,
-            icon: Icons.pets_rounded,
-            color: pet.color,
-            title: pet.name,
-            subtitle: '${pet.breed} • ${pet.age}\n${pet.health}',
-            onTap: () => setState(() => _pet = pet),
-          );
-        },
-      ),
+      child: _pets.isEmpty
+          ? const _CareEmptyState(
+              icon: Icons.pets_outlined,
+              title: 'No pets found',
+              message: 'Add a pet in your profile before booking a service.',
+            )
+          : ListView.separated(
+              itemCount: _pets.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final pet = _pets[index];
+                return _SelectTile(
+                  key: ValueKey('care-pet-${pet.name}'),
+                  selected: _pet == pet,
+                  leading: ProfilePetAvatar(
+                    petName: pet.name,
+                    species: ProfilePetStore.instance.byKey(pet.petKey)?.type,
+                    radius: 25,
+                    fallbackBackground: pet.color.withValues(alpha: 0.14),
+                    fallbackForeground: pet.color,
+                    photoKey: ValueKey('care-pet-photo-${pet.name}'),
+                  ),
+                  icon: Icons.pets_rounded,
+                  color: pet.color,
+                  title: pet.name,
+                  subtitle: '${pet.breed} • ${pet.age}\n${pet.health}',
+                  onTap: () => setState(() => _pet = pet),
+                );
+              },
+            ),
     );
   }
 
   Widget _providerStep() {
+    final providers = _availableProviders;
     return _BookingStep(
       title: 'Eligible for ${widget.service.name}',
       subtitle:
           '${_pet!.name} meets the current requirements. Select an available provider.',
       action: 'Select Schedule',
-      enabled: _provider != null,
+      enabled: _provider != null && providers.contains(_provider),
       onAction: _next,
-      child: ListView.separated(
-        itemCount: widget.service.providers.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final provider = widget.service.providers[index];
-          return _SelectTile(
-            selected: _provider == provider,
-            icon: Icons.badge_outlined,
-            color: _CareColors.green,
-            title: provider,
-            subtitle: 'Pet care provider • Available this week',
-            onTap: () => setState(() => _provider = provider),
-          );
-        },
-      ),
+      child: providers.isEmpty
+          ? const _CareEmptyState(
+              icon: Icons.event_busy_outlined,
+              title: 'No eligible staff available',
+              message:
+                  'Clinic staff availability is currently off. Please check again when a staff member is on shift.',
+            )
+          : ListView.separated(
+              itemCount: providers.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final provider = providers[index];
+                final staff = _staffEntry(provider);
+                return _SelectTile(
+                  selected: _provider == provider,
+                  icon: Icons.badge_outlined,
+                  color: _CareColors.green,
+                  title: provider,
+                  subtitle: ClinicApi.instance.token == null
+                      ? 'Pet care provider • Available this week'
+                      : 'Clinic care staff • ${staff?.specialty ?? 'On shift'}',
+                  onTap: () => setState(() => _provider = provider),
+                );
+              },
+            ),
     );
   }
 
@@ -883,10 +1035,11 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
             children: [
               _DetailRow('Pet', '${_pet!.name} • ${_pet!.breed}'),
               _DetailRow('Service', widget.service.name),
+              _DetailRow('Selected option', _selectedOption.name),
               _DetailRow('Provider', _provider!),
               _DetailRow('Schedule', '${_longDate(_date!)} • $_time'),
               const _DetailRow('Location', "Nway's Love Vet Clinic"),
-              _DetailRow('Price', widget.service.price),
+              _DetailRow('Price', _selectedOption.prices),
             ],
           ),
         ],
@@ -936,7 +1089,7 @@ class _ServiceConfirmation extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  '${booking.service.name} for ${booking.pet.name}\n${_longDate(booking.date)} at ${booking.time}\nProvider: ${booking.provider}',
+                  '${booking.service.name} • ${booking.option}\nFor ${booking.pet.name}\n${_longDate(booking.date)} at ${booking.time}\nProvider: ${booking.provider}',
                   textAlign: TextAlign.center,
                   style: _CareText.bodyDark,
                 ),
@@ -1001,6 +1154,10 @@ class _ServiceBookingCard extends StatelessWidget {
             '${booking.pet.name} • ${booking.provider}',
             style: _CareText.bodyDark,
           ),
+          if (booking.option.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(booking.option, style: _CareText.body),
+          ],
           const SizedBox(height: 4),
           Text(
             '${_longDate(booking.date)} at ${booking.time}',
@@ -1196,11 +1353,12 @@ class _BookingStep extends StatelessWidget {
 class _SelectTile extends StatelessWidget {
   const _SelectTile({
     required this.selected,
-    required this.icon,
+    this.icon = Icons.pets_rounded,
     required this.color,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.leading,
     super.key,
   });
 
@@ -1210,6 +1368,7 @@ class _SelectTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -1230,11 +1389,12 @@ class _SelectTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                backgroundColor: color.withValues(alpha: 0.14),
-                foregroundColor: color,
-                child: Icon(icon),
-              ),
+              leading ??
+                  CircleAvatar(
+                    backgroundColor: color.withValues(alpha: 0.14),
+                    foregroundColor: color,
+                    child: Icon(icon),
+                  ),
               const SizedBox(width: 13),
               Expanded(
                 child: Column(
@@ -1252,6 +1412,43 @@ class _SelectTile extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CareEmptyState extends StatelessWidget {
+  const _CareEmptyState({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFD6EEE4)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: _CareColors.green),
+            const SizedBox(height: 12),
+            Text(title, style: _CareText.section, textAlign: TextAlign.center),
+            const SizedBox(height: 6),
+            Text(message, style: _CareText.body, textAlign: TextAlign.center),
+          ],
         ),
       ),
     );

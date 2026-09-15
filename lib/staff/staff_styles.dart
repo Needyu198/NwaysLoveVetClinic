@@ -18,7 +18,14 @@ const _sectionStyle = TextStyle(
   fontWeight: FontWeight.w900,
   color: _ink,
 );
-const _doctors = ['Dr. Aye Chan', 'Dr. Cindy Lynn', 'Dr. Myat Noe'];
+
+const _demoDoctors = ['Dr. Aye Chan', 'Dr. Cindy Lynn', 'Dr. Myat Noe'];
+
+/// Real sessions use the live doctor directory. Demo/widget flows retain their
+/// fixture doctors so the offline showcase remains usable.
+List<String> get _availableDoctors => DatabaseSync.instance.active
+    ? ClinicDirectory.instance.availableDoctors
+    : _demoDoctors;
 
 BoxDecoration _cardDecoration({Color border = _border}) => BoxDecoration(
   color: Colors.white,

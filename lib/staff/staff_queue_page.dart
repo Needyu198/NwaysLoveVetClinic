@@ -39,7 +39,11 @@ class _QueueBodyState extends State<_QueueBody> {
       const _QueueHeader(),
       Expanded(
         child: AnimatedBuilder(
-          animation: StaffOperationsStore.instance,
+          animation: Listenable.merge([
+            StaffOperationsStore.instance,
+            AppointmentStore.instance,
+            QueueStore.instance,
+          ]),
           builder: (context, _) {
             final all =
                 StaffOperationsStore.instance.appointments

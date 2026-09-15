@@ -116,49 +116,43 @@ class _StaffInventoryPageState extends State<StaffInventoryPage> {
                 ),
               ),
             SizedBox(
-              height: 44,
-              child: ListView(
+              height: 50,
+              child: ListView.separated(
+                key: const ValueKey('staff-inventory-category-filters'),
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                children: [
-                  for (final c in [
-                    'All',
-                    ...StaffOperationsStore.inventoryCategories,
-                  ])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(c),
-                        selected: _category == c,
-                        selectedColor: _mint,
-                        onSelected: (_) => setState(() => _category = c),
-                      ),
-                    ),
-                ],
+                padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
+                itemCount: StaffOperationsStore.inventoryCategories.length + 1,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final category = index == 0
+                      ? 'All'
+                      : StaffOperationsStore.inventoryCategories[index - 1];
+                  return _InventoryFilterChip(
+                    key: ValueKey('staff-inventory-category-$category'),
+                    label: category,
+                    selected: _category == category,
+                    onTap: () => setState(() => _category = category),
+                  );
+                },
               ),
             ),
             SizedBox(
-              height: 44,
-              child: ListView(
+              height: 50,
+              child: ListView.separated(
+                key: const ValueKey('staff-inventory-stock-filters'),
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                children: [
-                  for (final s in [
-                    'All',
-                    'In Stock',
-                    'Low Stock',
-                    'Out of Stock',
-                  ])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(s),
-                        selected: _stockFilter == s,
-                        selectedColor: const Color(0xFFCFE0FF),
-                        onSelected: (_) => setState(() => _stockFilter = s),
-                      ),
-                    ),
-                ],
+                padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
+                itemCount: _inventoryStockFilters.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final stock = _inventoryStockFilters[index];
+                  return _InventoryFilterChip(
+                    key: ValueKey('staff-inventory-stock-$stock'),
+                    label: stock,
+                    selected: _stockFilter == stock,
+                    onTap: () => setState(() => _stockFilter = stock),
+                  );
+                },
               ),
             ),
             Expanded(
@@ -190,6 +184,45 @@ class _StaffInventoryPageState extends State<StaffInventoryPage> {
           ],
         );
       },
+    ),
+  );
+}
+
+const _inventoryStockFilters = ['All', 'In Stock', 'Low Stock', 'Out of Stock'];
+
+/// Matches the Live Queue filter bar: mint pills with a yellow active state.
+class _InventoryFilterChip extends StatelessWidget {
+  const _InventoryFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: selected ? const Color(0xFFF5C518) : _mint,
+    borderRadius: BorderRadius.circular(20),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 15,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
     ),
   );
 }
@@ -483,6 +516,7 @@ class _InventoryImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: ValueKey('inventory-image-${item.id}'),
       width: double.infinity,
       color: const Color(0xFFF3F5F4),
       alignment: Alignment.center,
@@ -501,14 +535,29 @@ class _InventoryImage extends StatelessWidget {
   );
 }
 
-/// Renders an inventory image whether it is a bundled asset path or a local
-/// file path chosen by staff via the image picker.
+/// Renders persisted base64 photos, bundled assets, or legacy local files.
 Widget _inventoryImage(
   String? path, {
   required Widget fallback,
   BoxFit fit = BoxFit.cover,
 }) {
   if (path == null) return fallback;
+  if (path.startsWith('data:')) {
+    final comma = path.indexOf(',');
+    if (comma >= 0) {
+      try {
+        return Image.memory(
+          base64Decode(path.substring(comma + 1)),
+          fit: fit,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stack) => fallback,
+        );
+      } catch (_) {
+        return fallback;
+      }
+    }
+    return fallback;
+  }
   if (path.startsWith('assets/')) {
     return Image.asset(
       path,

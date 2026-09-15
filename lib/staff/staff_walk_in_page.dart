@@ -11,7 +11,7 @@ class _StaffWalkInPageState extends State<StaffWalkInPage> {
   final _pet = TextEditingController();
   final _reason = TextEditingController();
   var _service = 'General Checkup';
-  var _doctor = 'Dr. Aye Chan';
+  String? _doctor;
 
   static const _services = [
     'General Checkup',
@@ -40,11 +40,17 @@ class _StaffWalkInPageState extends State<StaffWalkInPage> {
 
   void _register({required bool urgent}) {
     if (!_validate()) return;
+    final doctors = _availableDoctors;
+    final doctor = doctors.contains(_doctor) ? _doctor : doctors.firstOrNull;
+    if (doctor == null) {
+      _notice(context, 'No doctor is currently available for walk-ins.');
+      return;
+    }
     StaffOperationsStore.instance.addWalkIn(
       owner: _owner.text.trim(),
       pet: _pet.text.trim(),
       service: _service,
-      doctor: _doctor,
+      doctor: doctor,
       reason: _reason.text.trim(),
       urgent: urgent,
     );
@@ -58,109 +64,133 @@ class _StaffWalkInPageState extends State<StaffWalkInPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.white,
-    body: Column(
-      children: [
-        const _WalkInHeader(),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
-            children: [
-              _WalkInField(
-                controller: _owner,
-                hint: 'Owner Name',
-                icon: Icons.person_outline_rounded,
-              ),
-              const SizedBox(height: 16),
-              _WalkInField(
-                controller: _pet,
-                hint: 'Pet Name',
-                icon: Icons.pets_outlined,
-              ),
-              const SizedBox(height: 16),
-              _WalkInDropdown(
-                label: 'Service',
-                icon: Icons.medical_services_outlined,
-                value: _service,
-                items: _services,
-                onChanged: (v) => setState(() => _service = v),
-              ),
-              const SizedBox(height: 16),
-              _WalkInDropdown(
-                label: 'Available Doctor',
-                icon: Icons.person_search_rounded,
-                value: _doctor,
-                items: _doctors,
-                onChanged: (v) => setState(() => _doctor = v),
-              ),
-              const SizedBox(height: 16),
-              _WalkInField(
-                controller: _reason,
-                hint: 'Visit Reason',
-                icon: Icons.notes_rounded,
-                maxLines: 5,
-              ),
-              const SizedBox(height: 24),
-              Row(
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: ClinicDirectory.instance,
+    builder: (context, _) {
+      final doctors = _availableDoctors;
+      final selectedDoctor = doctors.contains(_doctor)
+          ? _doctor
+          : doctors.firstOrNull;
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Column(
+          children: [
+            const _WalkInHeader(),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
                 children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 62,
-                      child: FilledButton(
-                        key: const ValueKey('register-walk-in'),
-                        onPressed: () => _register(urgent: false),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _mint,
-                          foregroundColor: Colors.black,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        child: const Text('Register Walk-in'),
-                      ),
-                    ),
+                  _WalkInField(
+                    controller: _owner,
+                    hint: 'Owner Name',
+                    icon: Icons.person_outline_rounded,
                   ),
-                  const SizedBox(width: 18),
-                  Tooltip(
-                    message: 'Register as emergency',
-                    child: SizedBox(
-                      width: 64,
-                      height: 62,
-                      child: FilledButton(
-                        key: const ValueKey('register-walk-in-emergency'),
-                        onPressed: () => _register(urgent: true),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF0000),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: EdgeInsets.zero,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(32),
-                          ),
-                        ),
-                        child: const Text(
-                          'E',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
+                  const SizedBox(height: 16),
+                  _WalkInField(
+                    controller: _pet,
+                    hint: 'Pet Name',
+                    icon: Icons.pets_outlined,
+                  ),
+                  const SizedBox(height: 16),
+                  _WalkInDropdown(
+                    label: 'Service',
+                    icon: Icons.medical_services_outlined,
+                    value: _service,
+                    items: _services,
+                    onChanged: (v) => setState(() => _service = v),
+                  ),
+                  const SizedBox(height: 16),
+                  _WalkInDropdown(
+                    label: 'Available Doctor',
+                    icon: Icons.person_search_rounded,
+                    value: selectedDoctor,
+                    items: doctors,
+                    onChanged: (v) => setState(() => _doctor = v),
+                  ),
+                  if (doctors.isEmpty) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'No doctors are currently accepting appointments.',
+                      key: ValueKey('no-available-walk-in-doctors'),
+                      style: TextStyle(
+                        color: _red,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  _WalkInField(
+                    controller: _reason,
+                    hint: 'Visit Reason',
+                    icon: Icons.notes_rounded,
+                    maxLines: 5,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 62,
+                          child: FilledButton(
+                            key: const ValueKey('register-walk-in'),
+                            onPressed: selectedDoctor == null
+                                ? null
+                                : () => _register(urgent: false),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _mint,
+                              foregroundColor: Colors.black,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            child: const Text('Register Walk-in'),
                           ),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 18),
+                      Tooltip(
+                        message: 'Register as emergency',
+                        child: SizedBox(
+                          width: 64,
+                          height: 62,
+                          child: FilledButton(
+                            key: const ValueKey('register-walk-in-emergency'),
+                            onPressed: selectedDoctor == null
+                                ? null
+                                : () => _register(urgent: true),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF0000),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(32),
+                              ),
+                            ),
+                            child: const Text(
+                              'E',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
-    ),
+      );
+    },
   );
 }
 
@@ -272,7 +302,7 @@ class _WalkInDropdown extends StatelessWidget {
 
   final String label;
   final IconData icon;
-  final String value;
+  final String? value;
   final List<String> items;
   final ValueChanged<String> onChanged;
 

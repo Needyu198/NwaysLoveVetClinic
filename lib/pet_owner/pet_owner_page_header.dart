@@ -12,6 +12,7 @@ class PetOwnerPageHeader extends StatelessWidget {
     required this.title,
     this.onBack,
     this.actions,
+    this.logoKey,
     super.key,
   });
 
@@ -24,6 +25,7 @@ class PetOwnerPageHeader extends StatelessWidget {
 
   /// Optional trailing actions placed before the logo (e.g. history icon).
   final List<Widget>? actions;
+  final Key? logoKey;
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +58,7 @@ class PetOwnerPageHeader extends StatelessWidget {
           const SizedBox(width: 4),
           Image.asset(
             PetOwnerHomePage.logoAsset,
+            key: logoKey,
             width: 48,
             height: 48,
             fit: BoxFit.contain,

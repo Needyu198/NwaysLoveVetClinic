@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
@@ -15,6 +17,14 @@ class RealtimeClient {
   static final RealtimeClient instance = RealtimeClient._();
 
   io.Socket? _socket;
+  Timer? _queueRefreshDebounce;
+
+  static const queueTables = {
+    'appointments',
+    'queue_entries',
+    'walk_in_appointments',
+    'doctor_appointment_state',
+  };
 
   bool get isConnected => _socket?.connected ?? false;
 
@@ -43,9 +53,30 @@ class RealtimeClient {
 
     socket.on('data:changed', (payload) {
       if (payload is Map && payload['table'] is String) {
+        final table = payload['table'] as String;
+        // Queue tables arrive together through queue:changed so all role-based
+        // queue views are refreshed as one coherent snapshot.
+        if (queueTables.contains(table)) return;
         // Fire and forget: refresh just the changed table.
-        DatabaseSync.instance.refreshTable(payload['table'] as String);
+        DatabaseSync.instance.refreshTable(table);
       }
+    });
+
+    socket.on('queue:changed', (payload) {
+      final tables =
+          (payload is Map && payload['tables'] is List
+                  ? (payload['tables'] as List).whereType<String>()
+                  : queueTables)
+              .toSet();
+      // A single queue action can persist appointments, queue entries and
+      // doctor state in rapid succession. Coalesce that burst so the refresh
+      // happens after the complete action instead of loading an intermediate
+      // snapshot and dropping the later event while busy.
+      _queueRefreshDebounce?.cancel();
+      _queueRefreshDebounce = Timer(
+        const Duration(milliseconds: 150),
+        () => DatabaseSync.instance.refreshTables(tables),
+      );
     });
 
     socket.connect();
@@ -53,6 +84,8 @@ class RealtimeClient {
   }
 
   void disconnect() {
+    _queueRefreshDebounce?.cancel();
+    _queueRefreshDebounce = null;
     _socket?.dispose();
     _socket = null;
   }

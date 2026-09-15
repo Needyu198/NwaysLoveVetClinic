@@ -9,6 +9,7 @@ import 'pet_owner_clinic_page.dart';
 import 'pet_owner_home_page.dart';
 import 'pet_owner_nav_bar.dart';
 import 'pet_owner_profile_page.dart';
+import 'pet_owner_page_header.dart';
 import 'pet_product_styles.dart';
 
 /// Formats an integer amount as "1,015 MMK".
@@ -89,10 +90,20 @@ class _PetProductsPageState extends State<PetProductsPage> {
             bottom: false,
             child: Column(
               children: [
+                PetOwnerPageHeader(
+                  title: 'Pet Products',
+                  logoKey: const ValueKey('pet-products-logo'),
+                  actions: [
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.shopping_cart_outlined),
+                      tooltip: 'Cart',
+                    ),
+                  ],
+                ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
                   child: _SearchHeader(
-                    onBack: () => Navigator.of(context).maybePop(),
                     onChanged: (value) => setState(() => _query = value),
                   ),
                 ),
@@ -616,47 +627,33 @@ const categories = [
 // ---------------------------------------------------------------------------
 
 class _SearchHeader extends StatelessWidget {
-  const _SearchHeader({required this.onBack, required this.onChanged});
-  final VoidCallback onBack;
+  const _SearchHeader({required this.onChanged});
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _CircleButton(icon: Icons.arrow_back_ios_new_rounded, onTap: onBack),
-        const SizedBox(width: 8),
-        Expanded(
-          child: SizedBox(
-            height: 44,
-            child: TextField(
-              onChanged: onChanged,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search_rounded, size: 22),
-                hintText: 'Search in shop',
-                filled: true,
-                fillColor: Colors.white,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
-                  borderSide: const BorderSide(color: Color(0xFFDADDE3)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
-                  borderSide: const BorderSide(color: Color(0xFFDADDE3)),
-                ),
-              ),
-            ),
+    return SizedBox(
+      height: 50,
+      child: TextField(
+        key: const ValueKey('pet-products-search'),
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          prefixIcon: const Icon(Icons.search_rounded, size: 22),
+          hintText: 'Search products, brands, or pet type',
+          filled: true,
+          fillColor: Colors.white,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: const BorderSide(color: Color(0xFFDDE9E4)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: const BorderSide(color: Color(0xFFDDE9E4)),
           ),
         ),
-        const SizedBox(width: 6),
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.shopping_cart_outlined),
-          tooltip: 'Cart',
-        ),
-      ],
+      ),
     );
   }
 }
@@ -669,8 +666,8 @@ class _CategoryIconStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 100,
-      color: Colors.white,
+      height: 106,
+      color: Colors.transparent,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         scrollDirection: Axis.horizontal,
@@ -692,19 +689,19 @@ class _CategoryIconStrip extends StatelessWidget {
                     height: 50,
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? ProductStyles.mint
-                          : const Color(0xFFF1F3F5),
+                          ? const Color(0xFFE8FFF5)
+                          : Colors.white,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: isSelected
-                            ? ProductStyles.green
-                            : Colors.transparent,
+                            ? const Color(0xFF147D5B)
+                            : const Color(0xFFDDE9E4),
                         width: 2,
                       ),
                     ),
                     child: Icon(
                       isAll ? Icons.grid_view_rounded : _categoryIcon(category),
-                      color: const Color(0xFF2E7D67),
+                      color: const Color(0xFF147D5B),
                       size: 24,
                     ),
                   ),
@@ -744,8 +741,13 @@ class _SortBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFDDE9E4)),
+      ),
       child: Row(
         children: [
           InkWell(
@@ -754,8 +756,8 @@ class _SortBar extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F3F5),
-                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFFE8FFF5),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
                 children: [
@@ -806,12 +808,19 @@ class _ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFEDEFF2)),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFDDE9E4)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0C0B2F25),
+              blurRadius: 12,
+              offset: Offset(0, 6),
+            ),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(

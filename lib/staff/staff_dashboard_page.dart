@@ -13,6 +13,7 @@ class StaffDashboardPage extends StatelessWidget {
         EmergencyRequestStore.instance,
         HomeVisitStore.instance,
         StaffProfileStore.instance,
+        ClinicDirectory.instance,
       ]),
       builder: (context, _) {
         final items = StaffOperationsStore.instance.appointments;
@@ -160,7 +161,7 @@ class StaffDashboardPage extends StatelessWidget {
                           ),
                           _QuickAction(
                             icon: Icons.person_search_rounded,
-                            label: 'Pet Owners',
+                            label: 'Pets & Owners',
                             onTap: () =>
                                 _push(context, const StaffPatientsPage()),
                           ),
@@ -393,11 +394,12 @@ class _DashboardAppointment extends StatelessWidget {
                     children: [
                       Stack(
                         children: [
-                          const CircleAvatar(
+                          ProfilePetAvatar(
+                            petName: item.pet,
+                            ownerId: databaseOwnerOf(item.source),
                             radius: 26,
-                            backgroundColor: Color(0xFFE6FAF2),
-                            backgroundImage: AssetImage(
-                              'assets/photos/logoandphoto/nways_pets.png',
+                            photoKey: ValueKey(
+                              'staff-dashboard-pet-photo-${item.id}',
                             ),
                           ),
                           if (urgent)
@@ -560,69 +562,93 @@ class _QuickAction extends StatelessWidget {
 
 class _DoctorAvailability extends StatelessWidget {
   const _DoctorAvailability();
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(15),
-    decoration: _cardDecoration(),
-    child: const Column(
-      children: [
-        _AvailabilityRow(
-          name: 'Dr. Aye Chan',
-          status: 'Available',
-          color: _green,
-        ),
-        Divider(),
-        _AvailabilityRow(
-          name: 'Dr. Cindy Lynn',
-          status: 'Consulting',
-          color: Color(0xFFE09300),
-        ),
-        Divider(),
-        _AvailabilityRow(
-          name: 'Dr. Myat Noe',
-          status: 'Available',
-          color: _green,
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final doctors = DatabaseSync.instance.active
+        ? ClinicDirectory.instance.doctorProfiles
+        : _demoDoctors
+              .map((name) => ClinicPerson(name: name, role: 'doctor'))
+              .toList();
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: _cardDecoration(),
+      child: doctors.isEmpty
+          ? const _Callout(
+              icon: Icons.event_busy_outlined,
+              text: 'No doctor profiles are available.',
+            )
+          : Column(
+              children: [
+                for (var index = 0; index < doctors.length; index++) ...[
+                  _AvailabilityRow(doctor: doctors[index]),
+                  if (index < doctors.length - 1) const Divider(),
+                ],
+              ],
+            ),
+    );
+  }
 }
 
 class _AvailabilityRow extends StatelessWidget {
-  const _AvailabilityRow({
-    required this.name,
-    required this.status,
-    required this.color,
-  });
-  final String name;
-  final String status;
-  final Color color;
+  const _AvailabilityRow({required this.doctor});
+
+  final ClinicPerson doctor;
+
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      CircleAvatar(
-        radius: 18,
-        backgroundColor: const Color(0xFFE6FAF2),
-        child: Text(name.substring(4, 5)),
-      ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
-      ),
-      Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      ),
-      const SizedBox(width: 6),
-      Text(
-        status,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    final color = doctor.available ? _green : _red;
+    final status = doctor.available ? 'Available' : 'Unavailable';
+    final initial = doctor.name
+        .replaceFirst(RegExp(r'^Dr\.\s*'), '')
+        .trim()
+        .characters
+        .firstOrNull;
+    return Row(
+      key: ValueKey('doctor-availability-${doctor.name}'),
+      children: [
+        CircleAvatar(
+          radius: 18,
+          backgroundColor: const Color(0xFFE6FAF2),
+          child: Text(
+            initial?.toUpperCase() ?? 'D',
+            style: const TextStyle(color: _green, fontWeight: FontWeight.w900),
+          ),
         ),
-      ),
-    ],
-  );
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                doctor.name,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              if ((doctor.specialty ?? '').trim().isNotEmpty)
+                Text(
+                  doctor.specialty!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: _muted, fontSize: 11),
+                ),
+            ],
+          ),
+        ),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          status,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
 }

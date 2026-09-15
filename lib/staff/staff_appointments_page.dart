@@ -553,6 +553,7 @@ class _ActionButton extends StatelessWidget {
 }
 
 Future<void> _chooseDoctor(BuildContext context, StaffAppointment item) async {
+  final doctors = _availableDoctors;
   final choice = await showModalBottomSheet<String>(
     context: context,
     builder: (_) => SafeArea(
@@ -565,7 +566,12 @@ Future<void> _chooseDoctor(BuildContext context, StaffAppointment item) async {
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
-          ..._doctors.map(
+          if (doctors.isEmpty)
+            const ListTile(
+              leading: Icon(Icons.event_busy_outlined),
+              title: Text('No doctors are currently available'),
+            ),
+          ...doctors.map(
             (doctor) => ListTile(
               leading: const CircleAvatar(
                 backgroundColor: _mint,
