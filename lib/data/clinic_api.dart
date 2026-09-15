@@ -67,32 +67,45 @@ class ClinicApi {
     String path, [
     Map<String, dynamic>? body,
   ]) async {
-    final request = http.Request(method, Uri.parse('$baseUrl$path'));
-    request.headers['Content-Type'] = 'application/json';
-    if (token != null) request.headers['Authorization'] = 'Bearer $token';
-    if (body != null) request.body = jsonEncode(body);
-    final client = clientFactory?.call() ?? http.Client();
-    try {
-      final response = await http.Response.fromStream(
-        await client.send(request),
-      ).timeout(const Duration(seconds: 15));
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      if (response.statusCode >= 400) {
-        throw ClinicApiException(
-          data['message'] as String? ?? 'Request failed.',
-          response.statusCode,
-        );
+    // Startup hydration performs many GETs in succession. A physical device
+    // can briefly lose the Mac's Bonjour route while Wi-Fi wakes, so retry
+    // idempotent reads once. Mutating requests are never retried because the
+    // server may already have applied them.
+    final attempts = method.toUpperCase() == 'GET' ? 2 : 1;
+    Object? lastError;
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      final request = http.Request(method, Uri.parse('$baseUrl$path'));
+      request.headers['Content-Type'] = 'application/json';
+      if (token != null) request.headers['Authorization'] = 'Bearer $token';
+      if (body != null) request.body = jsonEncode(body);
+      final client = clientFactory?.call() ?? http.Client();
+      try {
+        final response = await http.Response.fromStream(
+          await client.send(request),
+        ).timeout(const Duration(seconds: 15));
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (response.statusCode >= 400) {
+          throw ClinicApiException(
+            data['message'] as String? ?? 'Request failed.',
+            response.statusCode,
+          );
+        }
+        return data;
+      } on ClinicApiException {
+        rethrow;
+      } catch (error) {
+        lastError = error;
+        if (attempt + 1 < attempts) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      } finally {
+        client.close();
       }
-      return data;
-    } on ClinicApiException {
-      rethrow;
-    } catch (_) {
-      throw ClinicApiException(
-        'Cannot reach the clinic database. Check the API server and connection.',
-      );
-    } finally {
-      client.close();
     }
+    debugPrint('Clinic API request failed at $baseUrl$path: $lastError');
+    throw ClinicApiException(
+      'Cannot reach the clinic database. Check the API server and connection.',
+    );
   }
 
   Future<String> login(String username, String password) async {

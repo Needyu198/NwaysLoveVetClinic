@@ -60,15 +60,22 @@ class FirebaseService {
       await auth.signInWithEmailAndPassword(email: email, password: password);
       return true;
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
+      // Firebase projects with email-enumeration protection report an unknown
+      // account as `invalid-credential`, not `user-not-found`. Try account
+      // creation for both codes; an existing account still remains protected
+      // by Firebase's `email-already-in-use` response.
+      if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
         try {
           await auth.createUserWithEmailAndPassword(
             email: email,
             password: password,
           );
           return true;
-        } catch (e2) {
-          debugPrint('Firebase register failed: $e2');
+        } on FirebaseAuthException catch (registrationError) {
+          debugPrint('Firebase mirror unavailable: ${registrationError.code}');
+          return false;
+        } catch (registrationError) {
+          debugPrint('Firebase mirror unavailable: $registrationError');
           return false;
         }
       }

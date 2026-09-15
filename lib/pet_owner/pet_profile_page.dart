@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../data/clinic_api.dart';
 import '../data/database_sync.dart';
 import '../doctor/doctor_portal.dart';
+import 'emergency_service_page.dart';
 import 'pet_image.dart';
 import 'pet_owner_home_page.dart';
 import 'pet_reminder_page.dart';
@@ -297,7 +298,10 @@ class _ProfileHero extends StatelessWidget {
                         runSpacing: 9,
                         children: [
                           _HeroChip(
-                            icon: Icons.cruelty_free_rounded,
+                            leading: _SpeciesIcon(
+                              species: profile.species,
+                              size: 18,
+                            ),
                             label: profile.species,
                           ),
                           _HeroChip(
@@ -357,7 +361,7 @@ class _BasicInfoPanel extends StatelessWidget {
                 value: profile.breed,
               ),
               _InfoTile(
-                icon: Icons.cruelty_free_rounded,
+                leading: _SpeciesIcon(species: profile.species, size: 25),
                 label: 'Species',
                 value: profile.species,
               ),
@@ -370,11 +374,6 @@ class _BasicInfoPanel extends StatelessWidget {
                 icon: Icons.transgender_rounded,
                 label: 'Sex',
                 value: profile.sex,
-              ),
-              _InfoTile(
-                icon: Icons.cake_rounded,
-                label: 'Age',
-                value: profile.age,
               ),
             ],
           ),
@@ -630,12 +629,14 @@ String _shortDate(DateTime date) {
 
 class _InfoTile extends StatelessWidget {
   const _InfoTile({
-    required this.icon,
     required this.label,
     required this.value,
-  });
+    this.icon,
+    this.leading,
+  }) : assert(icon != null || leading != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? leading;
   final String label;
   final String value;
 
@@ -657,7 +658,8 @@ class _InfoTile extends StatelessWidget {
               color: Color(0xFFE8FFF5),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: Color(0xFF16785B), size: 24),
+            child:
+                leading ?? Icon(icon, color: const Color(0xFF16785B), size: 24),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -757,7 +759,9 @@ class _EmergencyButton extends StatelessWidget {
         ],
       ),
       child: FilledButton(
-        onPressed: () {},
+        key: const ValueKey('pet-profile-emergency-button'),
+        onPressed: () =>
+            Navigator.of(context).pushNamed(EmergencyServicePage.routeName),
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFFFF1E17),
           foregroundColor: Colors.white,
@@ -965,9 +969,11 @@ class _GlassIconButton extends StatelessWidget {
 }
 
 class _HeroChip extends StatelessWidget {
-  const _HeroChip({required this.icon, required this.label});
+  const _HeroChip({required this.label, this.icon, this.leading})
+    : assert(icon != null || leading != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? leading;
   final String label;
 
   @override
@@ -981,10 +987,47 @@ class _HeroChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: const Color(0xFF16785B), size: 16),
+          leading ?? Icon(icon, color: const Color(0xFF16785B), size: 16),
           const SizedBox(width: 6),
           Text(label, style: _PetProfileStyles.heroChip),
         ],
+      ),
+    );
+  }
+}
+
+/// Uses familiar dog/cat app glyphs because Material's built-in pet icon is a
+/// generic paw and its `cruelty_free` icon is a rabbit.
+class _SpeciesIcon extends StatelessWidget {
+  const _SpeciesIcon({required this.species, required this.size});
+
+  final String species;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = species.trim().toLowerCase();
+    final isCat = normalized == 'cat';
+    final isDog = normalized == 'dog';
+
+    if (!isCat && !isDog) {
+      return Icon(
+        Icons.pets_rounded,
+        key: const ValueKey('pet-profile-species-other-icon'),
+        color: const Color(0xFF16785B),
+        size: size,
+      );
+    }
+
+    final animal = isCat ? 'cat' : 'dog';
+    return Semantics(
+      label: '$animal species icon',
+      child: ExcludeSemantics(
+        child: Text(
+          isCat ? '🐱' : '🐶',
+          key: ValueKey('pet-profile-species-$animal-icon'),
+          style: TextStyle(fontSize: size, height: 1),
+        ),
       ),
     );
   }

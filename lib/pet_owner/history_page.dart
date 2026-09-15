@@ -8,6 +8,7 @@ import 'home_visit_booking_page.dart';
 import 'pet_care_booking_page.dart';
 import 'pet_owner_page_header.dart';
 import 'profile_pet_avatar.dart';
+import 'profile_flows.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -96,9 +97,12 @@ class HistoryReviewStore extends ChangeNotifier {
 
   ({int rating, String review})? reviewFor(String id) => _reviews[id];
 
-  void save(String id, int rating, String review) {
+  Future<bool> save(String id, int rating, String review) async {
     _reviews[id] = (rating: rating, review: review);
     notifyListeners();
+    if (!DatabaseSync.instance.active) return true;
+    await DatabaseSync.instance.flush();
+    return DatabaseSync.instance.error == null;
   }
 
   @visibleForTesting
@@ -116,11 +120,39 @@ class _HistoryPageState extends State<HistoryPage> {
   HistoryCategory _category = HistoryCategory.appointments;
   String _dateRange = 'All time';
   String _status = 'All statuses';
+  bool _refreshing = false;
 
   @override
   void dispose() {
     _search.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshHistory() async {
+    if (_refreshing || !DatabaseSync.instance.active) return;
+    setState(() => _refreshing = true);
+    try {
+      await DatabaseSync.instance.refresh();
+      if (!mounted) return;
+      final error = DatabaseSync.instance.error;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error == null
+                ? 'History updated from the clinic database.'
+                : 'History could not be refreshed: $error',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('History could not be refreshed: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
   }
 
   @override
@@ -133,7 +165,24 @@ class _HistoryPageState extends State<HistoryPage> {
       body: SafeArea(
         child: Column(
           children: [
-            const PetOwnerPageHeader(title: 'History'),
+            PetOwnerPageHeader(
+              title: 'History',
+              actions: [
+                IconButton(
+                  key: const ValueKey('refresh-owner-history'),
+                  tooltip: 'Refresh history',
+                  onPressed: DatabaseSync.instance.active && !_refreshing
+                      ? _refreshHistory
+                      : null,
+                  icon: _refreshing
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
+              ],
+            ),
             Expanded(
               child: AnimatedBuilder(
                 animation: Listenable.merge([
@@ -143,6 +192,9 @@ class _HistoryPageState extends State<HistoryPage> {
                   HomeVisitStore.instance,
                   EmergencyRequestStore.instance,
                   DoctorMedicalRecordStore.instance,
+                  ProfilePetStore.instance,
+                  HistoryReviewStore.instance,
+                  DatabaseSync.instance,
                 ]),
                 builder: (context, _) {
                   if (_petName == null) return _petSelection();
@@ -187,8 +239,10 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _petSelection() {
+    final savedPetNames = ProfilePetStore.instance.pets.map((pet) => pet.name);
     final petNames = {
-      ..._defaultPetNames,
+      if (!DatabaseSync.instance.active) ..._defaultPetNames,
+      ...savedPetNames,
       ..._allRecords().map((record) => record.petName),
     }.toList()..sort();
     return ListView(
@@ -763,6 +817,7 @@ class HistoryReviewSection extends StatefulWidget {
 class _HistoryReviewSectionState extends State<HistoryReviewSection> {
   final _review = TextEditingController();
   int _rating = 0;
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -810,17 +865,29 @@ class _HistoryReviewSectionState extends State<HistoryReviewSection> {
         ),
         const SizedBox(height: 12),
         FilledButton(
-          onPressed: _rating == 0
+          onPressed: _rating == 0 || _saving
               ? null
-              : () {
-                  HistoryReviewStore.instance.save(
+              : () async {
+                  setState(() => _saving = true);
+                  final synced = await HistoryReviewStore.instance.save(
                     widget.recordId,
                     _rating,
                     _review.text.trim(),
                   );
+                  if (!context.mounted) return;
+                  if (!synced) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Review saved on this device and will sync when the connection returns.',
+                        ),
+                      ),
+                    );
+                  }
+                  _saving = false;
                   setState(() {});
                 },
-          child: const Text('Save Review'),
+          child: Text(_saving ? 'Saving…' : 'Save Review'),
         ),
       ],
     );
