@@ -1509,6 +1509,57 @@ void main() {
     expect(find.text('Healthy days start here'), findsOneWidget);
   });
 
+  testWidgets('My Pets header actions use owner profile and info sharing', (
+    WidgetTester tester,
+  ) async {
+    OwnerProfileStore.instance.update(
+      OwnerProfileData(
+        fullName: 'Nee Yu',
+        dateOfBirth: DateTime(1998, 5, 12),
+        gender: 'Female',
+        phone: '09965805940',
+        email: 'neeyu@email.com',
+        address: 'Nay Pyi Taw',
+        photoSource:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      ),
+    );
+    addTearDown(OwnerProfileStore.instance.reset);
+    await signIn(tester);
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('owner-notifications-bell'))),
+      const Size(48, 48),
+    );
+    expect(
+      find.byKey(const ValueKey('owner-home-profile-photo')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('owner-home-profile')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('owner-profile-scroll')), findsOneWidget);
+    await tester.tap(find.byTooltip('My Pets'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('home-info-sharing-arrow')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, -140),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('home-info-sharing-arrow')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('owner-info-sharing-page')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('pet profile opens reminders and add reminder validation', (
     WidgetTester tester,
   ) async {

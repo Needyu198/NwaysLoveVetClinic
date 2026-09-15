@@ -225,6 +225,12 @@ class _HomeContentState extends State<_HomeContent> {
               _SectionTitle(
                 title: 'Info Sharing',
                 subtitle: 'Latest posts from the clinic',
+                actionKey: const ValueKey('home-info-sharing-arrow'),
+                onSeeAll: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const OwnerInfoSharingPage(),
+                  ),
+                ),
               ),
               const SizedBox(height: 14),
               if (DoctorPostStore.instance.posts.isEmpty)
@@ -342,26 +348,43 @@ class _ProfilePhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 88,
-      height: 88,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: 0.9),
-        border: Border.all(color: Colors.white, width: 4),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x260B2F25),
-            blurRadius: 16,
-            offset: Offset(0, 8),
+    return AnimatedBuilder(
+      animation: OwnerProfileStore.instance,
+      builder: (context, _) {
+        final photoSource = OwnerProfileStore.instance.profile.photoSource;
+        final bytes = photoSource == null
+            ? null
+            : PetPhoto.decodeDataUri(photoSource);
+        return Material(
+          color: Colors.white.withValues(alpha: 0.9),
+          shape: const CircleBorder(),
+          elevation: 4,
+          shadowColor: const Color(0x260B2F25),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: const ValueKey('owner-home-profile'),
+            customBorder: const CircleBorder(),
+            onTap: () =>
+                Navigator.of(context).pushNamed(PetOwnerProfilePage.routeName),
+            child: SizedBox(
+              width: 88,
+              height: 88,
+              child: bytes == null
+                  ? const Icon(
+                      Icons.person_rounded,
+                      size: 54,
+                      color: Color(0xFF637A74),
+                    )
+                  : Image.memory(
+                      bytes,
+                      key: const ValueKey('owner-home-profile-photo'),
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                    ),
+            ),
           ),
-        ],
-      ),
-      child: const Icon(
-        Icons.person_rounded,
-        size: 54,
-        color: Color(0xFF637A74),
-      ),
+        );
+      },
     );
   }
 }
@@ -563,11 +586,13 @@ class _SectionTitle extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.onSeeAll,
+    this.actionKey,
   });
 
   final String title;
   final String subtitle;
   final VoidCallback? onSeeAll;
+  final Key? actionKey;
 
   @override
   Widget build(BuildContext context) {
@@ -601,6 +626,7 @@ class _SectionTitle extends StatelessWidget {
           ),
         ),
         InkWell(
+          key: actionKey,
           onTap: onSeeAll,
           borderRadius: BorderRadius.circular(19),
           child: Container(
@@ -780,6 +806,67 @@ class _InfoSharingCard extends StatelessWidget {
   }
 }
 
+/// Full clinic post feed opened by the Info Sharing header arrow.
+class OwnerInfoSharingPage extends StatefulWidget {
+  const OwnerInfoSharingPage({super.key});
+
+  @override
+  State<OwnerInfoSharingPage> createState() => _OwnerInfoSharingPageState();
+}
+
+class _OwnerInfoSharingPageState extends State<OwnerInfoSharingPage> {
+  @override
+  void initState() {
+    super.initState();
+    DoctorPostStore.instance.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    DoctorPostStore.instance.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final posts = DoctorPostStore.instance.posts;
+    return Scaffold(
+      key: const ValueKey('owner-info-sharing-page'),
+      backgroundColor: PetOwnerHomePage.pageColor,
+      appBar: AppBar(
+        title: const Text('Info Sharing'),
+        backgroundColor: PetOwnerHomePage.mintColor,
+        foregroundColor: PetOwnerHomePage.inkColor,
+        elevation: 0,
+      ),
+      body: posts.isEmpty
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: _EmptyHomeCard(
+                  icon: Icons.campaign_rounded,
+                  title: 'No posts yet',
+                  detail: 'Health tips and clinic updates will appear here.',
+                ),
+              ),
+            )
+          : ListView.separated(
+              key: const ValueKey('owner-info-sharing-list'),
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(22, 22, 22, 36),
+              itemCount: posts.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 14),
+              itemBuilder: (context, index) =>
+                  _InfoSharingCard(post: posts[index]),
+            ),
+    );
+  }
+}
+
 class _HomeMessageCard extends StatelessWidget {
   const _HomeMessageCard({required this.message});
 
@@ -886,8 +973,8 @@ class _NotificationBell extends StatelessWidget {
               ),
             ),
             child: SizedBox(
-              width: 56,
-              height: 56,
+              width: 48,
+              height: 48,
               child: Stack(
                 alignment: Alignment.center,
                 clipBehavior: Clip.none,
@@ -895,12 +982,12 @@ class _NotificationBell extends StatelessWidget {
                   const Icon(
                     Icons.notifications_rounded,
                     color: PetOwnerHomePage.inkColor,
-                    size: 30,
+                    size: 24,
                   ),
                   if (count > 0)
                     Positioned(
-                      right: 12,
-                      top: 12,
+                      right: 7,
+                      top: 7,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 5,
