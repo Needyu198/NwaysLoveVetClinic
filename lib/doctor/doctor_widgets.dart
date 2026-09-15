@@ -5,7 +5,7 @@ part of 'doctor_portal.dart';
 /// trailing actions, and the clinic logo. Use at the top of a page body so
 /// every doctor sub-page shares one consistent look.
 class _DoctorPageHeader extends StatelessWidget {
-  const _DoctorPageHeader({required this.title, this.actions});
+  const _DoctorPageHeader({required this.title, this.actions, this.backKey});
 
   static const Color mint = Color(0xFFC5F7E3);
   static const Color ink = Color(0xFF17211E);
@@ -14,6 +14,7 @@ class _DoctorPageHeader extends StatelessWidget {
 
   /// Optional trailing actions placed before the logo (e.g. "Mark all read").
   final List<Widget>? actions;
+  final Key? backKey;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -28,6 +29,7 @@ class _DoctorPageHeader extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
+            key: backKey,
             onPressed: () => Navigator.of(context).maybePop(),
             icon: const Icon(Icons.arrow_back_ios_new_rounded),
             tooltip: 'Back',
@@ -49,6 +51,7 @@ class _DoctorPageHeader extends StatelessWidget {
           const SizedBox(width: 4),
           Image.asset(
             LoginPage.logoAsset,
+            key: const ValueKey('doctor-header-logo'),
             width: 48,
             height: 48,
             fit: BoxFit.contain,

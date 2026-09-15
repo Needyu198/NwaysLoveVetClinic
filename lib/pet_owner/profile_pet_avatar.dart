@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/database_sync.dart';
 import 'pet_image.dart';
 import 'profile_flows.dart';
 
@@ -15,6 +16,7 @@ class ProfilePetAvatar extends StatelessWidget {
     this.fallbackBackground = const Color(0xFFE6FAF2),
     this.fallbackForeground = const Color(0xFF16855E),
     this.photoKey,
+    this.ownerId,
     super.key,
   });
 
@@ -25,6 +27,10 @@ class ProfilePetAvatar extends StatelessWidget {
   final Color fallbackForeground;
   final Key? photoKey;
 
+  /// Database owner used to disambiguate pets with the same name when clinic
+  /// staff and doctors can see records belonging to multiple owners.
+  final String? ownerId;
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: ProfilePetStore.instance,
@@ -32,7 +38,9 @@ class ProfilePetAvatar extends StatelessWidget {
       final normalizedName = petName.trim().toLowerCase();
       ProfilePet? matchedPet;
       for (final pet in ProfilePetStore.instance.pets) {
-        if (pet.name.trim().toLowerCase() == normalizedName) {
+        final belongsToOwner =
+            ownerId == null || databaseOwnerOf(pet) == ownerId;
+        if (pet.name.trim().toLowerCase() == normalizedName && belongsToOwner) {
           matchedPet = pet;
           break;
         }

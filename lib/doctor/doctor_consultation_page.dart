@@ -52,7 +52,10 @@ class _DoctorConsultationPageState extends State<DoctorConsultationPage> {
         bottom: false,
         child: Column(
           children: [
-            const _ConsultationHeader(),
+            const _DoctorPageHeader(
+              title: 'Consultation',
+              backKey: ValueKey('doctor-consultation-back'),
+            ),
             Expanded(
               child: ListView(
                 key: const ValueKey('doctor-consultation-page'),
@@ -364,52 +367,6 @@ class _DoctorConsultationPageState extends State<DoctorConsultationPage> {
   }
 }
 
-class _ConsultationHeader extends StatelessWidget {
-  const _ConsultationHeader();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(20, 16, 24, 18),
-    decoration: const BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-      boxShadow: [
-        BoxShadow(
-          color: Color(0x28000000),
-          blurRadius: 7,
-          offset: Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        InkWell(
-          key: const ValueKey('doctor-consultation-back'),
-          onTap: () => Navigator.of(context).pop(),
-          borderRadius: BorderRadius.circular(22),
-          child: const Padding(
-            padding: EdgeInsets.all(7),
-            child: Icon(Icons.chevron_left_rounded, size: 30),
-          ),
-        ),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Text(
-            'Consultation',
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 29,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
 class _ConsultationPatientCard extends StatelessWidget {
   const _ConsultationPatientCard({required this.record});
 
@@ -435,10 +392,12 @@ class _ConsultationPatientCard extends StatelessWidget {
           child: SizedBox(
             width: 66,
             height: 66,
-            child: Image.asset(
-              'assets/photos/logoandphoto/nways_photo.png',
-              fit: BoxFit.cover,
-              alignment: Alignment.topRight,
+            child: ProfilePetAvatar(
+              petName: record.petName,
+              ownerId: databaseOwnerOf(record.source),
+              species: record.petDetails.split('•').first.trim(),
+              radius: 33,
+              photoKey: ValueKey('doctor-consultation-photo-${record.id}'),
             ),
           ),
         ),

@@ -61,14 +61,12 @@ class _DoctorHomeVisitCard extends StatelessWidget {
         padding: const EdgeInsets.all(15),
         child: Row(
           children: [
-            const CircleAvatar(
+            ProfilePetAvatar(
+              petName: visit.pet.name,
+              ownerId: databaseOwnerOf(visit),
               radius: 29,
-              backgroundColor: Colors.white,
-              child: Icon(
-                Icons.home_work_outlined,
-                color: DoctorStyles.green,
-                size: 29,
-              ),
+              fallbackBackground: Colors.white,
+              photoKey: ValueKey('doctor-home-list-photo-${visit.id}'),
             ),
             const SizedBox(width: 13),
             Expanded(
@@ -174,10 +172,14 @@ class _DoctorHomeVisitDetailsPageState
                         ),
                         child: Row(
                           children: [
-                            const CircleAvatar(
+                            ProfilePetAvatar(
+                              petName: visit.pet.name,
+                              ownerId: databaseOwnerOf(visit),
                               radius: 31,
-                              backgroundColor: Colors.white,
-                              child: Icon(Icons.home_work_outlined, size: 31),
+                              fallbackBackground: Colors.white,
+                              photoKey: ValueKey(
+                                'doctor-home-details-photo-${visit.id}',
+                              ),
                             ),
                             const SizedBox(width: 13),
                             Expanded(

@@ -129,13 +129,12 @@ class _DoctorMedicalRecordCard extends StatelessWidget {
         padding: const EdgeInsets.all(15),
         child: Row(
           children: [
-            const CircleAvatar(
+            ProfilePetAvatar(
+              petName: record.petName,
+              ownerId: databaseOwnerOf(record),
               radius: 28,
-              backgroundColor: Colors.white,
-              child: Icon(
-                Icons.description_outlined,
-                color: DoctorStyles.green,
-              ),
+              fallbackBackground: Colors.white,
+              photoKey: ValueKey('doctor-medical-list-photo-${record.id}'),
             ),
             const SizedBox(width: 13),
             Expanded(
@@ -195,10 +194,14 @@ class DoctorMedicalRecordDetailsPage extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const CircleAvatar(
+                      ProfilePetAvatar(
+                        petName: record.petName,
+                        ownerId: databaseOwnerOf(record),
                         radius: 30,
-                        backgroundColor: Colors.white,
-                        child: Icon(Icons.pets_rounded, size: 30),
+                        fallbackBackground: Colors.white,
+                        photoKey: ValueKey(
+                          'doctor-medical-details-photo-${record.id}',
+                        ),
                       ),
                       const SizedBox(width: 13),
                       Expanded(

@@ -286,10 +286,14 @@ class DoctorAppointmentCard extends StatelessWidget {
                     child: SizedBox(
                       width: 54,
                       height: 54,
-                      child: Image.asset(
-                        'assets/photos/logoandphoto/nways_photo.png',
-                        fit: BoxFit.cover,
-                        alignment: Alignment.topRight,
+                      child: ProfilePetAvatar(
+                        petName: record.petName,
+                        ownerId: databaseOwnerOf(record.source),
+                        species: record.petDetails.split('•').first.trim(),
+                        radius: 27,
+                        photoKey: ValueKey(
+                          'doctor-appointment-list-photo-${record.id}',
+                        ),
                       ),
                     ),
                   ),
@@ -427,10 +431,12 @@ class _DoctorEmergencyAppointmentCard extends StatelessWidget {
                 child: SizedBox(
                   width: 54,
                   height: 54,
-                  child: Image.asset(
-                    'assets/photos/logoandphoto/nways_photo.png',
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topRight,
+                  child: ProfilePetAvatar(
+                    petName: request.pet.name,
+                    ownerId: databaseOwnerOf(request),
+                    radius: 27,
+                    fallbackBackground: Colors.white,
+                    fallbackForeground: const Color(0xFFFF1017),
                   ),
                 ),
               ),
@@ -486,12 +492,15 @@ class DoctorAppointmentDetailsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF7FAF8),
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            const _DoctorAppointmentDetailsHeader(),
+            const _DoctorPageHeader(
+              title: 'Appointment Details',
+              backKey: ValueKey('doctor-appointment-details-back'),
+            ),
             Expanded(
               child: AnimatedBuilder(
                 animation: Listenable.merge([
@@ -726,52 +735,6 @@ class DoctorAppointmentDetailsPage extends StatelessWidget {
   }
 }
 
-class _DoctorAppointmentDetailsHeader extends StatelessWidget {
-  const _DoctorAppointmentDetailsHeader();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(20, 16, 24, 18),
-    decoration: const BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-      boxShadow: [
-        BoxShadow(
-          color: Color(0x28000000),
-          blurRadius: 7,
-          offset: Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        InkWell(
-          key: const ValueKey('doctor-appointment-details-back'),
-          onTap: () => Navigator.of(context).pop(),
-          borderRadius: BorderRadius.circular(22),
-          child: const Padding(
-            padding: EdgeInsets.all(7),
-            child: Icon(Icons.chevron_left_rounded, size: 30),
-          ),
-        ),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Text(
-            'Appointment Details',
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 27,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
 class _DoctorAppointmentPatientCard extends StatelessWidget {
   const _DoctorAppointmentPatientCard({required this.record});
 
@@ -797,10 +760,14 @@ class _DoctorAppointmentPatientCard extends StatelessWidget {
           child: SizedBox(
             width: 66,
             height: 66,
-            child: Image.asset(
-              'assets/photos/logoandphoto/nways_photo.png',
-              fit: BoxFit.cover,
-              alignment: Alignment.topRight,
+            child: ProfilePetAvatar(
+              petName: record.petName,
+              ownerId: databaseOwnerOf(record.source),
+              species: record.petDetails.split('•').first.trim(),
+              radius: 33,
+              photoKey: ValueKey(
+                'doctor-appointment-details-photo-${record.id}',
+              ),
             ),
           ),
         ),
