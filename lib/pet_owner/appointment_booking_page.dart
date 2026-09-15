@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import 'pet_owner_home_page.dart';
 import 'pet_owner_page_header.dart';
+import 'profile_pet_avatar.dart';
 
 class AppointmentBookingPage extends StatefulWidget {
   const AppointmentBookingPage({
@@ -1705,10 +1706,13 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircleAvatar(
+                ProfilePetAvatar(
+                  petName: pet.name,
+                  species: pet.species,
                   radius: 34,
-                  backgroundColor: pet.color.withValues(alpha: 0.14),
-                  child: Icon(pet.icon, color: pet.color, size: 38),
+                  fallbackBackground: pet.color.withValues(alpha: 0.14),
+                  fallbackForeground: pet.color,
+                  photoKey: ValueKey('appointment-pet-photo-${pet.name}'),
                 ),
                 const SizedBox(height: 12),
                 Text(pet.name, style: _BookingText.cardTitle),

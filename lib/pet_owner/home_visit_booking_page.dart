@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'pet_owner_page_header.dart';
+import 'profile_pet_avatar.dart';
 
 class HomeVisitBookingPage extends StatefulWidget {
   const HomeVisitBookingPage({super.key});
@@ -601,6 +602,13 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
             key: ValueKey('home-visit-pet-${pet.name}'),
             selected: _pet == pet,
             icon: Icons.pets_rounded,
+            leading: ProfilePetAvatar(
+              petName: pet.name,
+              radius: 23,
+              fallbackBackground: pet.color.withValues(alpha: 0.14),
+              fallbackForeground: pet.color,
+              photoKey: ValueKey('home-visit-pet-photo-${pet.name}'),
+            ),
             color: pet.color,
             title: pet.name,
             subtitle:
@@ -1273,6 +1281,7 @@ class _VisitSelectTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.leading,
     super.key,
   });
 
@@ -1282,6 +1291,7 @@ class _VisitSelectTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -1302,11 +1312,12 @@ class _VisitSelectTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                backgroundColor: color.withValues(alpha: 0.14),
-                foregroundColor: color,
-                child: Icon(icon),
-              ),
+              leading ??
+                  CircleAvatar(
+                    backgroundColor: color.withValues(alpha: 0.14),
+                    foregroundColor: color,
+                    child: Icon(icon),
+                  ),
               const SizedBox(width: 13),
               Expanded(
                 child: Column(

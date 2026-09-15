@@ -9,6 +9,7 @@ import 'pet_owner_nav_bar.dart';
 import 'pet_owner_profile_styles.dart';
 import 'pet_products_page.dart';
 import 'pet_profile_page.dart';
+import 'profile_pet_avatar.dart';
 import 'profile_flows.dart';
 import 'profile_account_pages.dart';
 
@@ -440,6 +441,22 @@ class _MyPetsSection extends StatelessWidget {
           icon: pets[i].type == 'Cat'
               ? Icons.cruelty_free_rounded
               : Icons.pets_rounded,
+          leading: ProfilePetAvatar(
+            petName: pets[i].name,
+            species: pets[i].type,
+            radius: 24,
+            fallbackBackground:
+                (pets[i].type == 'Cat'
+                        ? const Color(0xFF8B3DFF)
+                        : const Color(0xFF2F80FF))
+                    .withValues(alpha: 0.12),
+            fallbackForeground: pets[i].type == 'Cat'
+                ? const Color(0xFF8B3DFF)
+                : const Color(0xFF2F80FF),
+            photoKey: ValueKey(
+              'profile-pet-mini-photo-${ProfilePetStore.keyOf(pets[i])}',
+            ),
+          ),
           title: pets[i].name,
           subtitle:
               '${pets[i].type} • ${pets[i].breed} • ${pets[i].ageYears} years',
@@ -773,6 +790,7 @@ class _FeatureRow extends StatelessWidget {
     required this.title,
     required this.color,
     this.subtitle,
+    this.leading,
     this.destructive = false,
     this.onTap,
     super.key,
@@ -781,6 +799,7 @@ class _FeatureRow extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Color color;
+  final Widget? leading;
   final bool destructive;
   final VoidCallback? onTap;
 
@@ -792,11 +811,12 @@ class _FeatureRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
         children: [
-          CircleAvatar(
-            backgroundColor: color.withValues(alpha: 0.12),
-            foregroundColor: color,
-            child: Icon(icon),
-          ),
+          leading ??
+              CircleAvatar(
+                backgroundColor: color.withValues(alpha: 0.12),
+                foregroundColor: color,
+                child: Icon(icon),
+              ),
           const SizedBox(width: 13),
           Expanded(
             child: Column(

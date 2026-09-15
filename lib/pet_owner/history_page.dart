@@ -7,6 +7,7 @@ import 'emergency_service_page.dart';
 import 'home_visit_booking_page.dart';
 import 'pet_care_booking_page.dart';
 import 'pet_owner_page_header.dart';
+import 'profile_pet_avatar.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -212,9 +213,10 @@ class _HistoryPageState extends State<HistoryPage> {
                 padding: const EdgeInsets.all(18),
                 child: Row(
                   children: [
-                    const CircleAvatar(
-                      backgroundColor: Color(0xFFA1FDD8),
-                      child: Icon(Icons.pets_rounded, color: Color(0xFF16855E)),
+                    ProfilePetAvatar(
+                      petName: petName,
+                      fallbackBackground: const Color(0xFFA1FDD8),
+                      photoKey: ValueKey('history-pet-photo-$petName'),
                     ),
                     const SizedBox(width: 14),
                     Expanded(

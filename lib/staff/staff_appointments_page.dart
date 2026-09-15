@@ -377,12 +377,12 @@ class _AppointmentTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
-              CircleAvatar(
+              ProfilePetAvatar(
+                petName: item.pet,
                 radius: 30,
-                backgroundColor: Colors.white,
-                backgroundImage: const AssetImage(
-                  'assets/photos/logoandphoto/nways_pets.png',
-                ),
+                fallbackBackground: Colors.white,
+                fallbackForeground: const Color(0xFF16855E),
+                photoKey: ValueKey('staff-appointment-pet-photo-${item.pet}'),
               ),
               const SizedBox(width: 14),
               Expanded(

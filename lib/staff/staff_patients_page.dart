@@ -60,11 +60,15 @@ class _StaffPatientsPageState extends State<StaffPatientsPage> {
                             borderRadius: BorderRadius.circular(16),
                             side: const BorderSide(color: _border),
                           ),
-                          leading: CircleAvatar(
-                            backgroundColor: item.priority == 'Urgent'
+                          leading: ProfilePetAvatar(
+                            petName: item.pet,
+                            radius: 22,
+                            fallbackBackground: item.priority == 'Urgent'
                                 ? const Color(0xFFFFE4E5)
                                 : const Color(0xFFE6FAF2),
-                            child: const Icon(Icons.pets_rounded),
+                            photoKey: ValueKey(
+                              'staff-patient-pet-photo-${item.pet}',
+                            ),
                           ),
                           title: Text(
                             item.pet,
@@ -126,10 +130,14 @@ class StaffPatientDetailPage extends StatelessWidget {
               decoration: _cardDecoration(),
               child: Row(
                 children: [
-                  const CircleAvatar(
+                  ProfilePetAvatar(
+                    petName: petName,
                     radius: 28,
-                    backgroundColor: Color(0xFFE6FAF2),
-                    child: Icon(Icons.pets_rounded, color: _green, size: 30),
+                    fallbackBackground: const Color(0xFFE6FAF2),
+                    fallbackForeground: _green,
+                    photoKey: ValueKey(
+                      'staff-patient-detail-pet-photo-$petName',
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(

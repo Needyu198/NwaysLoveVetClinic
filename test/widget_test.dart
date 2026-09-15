@@ -21,6 +21,7 @@ import 'package:senior_project/pet_owner/owner_shared_stores.dart';
 import 'package:senior_project/pet_owner/pet_reminder_page.dart';
 import 'package:senior_project/pet_owner/pet_care_booking_page.dart';
 import 'package:senior_project/pet_owner/profile_flows.dart';
+import 'package:senior_project/pet_owner/profile_pet_avatar.dart';
 
 void main() {
   Future<void> signIn(WidgetTester tester) async {
@@ -1105,6 +1106,10 @@ void main() {
       find.byKey(const ValueKey('staff-appointments-records')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('staff-appointment-pet-photo-Bruno')),
+      findsOneWidget,
+    );
 
     // The seeded urgent case (Luna) shows only under the Emergency filter.
     final filterList = find.descendant(
@@ -1186,6 +1191,10 @@ void main() {
     // Home visit list shows the request; open the detail page.
     expect(find.byKey(const ValueKey('staff-home-visits')), findsOneWidget);
     expect(find.text('Bella'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('staff-home-visit-pet-photo-Bella')),
+      findsOneWidget,
+    );
     await tester.tap(find.text('Bella'));
     await tester.pumpAndSettle();
 
@@ -1193,6 +1202,10 @@ void main() {
     expect(find.text('Detail'), findsOneWidget);
     expect(find.textContaining('Rapid Test'), findsOneWidget);
     expect(find.byKey(const ValueKey('home-visit-open-map')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('staff-home-visit-summary-pet-photo-Bella')),
+      findsOneWidget,
+    );
 
     // Tap "Assign Doctor" to open the picker, then choose a specific doctor
     // which commits the assignment and returns to the list.
@@ -1273,12 +1286,20 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: StaffPatientsPage()));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('staff-patients-list')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('staff-patient-pet-photo-Bruno')),
+      findsOneWidget,
+    );
 
     // Open the first seeded patient (Bruno) → detail page, which exposes the
     // owner contact, appointment history, and the Set Reminder action.
     await tester.tap(find.byKey(const ValueKey('staff-patient-Bruno')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('staff-patient-detail')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('staff-patient-detail-pet-photo-Bruno')),
+      findsOneWidget,
+    );
     expect(find.text('Appointment history'), findsOneWidget);
     expect(find.byKey(const ValueKey('staff-set-reminder')), findsOneWidget);
     ReminderStore.instance.reset();
@@ -1317,6 +1338,10 @@ void main() {
     expect(find.text('Emergency Cases'), findsOneWidget);
     expect(find.byKey(const ValueKey('staff-emergency-list')), findsOneWidget);
     expect(find.text('Rocky'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('staff-emergency-pet-photo-Rocky')),
+      findsOneWidget,
+    );
 
     // Start review, then assign & accept.
     await tester.tap(
@@ -1556,6 +1581,124 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('owner-info-sharing-page')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('profile My Pets rows show uploaded pet mini photos', (
+    WidgetTester tester,
+  ) async {
+    ProfilePetStore.instance.reset();
+    final pet = ProfilePet(
+      name: 'Milo',
+      type: 'Cat',
+      breed: 'Siamese',
+      sex: 'Male',
+      dateOfBirth: DateTime(2022, 6, 15),
+      weightKg: 4.5,
+      color: 'Cream',
+      identifyingFeatures: 'Blue eyes',
+      allergies: 'None known',
+      conditions: 'None known',
+      medicines: 'None',
+      vaccination: 'Up to date',
+      hasCustomPhoto: true,
+      photoUrl:
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    );
+    ProfilePetStore.instance.add(pet);
+    addTearDown(ProfilePetStore.instance.reset);
+    await signIn(tester);
+
+    await tester.tap(find.byTooltip('Profile'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Milo'));
+
+    expect(
+      find.byKey(
+        ValueKey('profile-pet-mini-photo-${ProfilePetStore.keyOf(pet)}'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('shared pet avatar renders the uploaded profile photo', (
+    WidgetTester tester,
+  ) async {
+    ProfilePetStore.instance.reset();
+    ProfilePetStore.instance.add(
+      ProfilePet(
+        name: 'Photo Pet',
+        type: 'Dog',
+        breed: 'Mixed',
+        sex: 'Female',
+        dateOfBirth: DateTime(2021, 1, 1),
+        weightKg: 8,
+        color: 'Brown',
+        identifyingFeatures: '',
+        allergies: 'None',
+        conditions: 'None',
+        medicines: 'None',
+        vaccination: 'Current',
+        hasCustomPhoto: true,
+        photoUrl:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      ),
+    );
+    addTearDown(ProfilePetStore.instance.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ProfilePetAvatar(
+            petName: 'photo pet',
+            photoKey: ValueKey('shared-pet-photo'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final avatar = find.byKey(const ValueKey('shared-pet-photo'));
+    expect(avatar, findsOneWidget);
+    expect(
+      find.descendant(of: avatar, matching: find.byType(Image)),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('history pet selector renders the uploaded profile photo', (
+    WidgetTester tester,
+  ) async {
+    ProfilePetStore.instance.reset();
+    ProfilePetStore.instance.add(
+      ProfilePet(
+        name: 'Max',
+        type: 'Dog',
+        breed: 'Golden Retriever',
+        sex: 'Male',
+        dateOfBirth: DateTime(2022, 1, 1),
+        weightKg: 24,
+        color: 'Golden',
+        identifyingFeatures: '',
+        allergies: 'None',
+        conditions: 'None',
+        medicines: 'None',
+        vaccination: 'Current',
+        hasCustomPhoto: true,
+        photoUrl:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      ),
+    );
+    addTearDown(ProfilePetStore.instance.reset);
+
+    await tester.pumpWidget(const MaterialApp(home: HistoryPage()));
+    await tester.pumpAndSettle();
+
+    final avatar = find.byKey(const ValueKey('history-pet-photo-Max'));
+    expect(avatar, findsOneWidget);
+    expect(
+      find.descendant(of: avatar, matching: find.byType(Image)),
       findsOneWidget,
     );
   });
@@ -2156,6 +2299,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Choose Pet'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('appointment-pet-photo-Max')),
+      findsOneWidget,
+    );
     await tester.tap(find.text('Max').last);
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
@@ -2431,6 +2578,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('History'), findsOneWidget);
+    expect(find.byKey(const ValueKey('history-pet-photo-Max')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('history-pet-Max')));
     await tester.pumpAndSettle();
     expect(find.text('Max Records'), findsOneWidget);
@@ -2514,6 +2662,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Book a Home Visit'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home-visit-pet-photo-Max')),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const ValueKey('home-visit-pet-Max')));
     await tester.pump();
     await tester.tap(find.text('Select Veterinarian'));

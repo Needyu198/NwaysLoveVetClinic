@@ -199,11 +199,13 @@ class _HomeVisitCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            const CircleAvatar(
+            ProfilePetAvatar(
+              petName: visit.pet.name,
               radius: 30,
-              backgroundColor: Colors.white,
-              backgroundImage: AssetImage(
-                'assets/photos/logoandphoto/nways_pets.png',
+              fallbackBackground: Colors.white,
+              fallbackForeground: _green,
+              photoKey: ValueKey(
+                'staff-home-visit-pet-photo-${visit.pet.name}',
               ),
             ),
             const SizedBox(width: 14),
@@ -413,11 +415,13 @@ class _HomeVisitSummaryCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            const CircleAvatar(
+            ProfilePetAvatar(
+              petName: visit.pet.name,
               radius: 30,
-              backgroundColor: Colors.white,
-              backgroundImage: AssetImage(
-                'assets/photos/logoandphoto/nways_pets.png',
+              fallbackBackground: Colors.white,
+              fallbackForeground: _green,
+              photoKey: ValueKey(
+                'staff-home-visit-summary-pet-photo-${visit.pet.name}',
               ),
             ),
             const SizedBox(width: 14),

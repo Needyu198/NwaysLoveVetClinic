@@ -178,11 +178,14 @@ class _EmergencyCard extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: Row(
             children: [
-              const CircleAvatar(
+              ProfilePetAvatar(
+                petName: request.pet.name,
                 radius: 20,
-                backgroundColor: Color(0xFFFF6B72),
-                foregroundColor: Colors.white,
-                child: Icon(Icons.emergency_rounded, size: 20),
+                fallbackBackground: const Color(0xFFFF6B72),
+                fallbackForeground: Colors.white,
+                photoKey: ValueKey(
+                  'staff-emergency-pet-photo-${request.pet.name}',
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

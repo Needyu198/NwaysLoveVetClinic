@@ -12,6 +12,7 @@ import '../pet_owner/contact_clinic_page.dart';
 import '../pet_owner/emergency_service_page.dart';
 import '../pet_owner/home_visit_booking_page.dart';
 import '../pet_owner/owner_shared_stores.dart';
+import '../pet_owner/profile_pet_avatar.dart';
 
 part 'staff_styles.dart';
 part 'staff_models.dart';
