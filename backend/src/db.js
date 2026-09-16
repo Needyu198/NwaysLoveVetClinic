@@ -54,11 +54,37 @@ const pool = connectionString
       database: process.env.DB_NAME || "NwayLoveVetClinicSever",
       user: dbUser,
       password: dbPassword,
-      // Render's discrete PostgreSQL settings can inherit an empty or invalid
-      // role search_path. Set it for every connection in the pool so API
-      // queries keep working after startup, not only during migration.
-      options: `-c search_path=${dbSchema}`,
       ...commonOptions,
     });
+
+// Do not send search_path through PostgreSQL's startup `options` parameter:
+// Neon pooled endpoints reject that parameter. Select the schema with an
+// awaited SQL statement whenever a connection is checked out instead. Doing
+// this for every checkout also works with transaction-pooling proxies, which
+// may assign a different PostgreSQL server session between operations.
+const quotedSchema = `"${dbSchema.replaceAll('"', '""')}"`;
+const rawConnect = pool.connect.bind(pool);
+const selectSchema = client => client.query(`SET search_path TO ${quotedSchema}`);
+
+pool.connect = async () => {
+  const client = await rawConnect();
+  try {
+    await selectSchema(client);
+    return client;
+  } catch (error) {
+    client.release();
+    throw error;
+  }
+};
+
+pool.query = async (...args) => {
+  const client = await rawConnect();
+  try {
+    await selectSchema(client);
+    return await client.query(...args);
+  } finally {
+    client.release();
+  }
+};
 
 module.exports = { dbSchema, getDatabaseConfigError, pool };
