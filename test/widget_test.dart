@@ -1863,7 +1863,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('review-add-pet')));
     await tester.pumpAndSettle();
     expect(find.text('Review Pet'), findsWidgets);
-    expect(find.textContaining('Milo'), findsOneWidget);
+    expect(find.textContaining('Cat • Siamese'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('confirm-add-pet')));
     await tester.pumpAndSettle();
     expect(find.text('Pet Profile'), findsOneWidget);
@@ -1872,6 +1872,11 @@ void main() {
       ProfilePetStore.instance.pets.any((pet) => pet.name == 'Milo'),
       isTrue,
     );
+    final savedPet = ProfilePetStore.instance.pets.singleWhere(
+      (pet) => pet.name == 'Milo',
+    );
+    expect(savedPet.dateOfBirth, isNot(DateTime(2020)));
+    expect(savedPet.weightKg, 4.5);
   });
 
   testWidgets('profile displays and manages upcoming appointments', (

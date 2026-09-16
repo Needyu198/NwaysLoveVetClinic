@@ -244,12 +244,16 @@ class ProfilePet {
 
   bool get hasPhoto => photoUrl.isNotEmpty;
 
-  ProfilePet copyWith({String? photoUrl, bool? hasCustomPhoto}) => ProfilePet(
+  ProfilePet copyWith({
+    DateTime? dateOfBirth,
+    String? photoUrl,
+    bool? hasCustomPhoto,
+  }) => ProfilePet(
     name: name,
     type: type,
     breed: breed,
     sex: sex,
-    dateOfBirth: dateOfBirth,
+    dateOfBirth: dateOfBirth ?? this.dateOfBirth,
     weightKg: weightKg,
     color: color,
     identifyingFeatures: identifyingFeatures,
@@ -271,13 +275,19 @@ class ProfilePet {
     return years < 0 ? 0 : years;
   }
 
+  String get ageLabel {
+    final years = ageYears;
+    if (years == 0) return 'Under 1 year';
+    return '$years ${years == 1 ? 'year' : 'years'}';
+  }
+
   PetProfile toPetProfile() => PetProfile(
     name: name,
     species: type,
     breed: breed,
     sex: sex,
     weight: '${weightKg.toStringAsFixed(weightKg % 1 == 0 ? 0 : 1)} kg',
-    age: ageYears == 0 ? 'Under 1 year' : '$ageYears years',
+    age: ageLabel,
     imageAsset: PetProfilePage.fallbackProfile.imageAsset,
     photoUrl: photoUrl,
     petKey: '$name:${dateOfBirth.toIso8601String()}',
@@ -986,8 +996,10 @@ class _AddPetPageState extends State<AddPetPage> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _breed = TextEditingController();
+  final _weight = TextEditingController();
   String? _type;
   String? _sex;
+  DateTime? _dateOfBirth;
 
   /// Uploaded pet photo as a base64 data URI (or null when none chosen).
   String? _photoSource;
@@ -999,6 +1011,7 @@ class _AddPetPageState extends State<AddPetPage> {
   void dispose() {
     _name.dispose();
     _breed.dispose();
+    _weight.dispose();
     super.dispose();
   }
 
@@ -1096,6 +1109,63 @@ class _AddPetPageState extends State<AddPetPage> {
                       onChanged: (value) => setState(() => _sex = value),
                       validator: (value) =>
                           value == null ? 'Select the pet sex' : null,
+                    ),
+                    const SizedBox(height: 14),
+                    FormField<DateTime>(
+                      initialValue: _dateOfBirth,
+                      validator: (_) => _dateOfBirth == null
+                          ? 'Select the pet date of birth'
+                          : null,
+                      builder: (field) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ListTile(
+                            key: const ValueKey('add-pet-dob'),
+                            shape: RoundedRectangleBorder(
+                              side: BorderSide(
+                                color: field.hasError
+                                    ? Theme.of(context).colorScheme.error
+                                    : const Color(0xFF7A7A7A),
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            title: const Text('Date of birth *'),
+                            subtitle: Text(
+                              _dateOfBirth == null
+                                  ? 'Select date'
+                                  : _formatDate(_dateOfBirth!),
+                            ),
+                            trailing: const Icon(Icons.calendar_month_outlined),
+                            onTap: () => _pickPetDate(field),
+                          ),
+                          if (field.hasError)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 12, top: 8),
+                              child: Text(
+                                field.errorText!,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _field(
+                      _weight,
+                      'Weight (kg) *',
+                      key: const ValueKey('add-pet-weight'),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      validator: (value) {
+                        final weight = double.tryParse(value?.trim() ?? '');
+                        return weight == null || weight <= 0
+                            ? 'Enter a valid weight'
+                            : null;
+                      },
                     ),
                     const SizedBox(height: 24),
                     FilledButton(
@@ -1198,14 +1268,26 @@ class _AddPetPageState extends State<AddPetPage> {
     }
   }
 
+  Future<void> _pickPetDate(FormFieldState<DateTime> field) async {
+    final now = DateUtils.dateOnly(DateTime.now());
+    final value = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? now,
+      firstDate: DateTime(now.year - 40),
+      lastDate: now,
+    );
+    if (value == null) return;
+    setState(() => _dateOfBirth = value);
+    field.didChange(value);
+  }
+
   ProfilePet _buildPet() => ProfilePet(
     name: _name.text.trim(),
     type: _type!,
     breed: _breed.text.trim(),
     sex: _sex!,
-    // Not collected on this form; sensible defaults keep the model valid.
-    dateOfBirth: DateTime(2020),
-    weightKg: 0,
+    dateOfBirth: _dateOfBirth!,
+    weightKg: double.parse(_weight.text.trim()),
     color: '',
     identifyingFeatures: '',
     allergies: 'None known',
@@ -1246,7 +1328,11 @@ class _AddPetPageState extends State<AddPetPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Review Pet'),
-        content: Text('${pet.name}\n${pet.type} • ${pet.breed}\n${pet.sex}'),
+        content: Text(
+          '${pet.name}\n${pet.type} • ${pet.breed}\n'
+          '${pet.sex} • ${pet.ageLabel} • '
+          '${pet.weightKg.toStringAsFixed(pet.weightKg % 1 == 0 ? 0 : 1)} kg',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

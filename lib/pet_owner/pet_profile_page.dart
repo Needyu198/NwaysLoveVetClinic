@@ -138,6 +138,32 @@ class _PetProfilePageState extends State<PetProfilePage> {
     }
   }
 
+  Future<void> _editDateOfBirth() async {
+    final profile = _current;
+    final stored = profile.petKey.isEmpty
+        ? null
+        : ProfilePetStore.instance.byKey(profile.petKey);
+    if (stored == null) {
+      _notify('Only saved pets can be edited.');
+      return;
+    }
+
+    final now = DateUtils.dateOnly(DateTime.now());
+    final date = await showDatePicker(
+      context: context,
+      helpText: 'Pet date of birth',
+      initialDate: stored.dateOfBirth.isAfter(now) ? now : stored.dateOfBirth,
+      firstDate: DateTime(now.year - 40),
+      lastDate: now,
+    );
+    if (date == null || !mounted) return;
+
+    final updated = stored.copyWith(dateOfBirth: date);
+    ProfilePetStore.instance.update(stored, updated);
+    setState(() => _profile = updated.toPetProfile());
+    _notify('Date of birth and age updated.');
+  }
+
   void _notify(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(
@@ -161,6 +187,7 @@ class _PetProfilePageState extends State<PetProfilePage> {
                 profile: profile,
                 uploading: _uploading,
                 onUploadPhoto: _uploadPhoto,
+                onEdit: _editDateOfBirth,
               ),
             ),
             SliverPadding(
@@ -203,11 +230,13 @@ class _ProfileHero extends StatelessWidget {
     required this.profile,
     required this.uploading,
     required this.onUploadPhoto,
+    required this.onEdit,
   });
 
   final PetProfile profile;
   final bool uploading;
   final VoidCallback onUploadPhoto;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -234,7 +263,7 @@ class _ProfileHero extends StatelessWidget {
               const Expanded(
                 child: Text('Pet Profile', style: _PetProfileStyles.pageTitle),
               ),
-              _RoundIconButton(icon: Icons.edit_rounded, onTap: () {}),
+              _RoundIconButton(icon: Icons.edit_rounded, onTap: onEdit),
             ],
           ),
           const SizedBox(height: 20),

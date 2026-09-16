@@ -458,8 +458,7 @@ class _MyPetsSection extends StatelessWidget {
             ),
           ),
           title: pets[i].name,
-          subtitle:
-              '${pets[i].type} • ${pets[i].breed} • ${pets[i].ageYears} years',
+          subtitle: '${pets[i].type} • ${pets[i].breed} • ${pets[i].ageLabel}',
           color: pets[i].type == 'Cat'
               ? const Color(0xFF8B3DFF)
               : const Color(0xFF2F80FF),
