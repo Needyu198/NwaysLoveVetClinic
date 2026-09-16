@@ -12,14 +12,13 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
   const schema = `vet_test_${process.pid}_${Date.now()}`;
   let database, server;
   try {
-    await pool.query(`CREATE SCHEMA ${schema}`);
     // Keep the test on one pooled connection and select the temporary schema
     // after connecting. Hosted poolers such as Neon reject search_path when it
     // is sent as a PostgreSQL startup parameter.
     database = new Pool({ ...pool.options, password: pool.options.password, max: 1 });
+    await ensureDatabaseSchema(database, schema);
     await database.query(`SET search_path TO ${schema}`);
-    await ensureDatabaseSchema(database);
-    await ensureDatabaseSchema(database); // migration is repeatable
+    await ensureDatabaseSchema(database, schema); // migration is repeatable
     const password = await bcrypt.hash('integration-only-password', 4);
     for (const [id,role] of [['ownerA','petOwner'],['ownerB','petOwner'],['staff','staff'],['doctor','doctor'],['admin','systemAdmin']]) {
       await database.query('INSERT INTO app_accounts(id,username,password_hash,role) VALUES($1,$2,$3,$4)',[id,id.toLowerCase(),password,role]);

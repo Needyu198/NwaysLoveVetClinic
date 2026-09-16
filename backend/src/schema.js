@@ -1,9 +1,23 @@
-const { pool } = require('./db');
+const { dbSchema, pool } = require('./db');
 const { resources } = require('./resources');
-async function ensureDatabaseSchema(database = pool) {
+
+const schemaIdentifier = value => {
+  const schema = String(value || '').trim();
+  if (!/^[A-Za-z_][A-Za-z0-9_$]*$/.test(schema)) {
+    throw new Error('Invalid PostgreSQL schema name.');
+  }
+  return `"${schema.replaceAll('"', '""')}"`;
+};
+
+async function ensureDatabaseSchema(database = pool, schema = dbSchema) {
   const client = await database.connect();
   try {
     await client.query('BEGIN');
+    const selectedSchema = schemaIdentifier(schema);
+    // CREATE SCHEMA is fully qualified and therefore still works when the
+    // database role begins with an empty search_path (Render error 3F000).
+    await client.query(`CREATE SCHEMA IF NOT EXISTS ${selectedSchema}`);
+    await client.query(`SET LOCAL search_path TO ${selectedSchema}`);
     await client.query(`CREATE TABLE IF NOT EXISTS pet_owners (
       id SERIAL PRIMARY KEY, username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL, full_name TEXT,

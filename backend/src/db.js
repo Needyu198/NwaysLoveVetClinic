@@ -8,8 +8,14 @@ const connectionString = (process.env.DATABASE_URL || "").trim();
 
 const dbUser = process.env.DB_USER || "postgres";
 const dbPassword = process.env.DB_PASSWORD || "";
+const dbSchema = (process.env.DB_SCHEMA || "public").trim() || "public";
+const validSchema = /^[A-Za-z_][A-Za-z0-9_$]*$/.test(dbSchema);
 
 function getDatabaseConfigError() {
+  if (!validSchema) {
+    return "DB_SCHEMA must be a valid PostgreSQL identifier (letters, numbers, underscore, or dollar sign).";
+  }
+
   // When a connection string is provided its own credentials are used, so the
   // discrete-variable check does not apply.
   if (connectionString) return null;
@@ -48,7 +54,11 @@ const pool = connectionString
       database: process.env.DB_NAME || "NwayLoveVetClinicSever",
       user: dbUser,
       password: dbPassword,
+      // Render's discrete PostgreSQL settings can inherit an empty or invalid
+      // role search_path. Set it for every connection in the pool so API
+      // queries keep working after startup, not only during migration.
+      options: `-c search_path=${dbSchema}`,
       ...commonOptions,
     });
 
-module.exports = { getDatabaseConfigError, pool };
+module.exports = { dbSchema, getDatabaseConfigError, pool };
