@@ -119,7 +119,7 @@ function installApi(app, pool) {
           'photoUrl',COALESCE(dp.data->'value'->>'photoUrl',sp.data->'value'->>'photoPath'),
           'specialty',COALESCE(dp.data->'value'->>'specialty',sp.data->'value'->>'shift'),
           'available',CASE WHEN a.role='staff'
-            THEN COALESCE(sp.data->'value'->>'onShift' = 'true', FALSE)
+            THEN COALESCE(sp.data->'value'->>'onShift' = 'true', TRUE)
             ELSE COALESCE(dp.data->'value'->>'acceptingAppointments' = 'true', TRUE)
           END)) AS data
         FROM app_accounts a

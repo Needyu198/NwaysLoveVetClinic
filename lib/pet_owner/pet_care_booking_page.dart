@@ -159,12 +159,17 @@ class PetCareBookingStore extends ChangeNotifier {
 
   bool isSlotAvailable({
     required String provider,
+    String? providerId,
     required DateTime date,
     required String time,
   }) {
     return !_bookings.any(
       (booking) =>
-          booking.provider == provider &&
+          (providerId != null &&
+                  providerId.isNotEmpty &&
+                  booking.providerId.isNotEmpty
+              ? booking.providerId == providerId
+              : booking.provider == provider) &&
           DateUtils.isSameDay(booking.date, date) &&
           booking.time == time &&
           booking.status != PetCareStatus.completed,
@@ -203,6 +208,7 @@ class PetCareBooking {
     'option': option,
     'pet': pet.toDb(),
     'provider': provider,
+    'providerId': providerId,
     'date': date.toIso8601String(),
     'time': time,
     'location': location,
@@ -219,6 +225,7 @@ class PetCareBooking {
       option: data['option'] as String? ?? '',
       pet: CarePet.fromDb(Map<String, dynamic>.from(data['pet'] as Map)),
       provider: data['provider'] as String,
+      providerId: data['providerId'] as String? ?? '',
       date: DateTime.parse(data['date'] as String),
       time: data['time'] as String,
       location: data['location'] as String,
@@ -235,6 +242,7 @@ class PetCareBooking {
     this.option = '',
     required this.pet,
     required this.provider,
+    this.providerId = '',
     required this.date,
     required this.time,
     required this.location,
@@ -246,6 +254,7 @@ class PetCareBooking {
   final String option;
   final CarePet pet;
   final String provider;
+  final String providerId;
   final DateTime date;
   final String time;
   final String location;
@@ -702,18 +711,20 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
             )
             .toList(growable: false);
 
-  List<String> get _availableProviders {
-    if (ClinicApi.instance.token == null) return widget.service.providers;
-    return ClinicDirectory.instance.availableStaffProfiles
-        .map((staff) => staff.name)
-        .toList(growable: false);
-  }
-
-  ClinicPerson? _staffEntry(String name) {
-    for (final staff in ClinicDirectory.instance.availableStaffProfiles) {
-      if (staff.name == name) return staff;
+  List<ClinicPerson> get _availableProviders {
+    if (ClinicApi.instance.token == null) {
+      return widget.service.providers
+          .map(
+            (name) => ClinicPerson(
+              id: 'catalog:$name',
+              name: name,
+              role: 'staff',
+              specialty: 'Pet care provider • Available this week',
+            ),
+          )
+          .toList(growable: false);
     }
-    return null;
+    return ClinicDirectory.instance.availableStaffProfiles;
   }
 
   ServicePriceOption get _selectedOption =>
@@ -721,7 +732,8 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
 
   int _step = 0;
   CarePet? _pet;
-  String? _provider;
+  String? _providerName;
+  String? _providerId;
   DateTime? _date;
   String? _time;
   int _holdSeconds = 0;
@@ -771,9 +783,10 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
   }
 
   void _holdSlot() {
-    if (_date == null || _time == null || _provider == null) return;
+    if (_date == null || _time == null || _providerName == null) return;
     if (!PetCareBookingStore.instance.isSlotAvailable(
-      provider: _provider!,
+      provider: _providerName!,
+      providerId: _providerId,
       date: _date!,
       time: _time!,
     )) {
@@ -802,9 +815,10 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
 
   void _confirm() {
     if (_holdSeconds == 0 ||
-        !_availableProviders.contains(_provider) ||
+        !_availableProviders.any((provider) => provider.id == _providerId) ||
         !PetCareBookingStore.instance.isSlotAvailable(
-          provider: _provider!,
+          provider: _providerName!,
+          providerId: _providerId,
           date: _date!,
           time: _time!,
         )) {
@@ -821,7 +835,8 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
       service: widget.service,
       option: _selectedOption.name,
       pet: _pet!,
-      provider: _provider!,
+      provider: _providerName!,
+      providerId: _providerId ?? '',
       date: _date!,
       time: _time!,
       location: "Nway's Love Vet Clinic",
@@ -941,7 +956,7 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
       subtitle:
           '${_pet!.name} meets the current requirements. Select an available provider.',
       action: 'Select Schedule',
-      enabled: _provider != null && providers.contains(_provider),
+      enabled: providers.any((provider) => provider.id == _providerId),
       onAction: _next,
       child: providers.isEmpty
           ? const _CareEmptyState(
@@ -955,16 +970,19 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
               separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final provider = providers[index];
-                final staff = _staffEntry(provider);
                 return _SelectTile(
-                  selected: _provider == provider,
+                  key: ValueKey('care-provider-${provider.id}'),
+                  selected: _providerId == provider.id,
                   icon: Icons.badge_outlined,
                   color: _CareColors.green,
-                  title: provider,
+                  title: provider.name,
                   subtitle: ClinicApi.instance.token == null
                       ? 'Pet care provider • Available this week'
-                      : 'Clinic care staff • ${staff?.specialty ?? 'On shift'}',
-                  onTap: () => setState(() => _provider = provider),
+                      : 'Clinic care staff • ${provider.specialty ?? 'On shift'}',
+                  onTap: () => setState(() {
+                    _providerName = provider.name;
+                    _providerId = provider.id;
+                  }),
                 );
               },
             ),
@@ -1036,7 +1054,7 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
               _DetailRow('Pet', '${_pet!.name} • ${_pet!.breed}'),
               _DetailRow('Service', widget.service.name),
               _DetailRow('Selected option', _selectedOption.name),
-              _DetailRow('Provider', _provider!),
+              _DetailRow('Provider', _providerName!),
               _DetailRow('Schedule', '${_longDate(_date!)} • $_time'),
               const _DetailRow('Location', "Nway's Love Vet Clinic"),
               _DetailRow('Price', _selectedOption.prices),

@@ -38,6 +38,17 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
       const result = await request('/auth/login',null,{username:id,password:'integration-only-password'});
       assert.equal(result.status,200);tokens[id]=result.token;
     }
+    // Active staff are immediately available to owner-facing pet-care
+    // provider selection, then follow their persisted on-shift status.
+    let directory = await request('/data/clinic_directory',tokens.ownerA);
+    let staffDirectoryEntry = directory.records.find(r=>r.data.value.id==='staff');
+    assert.equal(staffDirectoryEntry.data.value.available,true);
+    const staffProfile = {id:'staff-profile',version:0,data:{key:'staff:profile',value:{name:'Clinic Staff',shift:'Evening',onShift:false}}};
+    assert.equal((await request('/data/staff_profiles/sync',tokens.staff,{changes:[staffProfile]})).status,200);
+    directory = await request('/data/clinic_directory',tokens.ownerA);
+    staffDirectoryEntry = directory.records.find(r=>r.data.value.id==='staff');
+    assert.equal(staffDirectoryEntry.data.value.available,false);
+    assert.equal(staffDirectoryEntry.data.value.specialty,'Evening');
     assert.equal((await request('/data/pets')).status,401);
     assert.equal((await request('/data/inventory;DROP TABLE pets',tokens.admin)).status,404);
     assert.equal((await request('/data/payments',tokens.ownerA)).status,403);

@@ -169,5 +169,14 @@ void main() {
     expect(find.text('Eligible for Grooming'), findsOneWidget);
     expect(find.text('Mya Thu'), findsOneWidget);
     expect(find.textContaining('Morning • 8:00 AM–4:00 PM'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('care-provider-staff-mya')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('care-provider-staff-mya')));
+    await tester.pump();
+    await tester.tap(find.text('Select Schedule'));
+    await tester.pumpAndSettle();
+    expect(find.text('Available dates'), findsOneWidget);
   });
 }

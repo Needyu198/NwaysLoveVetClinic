@@ -4,6 +4,7 @@ import 'database_sync.dart';
 /// A public directory entry for a clinic doctor/staff member.
 class ClinicPerson {
   const ClinicPerson({
+    this.id = '',
     required this.name,
     required this.role,
     this.photoUrl,
@@ -11,6 +12,8 @@ class ClinicPerson {
     this.available = true,
   });
 
+  /// Stable account identifier used when a booking selects this provider.
+  final String id;
   final String name;
   final String role;
 
@@ -35,16 +38,19 @@ class ClinicDirectory extends ChangeNotifier {
       .toList(growable: false);
 
   /// Full doctor entries (name + photo + specialty) for the clinic page.
-  List<ClinicPerson> get doctorProfiles => _people.values
-      .where((p) => p['role'] == 'doctor')
-      .where((p) => (p['name'] as String?)?.trim().isNotEmpty ?? false)
+  List<ClinicPerson> get doctorProfiles => _people.entries
+      .where((entry) => entry.value['role'] == 'doctor')
+      .where(
+        (entry) => (entry.value['name'] as String?)?.trim().isNotEmpty ?? false,
+      )
       .map(
-        (p) => ClinicPerson(
-          name: p['name'] as String,
-          role: p['role'] as String,
-          photoUrl: p['photoUrl'] as String?,
-          specialty: p['specialty'] as String?,
-          available: p['available'] as bool? ?? true,
+        (entry) => ClinicPerson(
+          id: entry.value['id'] as String? ?? entry.key,
+          name: entry.value['name'] as String,
+          role: entry.value['role'] as String,
+          photoUrl: entry.value['photoUrl'] as String?,
+          specialty: entry.value['specialty'] as String?,
+          available: entry.value['available'] as bool? ?? true,
         ),
       )
       .toList();
@@ -54,18 +60,19 @@ class ClinicDirectory extends ChangeNotifier {
       .toList(growable: false);
 
   /// Public staff entries used by owner-facing non-medical service booking.
-  List<ClinicPerson> get staffProfiles => _people.values
-      .where((person) => person['role'] == 'staff')
+  List<ClinicPerson> get staffProfiles => _people.entries
+      .where((entry) => entry.value['role'] == 'staff')
       .where(
-        (person) => (person['name'] as String?)?.trim().isNotEmpty ?? false,
+        (entry) => (entry.value['name'] as String?)?.trim().isNotEmpty ?? false,
       )
       .map(
-        (person) => ClinicPerson(
-          name: person['name'] as String,
-          role: person['role'] as String,
-          photoUrl: person['photoUrl'] as String?,
-          specialty: person['specialty'] as String?,
-          available: person['available'] as bool? ?? false,
+        (entry) => ClinicPerson(
+          id: entry.value['id'] as String? ?? entry.key,
+          name: entry.value['name'] as String,
+          role: entry.value['role'] as String,
+          photoUrl: entry.value['photoUrl'] as String?,
+          specialty: entry.value['specialty'] as String?,
+          available: entry.value['available'] as bool? ?? false,
         ),
       )
       .toList(growable: false);
