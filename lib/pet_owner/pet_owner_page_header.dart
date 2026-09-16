@@ -13,6 +13,7 @@ class PetOwnerPageHeader extends StatelessWidget {
     this.onBack,
     this.actions,
     this.logoKey,
+    this.onLogoTap,
     super.key,
   });
 
@@ -26,6 +27,7 @@ class PetOwnerPageHeader extends StatelessWidget {
   /// Optional trailing actions placed before the logo (e.g. history icon).
   final List<Widget>? actions;
   final Key? logoKey;
+  final VoidCallback? onLogoTap;
 
   @override
   Widget build(BuildContext context) {
@@ -56,12 +58,19 @@ class PetOwnerPageHeader extends StatelessWidget {
           ),
           ...?actions,
           const SizedBox(width: 4),
-          Image.asset(
-            PetOwnerHomePage.logoAsset,
+          InkWell(
             key: logoKey,
-            width: 48,
-            height: 48,
-            fit: BoxFit.contain,
+            onTap: onLogoTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Image.asset(
+                PetOwnerHomePage.logoAsset,
+                width: 48,
+                height: 48,
+                fit: BoxFit.contain,
+              ),
+            ),
           ),
         ],
       ),

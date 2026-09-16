@@ -1,15 +1,21 @@
 part of 'staff_portal.dart';
 
 class _StaffScaffold extends StatelessWidget {
-  const _StaffScaffold({required this.title, required this.child, this.onBack});
+  const _StaffScaffold({
+    required this.title,
+    required this.child,
+    this.onBack,
+    this.onLogoTap,
+  });
   final String title;
   final Widget child;
   final VoidCallback? onBack;
+  final VoidCallback? onLogoTap;
   @override
   Widget build(BuildContext context) => SafeArea(
     child: Column(
       children: [
-        _InlineHeader(title: title, onBack: onBack),
+        _InlineHeader(title: title, onBack: onBack, onLogoTap: onLogoTap),
         Expanded(child: child),
       ],
     ),
@@ -85,10 +91,16 @@ class _StaffMintHeader extends StatelessWidget {
 }
 
 class _InlineHeader extends StatelessWidget {
-  const _InlineHeader({required this.title, this.subtitle, this.onBack});
+  const _InlineHeader({
+    required this.title,
+    this.subtitle,
+    this.onBack,
+    this.onLogoTap,
+  });
   final String title;
   final String? subtitle;
   final VoidCallback? onBack;
+  final VoidCallback? onLogoTap;
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
@@ -111,12 +123,24 @@ class _InlineHeader extends StatelessWidget {
             ],
           ),
         ),
-        Container(
-          width: 42,
-          height: 42,
-          padding: const EdgeInsets.all(6),
-          decoration: const BoxDecoration(color: _mint, shape: BoxShape.circle),
-          child: Image.asset('assets/photos/logoandphoto/nways_love_logo.png'),
+        InkWell(
+          key: ValueKey(
+            'staff-${title.toLowerCase().replaceAll(' ', '-')}-logo',
+          ),
+          onTap: onLogoTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 42,
+            height: 42,
+            padding: const EdgeInsets.all(6),
+            decoration: const BoxDecoration(
+              color: _mint,
+              shape: BoxShape.circle,
+            ),
+            child: Image.asset(
+              'assets/photos/logoandphoto/nways_love_logo.png',
+            ),
+          ),
         ),
       ],
     ),

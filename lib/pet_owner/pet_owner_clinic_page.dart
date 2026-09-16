@@ -177,12 +177,18 @@ class _ClinicPageHeader extends StatelessWidget {
             ],
           ),
         ),
-        Image(
+        InkWell(
           key: ValueKey('clinic-information-logo'),
-          image: AssetImage(PetOwnerHomePage.logoAsset),
-          width: 64,
-          height: 64,
-          fit: BoxFit.contain,
+          onTap: () => Navigator.of(
+            context,
+          ).pushReplacementNamed(PetOwnerHomePage.routeName),
+          borderRadius: BorderRadius.circular(18),
+          child: Image(
+            image: AssetImage(PetOwnerHomePage.logoAsset),
+            width: 64,
+            height: 64,
+            fit: BoxFit.contain,
+          ),
         ),
       ],
     ),

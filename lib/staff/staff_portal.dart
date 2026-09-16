@@ -57,8 +57,8 @@ class _StaffPortalPageState extends State<StaffPortalPage> {
         index: _index,
         children: [
           StaffDashboardPage(onOpenProfile: () => setState(() => _index = 2)),
-          const StaffManagementPage(),
-          const StaffProfilePage(),
+          StaffManagementPage(onLogoTap: () => setState(() => _index = 0)),
+          StaffProfilePage(onLogoTap: () => setState(() => _index = 0)),
         ],
       ),
       extendBody: true,

@@ -54,7 +54,12 @@ class _PetOwnerProfilePageState extends State<PetOwnerProfilePage> {
             physics: const BouncingScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(
-                child: _ProfileHeader(onEdit: () => _editProfile(context)),
+                child: _ProfileHeader(
+                  onEdit: () => _editProfile(context),
+                  onLogoTap: () => Navigator.of(
+                    context,
+                  ).pushReplacementNamed(PetOwnerHomePage.routeName),
+                ),
               ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(22, 18, 22, 128),
@@ -200,8 +205,9 @@ class _PetOwnerProfilePageState extends State<PetOwnerProfilePage> {
 }
 
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.onEdit});
+  const _ProfileHeader({required this.onEdit, required this.onLogoTap});
   final VoidCallback onEdit;
+  final VoidCallback onLogoTap;
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -210,11 +216,16 @@ class _ProfileHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(26, 18, 26, 0),
       child: Row(
         children: [
-          Image.asset(
-            PetOwnerHomePage.logoAsset,
-            width: 94,
-            height: 94,
-            fit: BoxFit.contain,
+          InkWell(
+            key: const ValueKey('pet-owner-profile-logo'),
+            onTap: onLogoTap,
+            borderRadius: BorderRadius.circular(24),
+            child: Image.asset(
+              PetOwnerHomePage.logoAsset,
+              width: 94,
+              height: 94,
+              fit: BoxFit.contain,
+            ),
           ),
           const Spacer(),
           IconButton(

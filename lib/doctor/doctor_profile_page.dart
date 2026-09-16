@@ -137,7 +137,9 @@ class DoctorProfileStore extends ChangeNotifier {
 }
 
 class DoctorProfilePage extends StatelessWidget {
-  const DoctorProfilePage({super.key});
+  const DoctorProfilePage({this.onLogoTap, super.key});
+
+  final VoidCallback? onLogoTap;
 
   @override
   Widget build(BuildContext context) {
@@ -150,7 +152,7 @@ class DoctorProfilePage extends StatelessWidget {
           bottom: false,
           child: Column(
             children: [
-              const _DoctorProfileHeader(),
+              _DoctorProfileHeader(onLogoTap: onLogoTap),
               Expanded(
                 child: ListView(
                   key: const ValueKey('doctor-profile'),
@@ -218,7 +220,9 @@ class DoctorProfilePage extends StatelessWidget {
 }
 
 class _DoctorProfileHeader extends StatelessWidget {
-  const _DoctorProfileHeader();
+  const _DoctorProfileHeader({this.onLogoTap});
+
+  final VoidCallback? onLogoTap;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -237,11 +241,16 @@ class _DoctorProfileHeader extends StatelessWidget {
         ),
       ],
     ),
-    child: Image.asset(
-      'assets/photos/logoandphoto/nways_love_logo.png',
-      width: 92,
-      height: 92,
-      fit: BoxFit.contain,
+    child: InkWell(
+      key: const ValueKey('doctor-profile-logo'),
+      onTap: onLogoTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Image.asset(
+        'assets/photos/logoandphoto/nways_love_logo.png',
+        width: 92,
+        height: 92,
+        fit: BoxFit.contain,
+      ),
     ),
   );
 }

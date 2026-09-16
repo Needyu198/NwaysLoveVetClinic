@@ -1,15 +1,18 @@
 part of 'staff_portal.dart';
 
 class StaffManagementPage extends StatelessWidget {
-  const StaffManagementPage({super.key});
+  const StaffManagementPage({this.onLogoTap, super.key});
+
+  final VoidCallback? onLogoTap;
 
   @override
   Widget build(BuildContext context) => SafeArea(
     child: Column(
       children: [
-        const _InlineHeader(
+        _InlineHeader(
           title: 'Management',
           subtitle: 'Clinic operations and patient services',
+          onLogoTap: onLogoTap,
         ),
         Expanded(
           child: GridView.count(

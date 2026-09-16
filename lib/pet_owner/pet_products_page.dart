@@ -93,6 +93,9 @@ class _PetProductsPageState extends State<PetProductsPage> {
                 PetOwnerPageHeader(
                   title: 'Pet Products',
                   logoKey: const ValueKey('pet-products-logo'),
+                  onLogoTap: () => Navigator.of(
+                    context,
+                  ).pushReplacementNamed(PetOwnerHomePage.routeName),
                   actions: [
                     IconButton(
                       onPressed: () {},

@@ -1,11 +1,14 @@
 part of 'staff_portal.dart';
 
 class StaffProfilePage extends StatelessWidget {
-  const StaffProfilePage({super.key});
+  const StaffProfilePage({this.onLogoTap, super.key});
+
+  final VoidCallback? onLogoTap;
 
   @override
   Widget build(BuildContext context) => _StaffScaffold(
     title: 'Staff Profile',
+    onLogoTap: onLogoTap,
     child: AnimatedBuilder(
       animation: StaffProfileStore.instance,
       builder: (context, _) {

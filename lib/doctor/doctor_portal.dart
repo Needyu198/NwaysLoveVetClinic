@@ -63,7 +63,7 @@ class _DoctorPortalPageState extends State<DoctorPortalPage> {
             initialFilter: _appointmentFilter,
             onBack: () => setState(() => _index = 0),
           ),
-          const DoctorProfilePage(),
+          DoctorProfilePage(onLogoTap: () => setState(() => _index = 0)),
         ],
       ),
       bottomNavigationBar: DoctorNavigationBar(
