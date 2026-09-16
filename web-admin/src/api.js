@@ -88,6 +88,13 @@ export async function syncTable(table, changes = [], deletions = []) {
   return request('POST', `/data/${table}/sync`, { changes, deletions });
 }
 
+export async function changePassword(currentPassword, newPassword) {
+  return request('POST', '/auth/change-password', {
+    currentPassword,
+    newPassword,
+  });
+}
+
 // Find an existing record in a table by its logical id (data.value.id).
 function findByValueId(records, valueId) {
   return records.find(r => (r.data?.value?.id || '') === valueId) || null;
@@ -106,7 +113,7 @@ export async function createUser({ name, email, phone, role, password }) {
   const value = {
     id,
     name,
-    email,
+    email: email.trim().toLowerCase(),
     phone,
     role,
     status: 'pending',
@@ -125,6 +132,12 @@ export async function updateUser(record, patch) {
   delete value.password; // never resend a password on updates
   return syncTable('user_directory', [
     { id: record.id, version: record.version, data: { key: record.data.key, value } },
+  ]);
+}
+
+export async function deleteUser(record) {
+  return syncTable('user_directory', [], [
+    { id: record.id, version: record.version },
   ]);
 }
 

@@ -6,6 +6,7 @@ import {
   UsersView,
   VerificationView,
   AuditLogsView,
+  AccountView,
 } from './views.jsx';
 
 // Admin feature areas, mirroring the Flutter system-admin portal.
@@ -27,6 +28,7 @@ const NAV_GROUPS = [
     label: 'System',
     items: [
       { key: 'audit', label: 'Audit Logs', icon: '📜', sub: 'Sensitive action trail', View: AuditLogsView },
+      { key: 'account', label: 'Account', icon: '⚙️', sub: 'Security and password', View: AccountView },
     ],
   },
 ];
@@ -111,9 +113,8 @@ function Portal({ account, onSignOut }) {
 
   useEffect(() => {
     const disconnect = connectRealtime(() => {
-      setLive(true);
       setRefreshKey(k => k + 1);
-    });
+    }, setLive);
     return disconnect;
   }, []);
 

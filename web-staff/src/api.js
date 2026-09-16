@@ -91,6 +91,33 @@ export async function syncTable(table, changes = [], deletions = []) {
   return request('POST', `/data/${table}/sync`, { changes, deletions });
 }
 
+export async function updateRecord(table, record, patch) {
+  const value = { ...record.data.value, ...patch };
+  return syncTable(table, [{
+    id: record.id,
+    version: record.version,
+    data: { key: record.data.key, value },
+  }]);
+}
+
+export async function createRecord(table, value, { ownerId } = {}) {
+  const itemId = value.id || `${table}-${Date.now()}`;
+  const key = recordKey(itemId);
+  return syncTable(table, [{
+    id: key,
+    version: 0,
+    ...(ownerId ? { ownerId } : {}),
+    data: { key, value: { ...value, id: itemId } },
+  }]);
+}
+
+export async function changePassword(currentPassword, newPassword) {
+  return request('POST', '/auth/change-password', {
+    currentPassword,
+    newPassword,
+  });
+}
+
 // Build the full InventoryItem.toDb() value shape the Flutter app expects.
 export function buildInventoryValue(item) {
   return {

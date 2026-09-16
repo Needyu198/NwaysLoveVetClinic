@@ -498,6 +498,25 @@ tbody tr:hover {
   padding: 40px 26px;
   text-align: center;
 }
+.card.pad label,
+.card.pad input {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+.card.pad label {
+  margin: 16px 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.card.pad input {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  font: inherit;
+}
 .muted {
   color: var(--muted);
 }

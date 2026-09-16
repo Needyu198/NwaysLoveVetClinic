@@ -9,9 +9,13 @@ import {
   PaymentsView,
   InventoryView,
   MedicalRecordsView,
+  PatientsView,
+  EmergenciesView,
+  HomeVisitsView,
   HealthPostsView,
   MessagesView,
   ReportsView,
+  AccountView,
 } from './views.jsx';
 
 // The staff feature areas, grouped like the reference dashboard sidebar.
@@ -23,6 +27,8 @@ const NAV_GROUPS = [
       { key: 'appointments', label: 'Appointments', icon: '📅', sub: 'Scheduled visits', View: AppointmentsView },
       { key: 'queue', label: 'Queue', icon: '⏳', sub: 'Live patient queue', View: QueueView },
       { key: 'walkin', label: 'Walk-in', icon: '🚶', sub: 'Walk-in registrations', View: WalkInView },
+      { key: 'emergencies', label: 'Emergencies', icon: '🚨', sub: 'Urgent owner requests', View: EmergenciesView },
+      { key: 'homevisits', label: 'Home Visits', icon: '🏠', sub: 'Coordinate mobile care', View: HomeVisitsView },
     ],
   },
   {
@@ -31,6 +37,7 @@ const NAV_GROUPS = [
       { key: 'payments', label: 'Payments', icon: '💳', sub: 'Billing and revenue', View: PaymentsView },
       { key: 'inventory', label: 'Inventory', icon: '📦', sub: 'Stock and supplies', View: InventoryView },
       { key: 'records', label: 'Medical Records', icon: '🩺', sub: 'Patient histories', View: MedicalRecordsView },
+      { key: 'patients', label: 'Patients', icon: '🐾', sub: 'Pet and owner directory', View: PatientsView },
       { key: 'posts', label: 'Health Posts', icon: '📝', sub: 'Published articles', View: HealthPostsView },
     ],
   },
@@ -39,6 +46,7 @@ const NAV_GROUPS = [
     items: [
       { key: 'messages', label: 'Messages', icon: '💬', sub: 'Owner conversations', View: MessagesView },
       { key: 'reports', label: 'Reports', icon: '📈', sub: 'Clinic analytics', View: ReportsView },
+      { key: 'account', label: 'Account', icon: '⚙️', sub: 'Security and password', View: AccountView },
     ],
   },
 ];
@@ -123,9 +131,8 @@ function Portal({ account, onSignOut }) {
 
   useEffect(() => {
     const disconnect = connectRealtime(() => {
-      setLive(true);
       setRefreshKey(k => k + 1);
-    });
+    }, setLive);
     return disconnect;
   }, []);
 

@@ -3,8 +3,10 @@ import {
   getTable,
   createUser,
   updateUser,
+  deleteUser,
   decideVerification,
   recordAudit,
+  changePassword,
 } from './api.js';
 
 // Generic hook to load a table's records with a refresh trigger.
@@ -70,6 +72,10 @@ export function AdminDashboardView({ refreshKey }) {
   const users = useTable('user_directory', refreshKey);
   const verifs = useTable('doctor_verifications', refreshKey);
   const audit = useTable('audit_logs', refreshKey);
+  const appointments = useTable('appointments', refreshKey);
+  const queue = useTable('queue_entries', refreshKey);
+  const emergencies = useTable('emergency_requests', refreshKey);
+  const inventory = useTable('inventory', refreshKey);
 
   const uv = users.records.map(val);
   const countRole = role => uv.filter(u => u.role === role).length;
@@ -77,6 +83,23 @@ export function AdminDashboardView({ refreshKey }) {
   const pendingVerifs = verifs.records
     .map(val)
     .filter(v => ['submitted', 'underReview'].includes(v.status)).length;
+  const today = new Date();
+  const todayAppointments = appointments.records.map(val).filter(v => {
+    if (!v.date || v.status === 'Cancelled') return false;
+    const date = new Date(v.date);
+    return date.getFullYear() === today.getFullYear()
+      && date.getMonth() === today.getMonth()
+      && date.getDate() === today.getDate();
+  }).length;
+  const activeQueue = queue.records.map(val).filter(v => v.status !== 'completed').length;
+  const activeEmergencies = emergencies.records.map(val)
+    .filter(v => !['completed', 'declined'].includes(v.status)).length;
+  const lowStock = inventory.records.map(val)
+    .filter(v => !v.archived && Number(v.quantity) <= Number(v.reorderLevel || 0)).length;
+  const expired = inventory.records.map(val).filter(v => {
+    if (v.archived || !v.expiresOn) return false;
+    return new Date(v.expiresOn).getTime() < Date.now();
+  }).length;
 
   const cards = [
     { label: 'Total users', value: users.records.length, icon: '👥', tone: '' },
@@ -85,6 +108,11 @@ export function AdminDashboardView({ refreshKey }) {
     { label: 'Staff', value: countRole('staff'), icon: '🧑\u200d⚕️', tone: '' },
     { label: 'Pending users', value: pendingUsers, icon: '⏳', tone: 'orange' },
     { label: 'Pending verifications', value: pendingVerifs, icon: '✅', tone: 'purple' },
+    { label: 'Today appointments', value: todayAppointments, icon: '📅', tone: '' },
+    { label: 'In queue', value: activeQueue, icon: '👥', tone: 'orange' },
+    { label: 'Active emergencies', value: activeEmergencies, icon: '🚨', tone: 'purple' },
+    { label: 'Low stock', value: lowStock, icon: '⚠️', tone: 'orange' },
+    { label: 'Expired items', value: expired, icon: '📦', tone: 'purple' },
     { label: 'Audit entries', value: audit.records.length, icon: '📜', tone: '' },
   ];
 
@@ -201,19 +229,23 @@ function AddUserModal({ onClose, onSaved }) {
   );
 }
 
-export function UsersView({ refreshKey }) {
+export function UsersView({ refreshKey, query = '' }) {
   const { records, loading, error, reload } = useTable('user_directory', refreshKey);
   const [showAdd, setShowAdd] = useState(false);
   const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [busyId, setBusyId] = useState('');
 
   const rows = useMemo(() => {
     const list = records.filter(r => {
-      if (roleFilter === 'all') return true;
-      return val(r).role === roleFilter;
+      const v = val(r);
+      if (roleFilter !== 'all' && v.role !== roleFilter) return false;
+      if (statusFilter !== 'all' && v.status !== statusFilter) return false;
+      const q = query.trim().toLowerCase();
+      return !q || [v.name, v.email, v.phone, v.id].some(x => String(x || '').toLowerCase().includes(q));
     });
     return list;
-  }, [records, roleFilter]);
+  }, [records, roleFilter, statusFilter, query]);
 
   async function setStatus(record, status) {
     setBusyId(record.id);
@@ -234,6 +266,23 @@ export function UsersView({ refreshKey }) {
     } finally {
       setBusyId('');
     }
+  }
+
+  async function remove(record) {
+    const v = val(record);
+    if (v.role === 'admin') return alert('Administrator accounts cannot be deleted here.');
+    if (!window.confirm(`Permanently delete ${v.name} and revoke login access?`)) return;
+    setBusyId(record.id);
+    try {
+      await deleteUser(record);
+      await recordAudit({
+        action: 'Deleted account', module: 'Users and Roles',
+        record: `${v.name} (${v.id})`, previousValue: v.status,
+        newValue: 'Deleted', reason: 'Administrator deleted account',
+      });
+      reload();
+    } catch (e) { alert(e.message); }
+    finally { setBusyId(''); }
   }
 
   const FILTERS = [
@@ -259,6 +308,12 @@ export function UsersView({ refreshKey }) {
             </button>
           ))}
         </div>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{maxWidth:180}}>
+          <option value="all">Any status</option>
+          <option value="pending">Pending</option>
+          <option value="active">Active</option>
+          <option value="suspended">Suspended</option>
+        </select>
         <button className="btn-primary small" onClick={() => setShowAdd(true)}>+ Add User</button>
       </div>
       <StateWrap loading={loading} error={error} empty={rows.length === 0} emptyText="No accounts match this filter.">
@@ -296,6 +351,11 @@ export function UsersView({ refreshKey }) {
                       {status !== 'suspended' && (
                         <button className="link-btn danger" disabled={busyId === r.id} onClick={() => setStatus(r, 'suspended')}>
                           Suspend
+                        </button>
+                      )}
+                      {v.role !== 'admin' && (
+                        <button className="link-btn danger" disabled={busyId === r.id} onClick={() => remove(r)}>
+                          Delete
                         </button>
                       )}
                     </td>
@@ -440,4 +500,29 @@ export function AuditLogsView({ refreshKey }) {
       </div>
     </StateWrap>
   );
+}
+
+export function AccountView() {
+  const [current, setCurrent] = useState('');
+  const [nextPassword, setNextPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [message, setMessage] = useState('');
+  async function submit(e) {
+    e.preventDefault(); setMessage('');
+    if (nextPassword.length < 8) return setMessage('New password must be at least 8 characters.');
+    if (nextPassword !== confirm) return setMessage('Passwords do not match.');
+    try {
+      await changePassword(current, nextPassword);
+      setCurrent(''); setNextPassword(''); setConfirm(''); setMessage('Password updated.');
+    } catch (e) { setMessage(e.message); }
+  }
+  return <form className="card pad" onSubmit={submit} style={{maxWidth:560}}>
+    <h2>Administrator security</h2>
+    <p className="muted">Change the password used by both mobile and web admin portals.</p>
+    <label>Current password</label><input type="password" value={current} onChange={e => setCurrent(e.target.value)} required />
+    <label>New password</label><input type="password" value={nextPassword} onChange={e => setNextPassword(e.target.value)} required />
+    <label>Confirm new password</label><input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required />
+    <button className="btn-primary">Update password</button>
+    {message && <div className={message === 'Password updated.' ? 'muted pad' : 'error'}>{message}</div>}
+  </form>;
 }

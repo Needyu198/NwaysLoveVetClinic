@@ -7,7 +7,7 @@ import { baseUrl, getToken } from './api.js';
 
 let socket = null;
 
-export function connectRealtime(onTableChanged) {
+export function connectRealtime(onTableChanged, onConnectionChanged = () => {}) {
   const token = getToken();
   if (!token) return () => {};
   if (socket) socket.disconnect();
@@ -17,6 +17,10 @@ export function connectRealtime(onTableChanged) {
     auth: { token },
   });
 
+  socket.on('connect', () => onConnectionChanged(true));
+  socket.on('disconnect', () => onConnectionChanged(false));
+  socket.on('connect_error', () => onConnectionChanged(false));
+
   socket.on('data:changed', payload => {
     if (payload && typeof payload.table === 'string') {
       onTableChanged(payload.table);
@@ -24,6 +28,7 @@ export function connectRealtime(onTableChanged) {
   });
 
   return () => {
+    onConnectionChanged(false);
     socket?.disconnect();
     socket = null;
   };
