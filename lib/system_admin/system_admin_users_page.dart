@@ -345,6 +345,7 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
   final _confirmPassword = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  bool _saving = false;
   AdminUserRole _role = AdminUserRole.owner;
 
   // Admins provision Pet Owner, Doctor, and Staff accounts here. Administrator
@@ -384,6 +385,7 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
                 children: [
                   _field(
                     controller: _name,
+                    key: const ValueKey('admin-user-name'),
                     label: 'Full name',
                     icon: Icons.person_rounded,
                     validator: (v) => (v == null || v.trim().isEmpty)
@@ -393,6 +395,7 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
                   const SizedBox(height: 14),
                   _field(
                     controller: _email,
+                    key: const ValueKey('admin-user-email'),
                     label: 'Email',
                     icon: Icons.email_rounded,
                     keyboardType: TextInputType.emailAddress,
@@ -408,6 +411,7 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
                   const SizedBox(height: 14),
                   _field(
                     controller: _phone,
+                    key: const ValueKey('admin-user-phone'),
                     label: 'Phone',
                     icon: Icons.phone_rounded,
                     keyboardType: TextInputType.phone,
@@ -418,6 +422,7 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
                   const SizedBox(height: 14),
                   _field(
                     controller: _password,
+                    key: const ValueKey('admin-user-password'),
                     label: 'Password',
                     icon: Icons.lock_rounded,
                     obscureText: _obscurePassword,
@@ -437,6 +442,7 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
                   const SizedBox(height: 14),
                   _field(
                     controller: _confirmPassword,
+                    key: const ValueKey('admin-user-confirm-password'),
                     label: 'Confirm password',
                     icon: Icons.lock_outline_rounded,
                     obscureText: _obscureConfirm,
@@ -459,6 +465,7 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<AdminUserRole>(
+                    key: const ValueKey('admin-user-role'),
                     initialValue: _role,
                     decoration: InputDecoration(
                       filled: true,
@@ -503,8 +510,13 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
                       minimumSize: const Size.fromHeight(52),
                       shape: const StadiumBorder(),
                     ),
-                    onPressed: _save,
-                    child: const Text('Create account'),
+                    onPressed: _saving ? null : _save,
+                    child: _saving
+                        ? const SizedBox.square(
+                            dimension: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Create account'),
                   ),
                 ],
               ),
@@ -517,6 +529,7 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
 
   Widget _field({
     required TextEditingController controller,
+    Key? key,
     required String label,
     required IconData icon,
     String? Function(String?)? validator,
@@ -524,6 +537,7 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
     bool obscureText = false,
     Widget? suffix,
   }) => TextFormField(
+    key: key,
     controller: controller,
     keyboardType: keyboardType,
     validator: validator,
@@ -541,15 +555,32 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
     ),
   );
 
-  void _save() {
+  Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    UserAccountStore.instance.addUser(
+    final store = UserAccountStore.instance;
+    if (store.emailExists(_email.text)) {
+      _adminNotice(context, 'An account with this email already exists.');
+      return;
+    }
+    setState(() => _saving = true);
+    final user = store.addUser(
       name: _name.text.trim(),
-      email: _email.text.trim(),
+      email: _email.text.trim().toLowerCase(),
       phone: _phone.text.trim(),
       role: _role,
       password: _password.text,
     );
+    try {
+      await DatabaseSync.instance.flushOrThrow();
+    } catch (error) {
+      store.discardUnpersistedUser(user);
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _adminNotice(context, error.toString());
+      return;
+    }
+    store.completeProvisioning(user);
+    if (!mounted) return;
     _adminNotice(
       context,
       'Account created as Pending. Activate it to allow sign-in with the '

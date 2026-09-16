@@ -4,6 +4,32 @@ const { resources } = require('./resources');
 const { broadcastChange } = require('./realtime');
 const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 const fail = (status, message) => Object.assign(new Error(message), { status });
+async function syncUserDirectoryAccount(client, value, existing, sessionAccountId) {
+  const roles = {owner:'petOwner',doctor:'doctor',staff:'staff',admin:'systemAdmin'};
+  if (!roles[value.role] || !['pending','active','suspended'].includes(value.status)) throw fail(400, 'Invalid user role or status.');
+  if (value.id === sessionAccountId && (value.status !== 'active' || roles[value.role] !== 'systemAdmin')) throw fail(400, 'You cannot remove your own administrator access.');
+  if (existing && value.id !== existing.data.value.id) throw fail(400, 'Account identity cannot change.');
+  // A password is only ever sent when the admin first creates the account.
+  // Use it for the bcrypt hash, then remove it from directory JSON.
+  const newPassword = typeof value.password === 'string' ? value.password : '';
+  delete value.password;
+  const account = (await client.query('SELECT id FROM app_accounts WHERE id=$1', [value.id])).rows[0];
+  if (account) {
+    await client.query('UPDATE app_accounts SET full_name=$2,role=$3,active=$4 WHERE id=$1', [value.id,value.name,roles[value.role],value.status==='active']);
+    return;
+  }
+  if (typeof value.name !== 'string' || !value.name.trim() || value.name.length > 200) throw fail(400, 'A valid full name is required.');
+  if (typeof value.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email) || value.email.length > 254) throw fail(400, 'A valid email is required.');
+  if (typeof value.phone !== 'string' || value.phone.trim().length < 6 || value.phone.length > 40) throw fail(400, 'A valid phone number is required.');
+  if (newPassword.length < 8 || newPassword.length > 1024) throw fail(400, 'A password of at least 8 characters is required for a new account.');
+  const username = value.email.trim().toLowerCase();
+  const clash = (await client.query('SELECT 1 FROM app_accounts WHERE LOWER(username)=$1', [username])).rows[0];
+  if (clash) throw fail(409, 'An account with this email already exists.');
+  await client.query(
+    'INSERT INTO app_accounts(id,username,password_hash,full_name,role,active) VALUES($1,$2,$3,$4,$5,$6)',
+    [value.id, username, await bcrypt.hash(newPassword, 12), value.name, roles[value.role], value.status==='active'],
+  );
+}
 function installApi(app, pool) {
   const wrap = fn => async (req, res) => {
     try { await fn(req, res); } catch (e) {
@@ -12,7 +38,7 @@ function installApi(app, pool) {
     }
   };
   app.post(['/auth/login', '/auth/pet-owner/login'], wrap(async (req, res) => {
-    const username = String(req.body.username || '').trim();
+    const username = String(req.body.username || '').trim().toLowerCase();
     const password = String(req.body.password || '');
     if (!username || !password || username.length > 254 || password.length > 1024) throw fail(400, 'Username and password required.');
     let account = (await pool.query('SELECT * FROM app_accounts WHERE username = $1 AND active = TRUE', [username])).rows[0];
@@ -147,31 +173,7 @@ function installApi(app, pool) {
         }
         if (req.params.table === 'user_directory') {
           const value = item.data.value;
-          const roles = {owner:'petOwner',doctor:'doctor',staff:'staff',admin:'systemAdmin'};
-          if (!roles[value.role] || !['pending','active','suspended'].includes(value.status)) throw fail(400, 'Invalid user role or status.');
-          if (value.id === req.session.account_id && (value.status !== 'active' || roles[value.role] !== 'systemAdmin')) throw fail(400, 'You cannot remove your own administrator access.');
-          if (existing && value.id !== existing.data.value.id) throw fail(400, 'Account identity cannot change.');
-          // A password is only ever sent when the admin first creates the
-          // account. Use it to provision a real login, then strip it so it is
-          // never persisted into the directory JSON.
-          const newPassword = typeof value.password === 'string' ? value.password : '';
-          delete value.password;
-          const account = (await client.query('SELECT id FROM app_accounts WHERE id=$1', [value.id])).rows[0];
-          if (account) {
-            // Existing login: keep name/role/active in sync (password unchanged).
-            await client.query('UPDATE app_accounts SET full_name=$2,role=$3,active=$4 WHERE id=$1', [value.id,value.name,roles[value.role],value.status==='active']);
-          } else {
-            // Brand-new admin-created user: create the login so they can sign in.
-            if (newPassword.length < 8 || newPassword.length > 1024) throw fail(400, 'A password of at least 8 characters is required for a new account.');
-            const username = String(value.email || '').trim().toLowerCase();
-            if (!username) throw fail(400, 'An email is required to create the login username.');
-            const clash = (await client.query('SELECT 1 FROM app_accounts WHERE username=$1', [username])).rows[0];
-            if (clash) throw fail(409, 'An account with this email already exists.');
-            await client.query(
-              'INSERT INTO app_accounts(id,username,password_hash,full_name,role,active) VALUES($1,$2,$3,$4,$5,$6)',
-              [value.id, username, await bcrypt.hash(newPassword, 12), value.name, roles[value.role], value.status==='active'],
-            );
-          }
+          await syncUserDirectoryAccount(client, value, existing, req.session.account_id);
         }
         if (existing) {
           saved.push((await client.query(`UPDATE ${req.params.table} SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1 RETURNING id,owner_id,data,version`, [item.id, item.data])).rows[0]);
@@ -195,4 +197,4 @@ function installApi(app, pool) {
     finally { client.release(); }
   }));
 }
-module.exports = { installApi };
+module.exports = { installApi, syncUserDirectoryAccount };

@@ -95,6 +95,29 @@ class DatabaseSync extends ChangeNotifier {
     return future.whenComplete(() => _inFlight = null);
   }
 
+  /// Flushes pending changes and reports persistence failures to the caller.
+  ///
+  /// Most stores use background syncing, but workflows such as provisioning a
+  /// login must not report success until the server has committed the change.
+  Future<void> flushOrThrow() async {
+    if (!active) {
+      throw ClinicApiException(
+        'Not connected to the clinic database. Sign in again and retry.',
+      );
+    }
+    await flush();
+    if (error != null) throw ClinicApiException(error!);
+    if (pending) {
+      await flush();
+      if (error != null) throw ClinicApiException(error!);
+    }
+    if (pending) {
+      throw ClinicApiException(
+        'The account is still waiting to be saved. Please retry.',
+      );
+    }
+  }
+
   Future<void> _flush() async {
     if (!active || busy) return;
     error = null;

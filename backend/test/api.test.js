@@ -51,9 +51,35 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
     assert.equal((await request('/data/pets',tokens.ownerA)).records[0].data.value.name,'Updated');
     assert.equal((await request('/data/pets/sync',tokens.ownerA,{deletions:[{id:'pet-1',version:2}]})).status,200);
     assert.equal((await request('/data/pets',tokens.ownerA)).records.length,0);
+    // Administrator provisioning creates both the directory row and a real,
+    // hashed login for every assignable role. Pending users cannot sign in.
+    const provisioned = [];
+    for (const [role,accountRole] of [['owner','petOwner'],['doctor','doctor'],['staff','staff']]) {
+      const id = `created-${role}`;
+      const value = {id,name:`Created ${role}`,email:`created-${role}@clinic.test`,phone:'0912345678',role,status:'pending',lastActive:'Never',createdOn:new Date().toISOString(),password:'Created@123'};
+      const created = await request('/data/user_directory/sync',tokens.admin,{changes:[{id:`directory-${role}`,version:0,data:{key:id,value}}]});
+      assert.equal(created.status,200,`provision ${role}`);
+      assert.equal(created.records[0].data.value.password,undefined);
+      const account = (await database.query('SELECT * FROM app_accounts WHERE id=$1',[id])).rows[0];
+      assert.equal(account.role,accountRole);
+      assert.equal(account.active,false);
+      assert.equal(await bcrypt.compare('Created@123',account.password_hash),true);
+      assert.equal((await request('/auth/login',null,{username:value.email.toUpperCase(),password:'Created@123'})).status,401);
+      provisioned.push(created.records[0]);
+    }
+    // Activation updates the same login and permits case-insensitive email sign-in.
+    const doctorRecord = provisioned[1];
+    doctorRecord.data.value.status = 'active';
+    result = await request('/data/user_directory/sync',tokens.admin,{changes:[{id:doctorRecord.id,version:doctorRecord.version,data:doctorRecord.data}]});
+    assert.equal(result.status,200);
+    assert.equal((await request('/auth/login',null,{username:'CREATED-DOCTOR@CLINIC.TEST',password:'Created@123'})).status,200);
+    // Email uniqueness is enforced by the database-backed account table.
+    const duplicate = {id:'created-duplicate',name:'Duplicate',email:'CREATED-DOCTOR@CLINIC.TEST',phone:'0912345678',role:'staff',status:'pending',lastActive:'Never',createdOn:new Date().toISOString(),password:'Created@123'};
+    assert.equal((await request('/data/user_directory/sync',tokens.admin,{changes:[{id:'directory-duplicate',version:0,data:{key:duplicate.id,value:duplicate}}]})).status,409);
     // Exercise every named feature table with a permitted writer.
     for (const [table,p] of Object.entries(resources)) {
       if (p.writers?.length === 0) continue;
+      if (table === 'user_directory') continue; // covered by provisioning above
       const role=(p.writers||p.roles)[0];
       const who={petOwner:'ownerA',doctor:'doctor',staff:'staff',systemAdmin:'admin'}[role];
       const item={id:`roundtrip-${table}`,version:0,data:{key:'roundtrip',value: table === 'user_directory' ? {id:'directory-test',name:'Test',role:'owner',status:'pending'} : {test:true}}};

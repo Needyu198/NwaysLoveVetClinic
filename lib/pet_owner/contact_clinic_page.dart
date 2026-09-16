@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'emergency_service_page.dart';
+import 'clinic_phone.dart';
 import 'pet_owner_page_header.dart';
 
 const _contactRed = Color(0xFFC62828);
@@ -764,6 +765,8 @@ Future<void> _confirmCall(BuildContext context) async {
     ),
   );
   if (confirmed != true || !context.mounted) return;
+  final opened = await openClinicPhoneApp(ContactClinicPage.phonePrimary);
+  if (opened || !context.mounted) return;
   await showDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(

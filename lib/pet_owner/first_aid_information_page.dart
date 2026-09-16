@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'emergency_service_page.dart';
+import 'clinic_phone.dart';
+import 'contact_clinic_page.dart';
 import 'pet_owner_page_header.dart';
 
 const _firstAidMint = Color(0xFFA1FDD8);
@@ -974,9 +976,15 @@ Future<void> _confirmClinicCall(BuildContext context) async {
       ],
     ),
   );
-  if (confirmed == true && context.mounted) {
+  if (confirmed != true || !context.mounted) return;
+  final opened = await openClinicPhoneApp(ContactClinicPage.phonePrimary);
+  if (!opened && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Call 09-5312717 or 09-965805940')),
+      const SnackBar(
+        content: Text(
+          'Call ${ContactClinicPage.phonePrimary} or ${ContactClinicPage.phoneSecondary}',
+        ),
+      ),
     );
   }
 }

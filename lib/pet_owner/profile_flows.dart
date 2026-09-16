@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'appointment_booking_page.dart';
+import 'clinic_phone.dart';
 import 'contact_clinic_page.dart';
 import 'pet_image.dart';
 import 'pet_owner_page_header.dart';
@@ -1494,7 +1495,9 @@ Future<void> _confirmLocationCall(BuildContext context) async {
       ],
     ),
   );
-  if (confirmed == true && context.mounted) {
+  if (confirmed != true || !context.mounted) return;
+  final opened = await openClinicPhoneApp(ContactClinicPage.phonePrimary);
+  if (!opened && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(

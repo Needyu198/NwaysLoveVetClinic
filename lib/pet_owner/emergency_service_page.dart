@@ -4,6 +4,7 @@ import '../data/database_sync.dart';
 import 'package:flutter/material.dart';
 
 import 'appointment_booking_page.dart';
+import 'clinic_phone.dart';
 import 'contact_clinic_page.dart';
 import 'pet_owner_page_header.dart';
 import 'profile_pet_avatar.dart';
@@ -697,7 +698,9 @@ Future<void> _showEmergencyCall(BuildContext context) async {
       ],
     ),
   );
-  if (confirmed == true && context.mounted) {
+  if (confirmed != true || !context.mounted) return;
+  final opened = await openClinicPhoneApp(ContactClinicPage.phonePrimary);
+  if (!opened && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(

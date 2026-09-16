@@ -212,7 +212,12 @@ class UserAccountStore extends ChangeNotifier {
     ]);
   }
 
-  void addUser({
+  bool emailExists(String email) {
+    final normalized = email.trim().toLowerCase();
+    return _users.any((user) => user.email.trim().toLowerCase() == normalized);
+  }
+
+  AdminUser addUser({
     required String name,
     required String email,
     required String phone,
@@ -236,14 +241,26 @@ class UserAccountStore extends ChangeNotifier {
       password: password,
     );
     _users.insert(0, user);
+    notifyListeners();
+    return user;
+  }
+
+  /// Removes a locally staged account after the server rejects provisioning.
+  void discardUnpersistedUser(AdminUser user) {
+    _users.remove(user);
+    notifyListeners();
+  }
+
+  /// Clears the one-time plaintext password and records the successful action.
+  void completeProvisioning(AdminUser user) {
+    user.password = '';
     AuditLogStore.instance.record(
       action: 'Created account',
       module: 'Users and Roles',
       record: '${user.name} (${user.id})',
-      newValue: '${role.label} • Pending',
+      newValue: '${user.role.label} • Pending',
       reason: 'New account provisioned',
     );
-    notifyListeners();
   }
 
   void activate(AdminUser user) {
