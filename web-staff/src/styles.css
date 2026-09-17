@@ -499,7 +499,8 @@ tbody tr:hover {
   text-align: center;
 }
 .card.pad label,
-.card.pad input {
+.card.pad input,
+.view-actions select {
   display: block;
   width: 100%;
   text-align: left;

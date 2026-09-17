@@ -7,6 +7,8 @@ COPY . .
 # API base URL is baked in at build time; override with a build arg.
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ARG VITE_MANAGEMENT_PORTAL_URL
+ENV VITE_MANAGEMENT_PORTAL_URL=$VITE_MANAGEMENT_PORTAL_URL
 RUN npm run build
 
 FROM nginx:alpine

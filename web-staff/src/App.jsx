@@ -17,9 +17,16 @@ import {
   ReportsView,
   AccountView,
 } from './views.jsx';
+import {
+  AdminDashboardView,
+  UsersView,
+  VerificationView,
+  AuditLogsView,
+  AccountView as AdminAccountView,
+} from './adminViews.jsx';
 
 // The staff feature areas, grouped like the reference dashboard sidebar.
-const NAV_GROUPS = [
+const STAFF_NAV_GROUPS = [
   {
     label: 'Main',
     items: [
@@ -51,7 +58,31 @@ const NAV_GROUPS = [
   },
 ];
 
-const ALL_NAV = NAV_GROUPS.flatMap(g => g.items);
+const ADMIN_NAV_GROUPS = [
+  {
+    label: 'Main',
+    items: [
+      { key: 'dashboard', label: 'Dashboard', icon: '📊', sub: 'System overview', View: AdminDashboardView },
+      { key: 'users', label: 'Users & Roles', icon: '👥', sub: 'Manage every account', View: UsersView },
+    ],
+  },
+  {
+    label: 'Governance',
+    items: [
+      { key: 'verification', label: 'Doctor Verification', icon: '✅', sub: 'Review applications', View: VerificationView },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { key: 'audit', label: 'Audit Logs', icon: '📜', sub: 'Sensitive action trail', View: AuditLogsView },
+      { key: 'account', label: 'Account', icon: '⚙️', sub: 'Security and password', View: AdminAccountView },
+    ],
+  },
+];
+
+const STAFF_NAV = STAFF_NAV_GROUPS.flatMap(group => group.items);
+const ADMIN_NAV = ADMIN_NAV_GROUPS.flatMap(group => group.items);
 
 function initialsOf(account) {
   return (account.fullName || account.username || '?')
@@ -75,7 +106,7 @@ function LoginScreen({ onSignedIn }) {
     setError('');
     try {
       const account = await login(username.trim(), password);
-      if (account.role !== 'staff' && account.role !== 'systemAdmin') {
+      if (!['staff', 'systemAdmin'].includes(account.role)) {
         await logout();
         setError('This portal is for clinic staff and administrators.');
         return;
@@ -92,8 +123,8 @@ function LoginScreen({ onSignedIn }) {
     <div className="login-wrap">
       <form className="login-card" onSubmit={submit}>
         <img className="login-logo" src="/logo.png" alt="Nway's Love Vet Clinic" />
-        <h1>Clinic Staff Portal</h1>
-        <p>Nway's Love Vet Clinic</p>
+        <h1>Clinic Management Portal</h1>
+        <p>Sign in with your staff or administrator account</p>
         <label>Username</label>
         <div className="field">
           <span className="field-icon">👤</span>
@@ -124,6 +155,9 @@ function LoginScreen({ onSignedIn }) {
 }
 
 function Portal({ account, onSignOut }) {
+  const isAdmin = account.role === 'systemAdmin';
+  const navGroups = isAdmin ? ADMIN_NAV_GROUPS : STAFF_NAV_GROUPS;
+  const allNav = isAdmin ? ADMIN_NAV : STAFF_NAV;
   const [active, setActive] = useState('dashboard');
   const [live, setLive] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -137,8 +171,8 @@ function Portal({ account, onSignOut }) {
   }, []);
 
   const activeNav = useMemo(
-    () => ALL_NAV.find(n => n.key === active) || ALL_NAV[0],
-    [active],
+    () => allNav.find(n => n.key === active) || allNav[0],
+    [active, allNav],
   );
   const ActiveView = activeNav.View;
   const initials = initialsOf(account);
@@ -150,11 +184,11 @@ function Portal({ account, onSignOut }) {
           <img className="brand-logo" src="/logo.png" alt="logo" />
           <div>
             <div className="brand-title">Nway's Love</div>
-            <div className="brand-sub">Staff Portal</div>
+            <div className="brand-sub">{isAdmin ? 'Admin Portal' : 'Staff Portal'}</div>
           </div>
         </div>
         <nav>
-          {NAV_GROUPS.map(group => (
+          {navGroups.map(group => (
             <React.Fragment key={group.label}>
               <div className="nav-group-label">{group.label}</div>
               {group.items.map(n => (

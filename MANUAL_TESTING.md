@@ -14,11 +14,6 @@ cd web-staff
 VITE_API_BASE_URL=http://127.0.0.1:5050 npm run dev -- --port 5173
 ```
 
-```bash
-cd web-admin
-VITE_API_BASE_URL=http://127.0.0.1:5050 npm run dev -- --port 5174
-```
-
 Run Flutter on a simulator, browser, or physical device. For a physical device,
 replace `YOUR_MAC_LAN_IP` with the Mac's LAN address and keep both devices on the
 same network:
@@ -27,8 +22,9 @@ same network:
 flutter run --dart-define=API_BASE_URL=http://YOUR_MAC_LAN_IP:5050
 ```
 
-Open the staff portal at `http://127.0.0.1:5173` and the admin portal at
-`http://127.0.0.1:5174`.
+Open the management portal at `http://127.0.0.1:5173`. Staff accounts are sent
+to clinic operations, while system-administrator accounts are sent to admin
+governance features after using the same sign-in form.
 
 ## Socket.IO / WebSocket check
 
@@ -52,7 +48,7 @@ refresh the browser unless a step specifically says to do so; live updates
 should appear automatically.
 
 1. **Admin account creation**
-   - Sign in to web admin and open **Users & Roles**.
+   - Sign in with a system-administrator account and open **Users & Roles**.
    - Create an owner, doctor, or staff account. Confirm it appears as Pending.
    - Confirm the pending account cannot sign in.
    - Activate it, then sign in from the matching mobile or web portal.

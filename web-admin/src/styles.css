@@ -149,6 +149,11 @@ textarea {
   box-shadow: none;
 }
 
+.portal-link {
+  display: block;
+  text-decoration: none;
+}
+
 .error {
   color: var(--danger);
   font-size: 13px;

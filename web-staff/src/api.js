@@ -157,3 +157,71 @@ export async function saveInventoryItem(item, existing) {
     },
   ]);
 }
+
+// ---- Administrator features ---------------------------------------------
+
+export function rolePrefix(role) {
+  return { owner: 'USR', doctor: 'DOC', staff: 'STF', admin: 'ADM' }[role] || 'USR';
+}
+
+export async function createUser({ name, email, phone, role, password }) {
+  const id = `${rolePrefix(role)}-${Date.now()}`;
+  const value = {
+    id,
+    name,
+    email: email.trim().toLowerCase(),
+    phone,
+    role,
+    status: 'pending',
+    lastActive: 'Never',
+    createdOn: new Date().toISOString(),
+  };
+  if (password) value.password = password;
+  return syncTable('user_directory', [
+    { id: recordKey(id), version: 0, data: { key: recordKey(id), value } },
+  ]);
+}
+
+export async function updateUser(record, patch) {
+  const value = { ...record.data.value, ...patch };
+  delete value.password;
+  return syncTable('user_directory', [
+    { id: record.id, version: record.version, data: { key: record.data.key, value } },
+  ]);
+}
+
+export async function deleteUser(record) {
+  return syncTable('user_directory', [], [
+    { id: record.id, version: record.version },
+  ]);
+}
+
+export async function decideVerification(record, status, reason = '') {
+  const value = { ...record.data.value, status, decisionReason: reason };
+  return syncTable('doctor_verifications', [
+    { id: record.id, version: record.version, data: { key: record.data.key, value } },
+  ]);
+}
+
+export async function recordAudit({ action, module, record, previousValue = '', newValue = '', reason = '' }) {
+  const id = `AUD-${Date.now()}`;
+  const account = getAccount();
+  const value = {
+    id,
+    action,
+    module,
+    record,
+    actor: account?.fullName || account?.username || 'Administrator',
+    timestamp: new Date().toISOString(),
+    previousValue,
+    newValue,
+    reason,
+  };
+  try {
+    await syncTable('audit_logs', [
+      { id: recordKey(id), version: 0, data: { key: recordKey(id), value } },
+    ]);
+  } catch (_) {
+    // Audit is best-effort; never block the primary action on it.
+  }
+}
