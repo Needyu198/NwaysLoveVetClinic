@@ -17,6 +17,94 @@ class _StaffReportsPageState extends State<StaffReportsPage> {
   ];
 
   var _type = _types.first;
+  final Map<String, Map<String, dynamic>> _pandasReports = {};
+  String? _loadingType;
+  String? _pandasError;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ClinicApi.instance.token != null) _loadPandasReport(_type);
+    });
+  }
+
+  String _slugFor(String type) => switch (type) {
+    'Queues' => 'queue',
+    'Home Visits' => 'home-visits',
+    _ => type.toLowerCase(),
+  };
+
+  Future<void> _loadPandasReport(String type, {bool force = false}) async {
+    if (ClinicApi.instance.token == null ||
+        (!force && _pandasReports.containsKey(type))) {
+      return;
+    }
+    setState(() {
+      _loadingType = type;
+      _pandasError = null;
+    });
+    try {
+      final result = await ClinicApi.instance.request(
+        'GET',
+        '/reports/${_slugFor(type)}',
+      );
+      final data = result['data'];
+      if (data is! Map) {
+        throw ClinicApiException('The report response is incomplete.');
+      }
+      if (!mounted) return;
+      setState(() {
+        _pandasReports[type] = Map<String, dynamic>.from(data);
+        _loadingType = null;
+      });
+    } on ClinicApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadingType = null;
+        _pandasError = error.message;
+      });
+    }
+  }
+
+  void _selectType(String type) {
+    setState(() {
+      _type = type;
+      _pandasError = null;
+    });
+    _loadPandasReport(type);
+  }
+
+  _ReportViewData _mergePandasReport(
+    _ReportViewData fallback,
+    Map<String, dynamic>? data,
+  ) {
+    if (data == null || data['metrics'] is! List) return fallback;
+    final remoteMetrics = <String, Map<String, dynamic>>{};
+    for (final item in data['metrics'] as List) {
+      if (item is Map && item['label'] is String) {
+        remoteMetrics[item['label'] as String] = Map<String, dynamic>.from(
+          item,
+        );
+      }
+    }
+    return _ReportViewData(
+      type: fallback.type,
+      icon: fallback.icon,
+      description: fallback.description,
+      metrics: fallback.metrics.map((metric) {
+        final remote = remoteMetrics[metric.label];
+        if (remote == null) return metric;
+        final numeric = remote['numeric_value'];
+        return metric.copyWith(
+          value: remote['value']?.toString() ?? metric.value,
+          numericValue: numeric is num ? numeric.round() : metric.numericValue,
+        );
+      }).toList(),
+      insight: data['insight']?.toString() ?? fallback.insight,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,12 +118,22 @@ class _StaffReportsPageState extends State<StaffReportsPage> {
           HomeVisitStore.instance,
         ]),
         builder: (context, _) {
-          final report = _reportFor(_type);
+          final report = _mergePandasReport(
+            _reportFor(_type),
+            _pandasReports[_type],
+          );
           return ListView(
             key: const ValueKey('staff-reports-scroll'),
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
             children: [
               _ReportsIntro(report: report),
+              const SizedBox(height: 10),
+              _ReportEngineStatus(
+                isLive: _pandasReports[_type] != null,
+                isLoading: _loadingType == _type,
+                error: _pandasError,
+                onRetry: () => _loadPandasReport(_type, force: true),
+              ),
               const SizedBox(height: 20),
               const _ReportsSectionTitle(
                 title: 'Report type',
@@ -55,7 +153,7 @@ class _StaffReportsPageState extends State<StaffReportsPage> {
                       key: ValueKey('staff-report-type-$type'),
                       label: Text(type),
                       selected: _type == type,
-                      onSelected: (_) => setState(() => _type = type),
+                      onSelected: (_) => _selectType(type),
                       selectedColor: _green,
                       backgroundColor: Colors.white,
                       labelStyle: TextStyle(
@@ -96,11 +194,19 @@ class _StaffReportsPageState extends State<StaffReportsPage> {
               const SizedBox(height: 22),
               FilledButton.icon(
                 key: const ValueKey('staff-export-report'),
-                onPressed: () => _showInfo(
-                  context,
-                  'Report exported',
-                  '$_type report generated. Audit recorded for Mya Thu at ${DateTime.now().toLocal()}.',
-                ),
+                onPressed: _loadingType == _type
+                    ? null
+                    : () async {
+                        await _loadPandasReport(_type, force: true);
+                        if (!context.mounted) return;
+                        _showInfo(
+                          context,
+                          'Report generated',
+                          _pandasReports[_type] == null
+                              ? '$_type local preview is ready. Start the Python/Pandas service to generate live data.'
+                              : '$_type report generated with Python/Pandas. Audit recorded at ${DateTime.now().toLocal()}.',
+                        );
+                      },
                 style: FilledButton.styleFrom(
                   backgroundColor: _green,
                   foregroundColor: Colors.white,
@@ -424,6 +530,69 @@ class _ReportMetricData {
   final int numericValue;
   final IconData icon;
   final Color color;
+
+  _ReportMetricData copyWith({String? value, int? numericValue}) =>
+      _ReportMetricData(
+        label,
+        value ?? this.value,
+        numericValue ?? this.numericValue,
+        icon,
+        color,
+      );
+}
+
+class _ReportEngineStatus extends StatelessWidget {
+  const _ReportEngineStatus({
+    required this.isLive,
+    required this.isLoading,
+    required this.error,
+    required this.onRetry,
+  });
+
+  final bool isLive;
+  final bool isLoading;
+  final String? error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 8),
+          Text('Generating with Python/Pandas…'),
+        ],
+      );
+    }
+    if (error != null) {
+      return Row(
+        children: [
+          const Icon(Icons.cloud_off_rounded, size: 18, color: _muted),
+          const SizedBox(width: 7),
+          const Expanded(
+            child: Text('Showing local preview • Pandas unavailable'),
+          ),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Icon(
+          isLive ? Icons.analytics_rounded : Icons.preview_rounded,
+          size: 18,
+          color: isLive ? _green : _muted,
+        ),
+        const SizedBox(width: 7),
+        Text(isLive ? 'Python/Pandas • Live data' : 'Local preview'),
+      ],
+    );
+  }
 }
 
 class _ReportsIntro extends StatelessWidget {

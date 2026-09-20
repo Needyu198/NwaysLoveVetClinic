@@ -51,7 +51,7 @@ backed by **PostgreSQL**.
 | Authentication | **Custom** — bcrypt password hashing + opaque DB session tokens | `backend/src/api.js` |
 | Real-time | **Socket.io** for live queue updates | `backend/src/realtime.js`, `lib/data/realtime_client.dart` |
 | Push notifications | **Firebase Cloud Messaging (FCM)** + in-app DB notifications | see `docs/FCM_SETUP.md` |
-| Reporting | **In-app Dart** + optional **Python/Pandas** service | `lib/staff/staff_reports_page.dart`, `reporting/` |
+| Reporting | **Python/Pandas** behind the authenticated Node API, with an in-app preview fallback | `reporting/`, `backend/src/api.js`, `lib/staff/staff_reports_page.dart` |
 | Staff web app | **React.js** (optional web surface) | `web-staff/` |
 | Hosting | Local dev; **Docker + AWS** config provided | `docker-compose.yml`, `deploy/` |
 
@@ -114,7 +114,7 @@ support tickets, doctor verifications, audit logs, and the admin user directory.
 | Auth: Firebase Auth | Custom bcrypt + session tokens | Custom auth + Firebase Auth option |
 | Real-time: Socket.io (queue) | Polling/optimistic sync | Socket.io live queue added |
 | Push: Firebase Cloud Messaging | In-app DB notifications | FCM wired (needs APNs key for iOS delivery) |
-| Reporting: Python/Pandas | In-app Dart reporting | Dart reporting + optional Python/Pandas service |
+| Reporting: Python/Pandas | In-app Dart reporting | Python/Pandas live reports + Dart offline preview |
 | Hosting: AWS | Local only | Docker + AWS deploy config provided |
 
 ---

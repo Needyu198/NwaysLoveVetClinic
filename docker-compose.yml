@@ -40,6 +40,7 @@ services:
       DB_NAME: ${DB_NAME:-NwayLoveVetClinicSever}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      REPORTING_URL: http://reporting:5060
       # Optional FCM credentials (see docs/FCM_SETUP.md)
       FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT:-}
     ports:

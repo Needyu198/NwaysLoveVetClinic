@@ -51,7 +51,7 @@ function installApi(app, pool) {
     await pool.query("INSERT INTO app_sessions(token_hash, account_id, role, expires_at) VALUES($1,$2,$3,NOW() + INTERVAL '12 hours')", [hash(token), account.id, account.role]);
     res.json({ token, account: { id: account.id, username: account.username, fullName: account.full_name, role: account.role } });
   }));
-  app.use(['/data', '/auth/logout', '/auth/change-password', '/devices'], async (req, res, next) => {
+  app.use(['/data', '/reports', '/auth/logout', '/auth/change-password', '/devices'], async (req, res, next) => {
     try {
       const token = (req.headers.authorization || '').replace(/^Bearer /, '');
       const session = (await pool.query('SELECT s.* FROM app_sessions s JOIN app_accounts a ON a.id=s.account_id AND a.active AND a.role=s.role WHERE s.token_hash=$1 AND s.expires_at>NOW()', [hash(token)])).rows[0];
@@ -98,6 +98,24 @@ function installApi(app, pool) {
     const token = String(req.body.token || '').trim();
     if (token) await pool.query('DELETE FROM device_tokens WHERE token=$1 AND account_id=$2', [token, req.session.account_id]);
     res.json({ ok: true });
+  }));
+  const staffReportNames = new Set(['appointments', 'queue', 'cancellations', 'payments', 'home-visits']);
+  app.get('/reports/:name', wrap(async (req, res) => {
+    if (!['staff', 'systemAdmin'].includes(req.session.role)) throw fail(403, 'Staff access required.');
+    if (!staffReportNames.has(req.params.name)) throw fail(404, 'Unknown report.');
+    const baseUrl = (process.env.REPORTING_URL || 'http://127.0.0.1:5060').replace(/\/$/, '');
+    let response;
+    try {
+      response = await fetch(`${baseUrl}/reports/staff/${encodeURIComponent(req.params.name)}`, {
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch (_) {
+      throw fail(503, 'The Python/Pandas reporting service is unavailable.');
+    }
+    let payload;
+    try { payload = await response.json(); } catch (_) { throw fail(503, 'The reporting service returned an invalid response.'); }
+    if (!response.ok) throw fail(response.status >= 500 ? 503 : response.status, payload.message || 'Report generation failed.');
+    res.json(payload);
   }));
   const policy = req => {
     const p = Object.hasOwn(resources, req.params.table) && resources[req.params.table];
