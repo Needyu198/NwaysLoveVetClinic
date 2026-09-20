@@ -26,6 +26,8 @@ class PetOwnerClinicPage extends StatelessWidget {
   static const Color mutedTextColor = Color(0xFF3F4845);
   static const String clinicBannerAsset =
       'assets/photos/logoandphoto/clinic_banner.png';
+  static const String petCareServiceIconAsset =
+      'assets/photos/icon/pet_care_services.png';
 
   static const _primaryServices = [
     _ClinicService(
@@ -52,6 +54,7 @@ class PetOwnerClinicPage extends StatelessWidget {
       'Pet Care Services',
       Icons.spa_outlined,
       'Grooming, pet spa, bathing, nail trimming, and wellness care.',
+      imageAsset: petCareServiceIconAsset,
     ),
   ];
 
@@ -269,7 +272,7 @@ class _ClinicInfoCard extends StatelessWidget {
                         SizedBox(width: 10),
                         Expanded(
                           child: _ClinicActionButton(
-                            icon: Icons.route_rounded,
+                            icon: Icons.directions_rounded,
                             label: 'Directions',
                             onTap: () => _showActionMessage(
                               context,
@@ -776,11 +779,21 @@ class _ServiceItem extends StatelessWidget {
                   color: Color(0xFFF0F4FF),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  service.icon,
-                  color: PetOwnerClinicPage.inkColor,
-                  size: 30,
-                ),
+                child: service.imageAsset == null
+                    ? Icon(
+                        service.icon,
+                        color: PetOwnerClinicPage.inkColor,
+                        size: 30,
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Image.asset(
+                          service.imageAsset!,
+                          width: 58,
+                          height: 58,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
               ),
               const SizedBox(height: 14),
               Text(
@@ -923,9 +936,15 @@ Widget _doctorPhoto(String? photoUrl) {
 }
 
 class _ClinicService {
-  const _ClinicService(this.title, this.icon, this.description);
+  const _ClinicService(
+    this.title,
+    this.icon,
+    this.description, {
+    this.imageAsset,
+  });
 
   final String title;
   final IconData icon;
   final String description;
+  final String? imageAsset;
 }

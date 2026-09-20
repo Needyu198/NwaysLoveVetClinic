@@ -85,6 +85,10 @@ class _PetOwnerProfilePageState extends State<PetOwnerProfilePage> {
                           icon: Icons.verified_rounded,
                           title: 'Vaccines',
                           color: Color(0xFF18A77B),
+                          leading: _FeatureAssetIcon(
+                            asset: 'assets/photos/icon/pet_vaccine.png',
+                            backgroundColor: Color(0xFFE4F7F1),
+                          ),
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => const VaccinationSummaryPage(),
@@ -95,6 +99,10 @@ class _PetOwnerProfilePageState extends State<PetOwnerProfilePage> {
                           icon: Icons.medication_rounded,
                           title: 'Treatments',
                           color: Color(0xFF8B3DFF),
+                          leading: _FeatureAssetIcon(
+                            asset: 'assets/photos/icon/pet_treatment.png',
+                            backgroundColor: Color(0xFFF0E7FF),
+                          ),
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => const TreatmentHistoryPage(),
@@ -152,6 +160,10 @@ class _PetOwnerProfilePageState extends State<PetOwnerProfilePage> {
                           icon: Icons.support_agent_rounded,
                           title: 'Help & Support',
                           color: Color(0xFF8B3DFF),
+                          leading: _FeatureAssetIcon(
+                            asset: 'assets/photos/icon/help_support.png',
+                            backgroundColor: Color(0xFFF0E7FF),
+                          ),
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => const HelpSupportPage(),
@@ -847,6 +859,22 @@ class _FeatureRow extends StatelessWidget {
         ],
       ),
     ),
+  );
+}
+
+class _FeatureAssetIcon extends StatelessWidget {
+  const _FeatureAssetIcon({required this.asset, required this.backgroundColor});
+
+  final String asset;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 40,
+    height: 40,
+    padding: const EdgeInsets.all(6),
+    decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle),
+    child: Image.asset(asset, width: 28, height: 28, fit: BoxFit.contain),
   );
 }
 

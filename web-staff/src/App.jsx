@@ -97,6 +97,7 @@ function initialsOf(account) {
 function LoginScreen({ onSignedIn }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -121,35 +122,85 @@ function LoginScreen({ onSignedIn }) {
 
   return (
     <div className="login-wrap">
-      <form className="login-card" onSubmit={submit}>
-        <img className="login-logo" src="/logo.png" alt="Nway's Love Vet Clinic" />
-        <h1>Clinic Management Portal</h1>
-        <p>Sign in with your staff or administrator account</p>
-        <label>Username</label>
-        <div className="field">
-          <span className="field-icon">👤</span>
-          <input
-            value={username}
-            onChange={e => setUsername(e.target.value)}
-            placeholder="Enter your username"
-            autoFocus
-          />
-        </div>
-        <label>Password</label>
-        <div className="field">
-          <span className="field-icon">🔒</span>
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="Enter your password"
-          />
-        </div>
-        <button className="btn-primary" disabled={busy}>
-          {busy ? 'Signing in…' : 'Sign In'}
-        </button>
-        {error && <div className="error">{error}</div>}
-      </form>
+      <div className="login-shell">
+        <section className="login-panel">
+          <form className="login-card" onSubmit={submit}>
+            <div className="login-brand">
+              <img className="login-logo" src="/logo.png" alt="" />
+              <div>
+                <strong>Nway's Love</strong>
+                <span>Veterinary Clinic</span>
+              </div>
+            </div>
+
+            <div className="login-copy">
+              <span className="login-eyebrow">Clinic management portal</span>
+              <h1>Welcome back <span aria-hidden="true">👋</span></h1>
+              <p>Enter your account details to continue to your workspace.</p>
+            </div>
+
+            <label htmlFor="username">Username or email</label>
+            <div className="field">
+              <span className="field-icon" aria-hidden="true">✉</span>
+              <input
+                id="username"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder="Enter your username"
+                autoComplete="username"
+                autoFocus
+                required
+              />
+            </div>
+            <label htmlFor="password">Password</label>
+            <div className="field">
+              <span className="field-icon" aria-hidden="true">◆</span>
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                required
+              />
+              <button
+                className="password-toggle"
+                type="button"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword(value => !value)}
+              >
+                {showPassword ? '◉' : '◎'}
+              </button>
+            </div>
+
+            <div className="login-role-note">
+              <span aria-hidden="true">✓</span>
+              Staff and administrator accounts use this same secure sign-in.
+            </div>
+
+            <button className="btn-primary login-submit" disabled={busy}>
+              <span>{busy ? 'Signing in…' : 'Sign in to portal'}</span>
+              {!busy && <span aria-hidden="true">→</span>}
+            </button>
+            {error && <div className="error login-error" role="alert">{error}</div>}
+          </form>
+        </section>
+
+        <aside className="login-showcase" aria-label="Nway's Love Veterinary Clinic">
+          <div className="showcase-orb orb-one" />
+          <div className="showcase-orb orb-two" />
+          <div className="showcase-copy">
+            <span className="showcase-badge"><span /> Trusted clinic workspace</span>
+            <h2>Care for every patient,<br />all in one place.</h2>
+            <p>Appointments, records, inventory and clinic administration stay connected.</p>
+          </div>
+          <div className="showcase-pill pill-top">🩺 <span>Patient care</span></div>
+          <div className="showcase-pill pill-bottom">🛡️ <span>Secure access</span></div>
+          <img className="login-pets" src="/pets.png" alt="A group of clinic pets" />
+        </aside>
+      </div>
     </div>
   );
 }
@@ -162,6 +213,7 @@ function Portal({ account, onSignOut }) {
   const [live, setLive] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [query, setQuery] = useState('');
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     const disconnect = connectRealtime(() => {
@@ -186,8 +238,17 @@ function Portal({ account, onSignOut }) {
             <div className="brand-title">Nway's Love</div>
             <div className="brand-sub">{isAdmin ? 'Admin Portal' : 'Staff Portal'}</div>
           </div>
+          <button
+            className="mobile-menu-btn"
+            type="button"
+            aria-label="Toggle navigation"
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen(value => !value)}
+          >
+            {navOpen ? '✕' : '☰'}
+          </button>
         </div>
-        <nav>
+        <nav className={navOpen ? 'open' : ''}>
           {navGroups.map(group => (
             <React.Fragment key={group.label}>
               <div className="nav-group-label">{group.label}</div>
@@ -195,7 +256,10 @@ function Portal({ account, onSignOut }) {
                 <button
                   key={n.key}
                   className={`nav-item ${active === n.key ? 'active' : ''}`}
-                  onClick={() => setActive(n.key)}
+                  onClick={() => {
+                    setActive(n.key);
+                    setNavOpen(false);
+                  }}
                 >
                   <span className="nav-icon">{n.icon}</span>
                   {n.label}
@@ -210,7 +274,7 @@ function Portal({ account, onSignOut }) {
             <div className="who-name">{account.fullName || account.username}</div>
             <div className="muted small">{account.role}</div>
           </div>
-          <button className="icon-btn ghost" title="Sign out" onClick={onSignOut}>
+          <button className="icon-btn ghost" aria-label="Sign out" title="Sign out" onClick={onSignOut}>
             ⏻
           </button>
         </div>

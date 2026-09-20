@@ -526,6 +526,19 @@ IconData _categoryIcon(String category) {
   }
 }
 
+String? _categoryIconAsset(String category) {
+  switch (category) {
+    case 'Food':
+      return 'assets/photos/icon/pet_food.png';
+    case 'Medicine':
+      return 'assets/photos/icon/pet_medicine.png';
+    case 'Accessories':
+      return 'assets/photos/icon/pet_accessories.png';
+    default:
+      return null;
+  }
+}
+
 List<Product> get products => ClinicApi.instance.token == null
     ? _demoProducts
     : StaffOperationsStore.instance.activeInventory
@@ -680,6 +693,7 @@ class _CategoryIconStrip extends StatelessWidget {
           final category = categories[index];
           final isSelected = selected == category;
           final isAll = category == 'All Product';
+          final imageAsset = _categoryIconAsset(category);
           return GestureDetector(
             onTap: () => onChanged(category),
             child: SizedBox(
@@ -702,11 +716,23 @@ class _CategoryIconStrip extends StatelessWidget {
                         width: 2,
                       ),
                     ),
-                    child: Icon(
-                      isAll ? Icons.grid_view_rounded : _categoryIcon(category),
-                      color: const Color(0xFF147D5B),
-                      size: 24,
-                    ),
+                    child: imageAsset == null
+                        ? Icon(
+                            isAll
+                                ? Icons.grid_view_rounded
+                                : _categoryIcon(category),
+                            color: const Color(0xFF147D5B),
+                            size: 24,
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Image.asset(
+                              imageAsset,
+                              width: 34,
+                              height: 34,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
                   ),
                   const SizedBox(height: 5),
                   Text(
