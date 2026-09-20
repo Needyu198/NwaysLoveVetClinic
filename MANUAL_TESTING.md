@@ -10,7 +10,7 @@ npm start
 ```
 
 ```bash
-cd web-staff
+cd web-as
 VITE_API_BASE_URL=http://127.0.0.1:5050 npm run dev -- --port 5173
 ```
 
@@ -107,8 +107,7 @@ should appear automatically.
 
 ```bash
 cd backend && npm test
-cd ../web-staff && npm run build
-cd ../web-admin && npm run build
+cd ../web-as && npm run build
 cd .. && flutter analyze
 flutter test -r compact test/admin_account_creation_test.dart test/clinic_phone_test.dart test/pet_profile_page_test.dart
 ```

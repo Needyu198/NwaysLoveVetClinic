@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: nwayslovevetclinic
+    runtime: docker
+    dockerContext: .
+    dockerfilePath: ./deploy/render.Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: REPORTING_URL
+        value: http://127.0.0.1:5060

@@ -6,7 +6,7 @@
 #   db         PostgreSQL (data persisted in the pgdata volume)
 #   backend    Node/Express + Socket.io API on :5050
 #   reporting  Python/Flask + pandas analytics on :5060
-#   web-staff  Unified React management portal served by nginx on :8080
+#   web-as     Unified administrator/staff portal served by nginx on :8080
 #
 # Copy .env.docker.example to .env and adjust secrets before running.
 
@@ -62,9 +62,9 @@ services:
     ports:
       - "5060:5060"
 
-  web-staff:
+  web-as:
     build:
-      context: ./web-staff
+      context: ./web-as
       args:
         # Point the built app at the backend's public URL.
         VITE_API_BASE_URL: ${STAFF_API_BASE_URL:-http://localhost:5050}

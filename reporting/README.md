@@ -39,6 +39,10 @@ Staff report names are `appointments`, `queue`, `cancellations`, `payments`,
 and `home-visits`. The Flutter app accesses these through the authenticated
 Node API proxy rather than exposing the reporting service directly.
 
+On Render, the Node API and this worker are packaged together by
+`deploy/render.Dockerfile`. Gunicorn binds to `127.0.0.1:5060`, so reports are
+available to the API without exposing the raw reporting endpoints publicly.
+
 ## Notes
 
 - Feature tables store their record under `data->'value'` (JSONB); the service

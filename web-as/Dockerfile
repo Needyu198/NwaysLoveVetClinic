@@ -1,4 +1,4 @@
-# Staff web app (React + Vite) built to static files and served by nginx.
+# Unified administrator/staff web app built to static files and served by nginx.
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./

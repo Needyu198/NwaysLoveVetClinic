@@ -1,9 +1,9 @@
 {
-  "name": "nways-staff-web",
+  "name": "nways-as-web",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "React.js staff web app for Nway's Love Vet Clinic",
+  "description": "Unified React.js administrator and staff portal for Nway's Love Vet Clinic",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

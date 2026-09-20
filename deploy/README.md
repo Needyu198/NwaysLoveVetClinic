@@ -11,13 +11,25 @@ repo root), so you can deploy it several ways. Two recommended paths:
 > These steps require **your AWS account and credentials** and will incur cost.
 > Nothing here provisions resources on its own; you run the commands.
 
+## Current Render deployment
+
+The root `render.yaml` uses `deploy/render.Dockerfile` to run the Node API and
+the private Python/Pandas reporting worker in one Render web service. Both
+processes receive the existing `DATABASE_URL`; the API reaches Pandas only over
+`127.0.0.1:5060`. This prevents the staff report screen from falling back to
+“Pandas unavailable” when only the API service has been deployed.
+
+After syncing the Blueprint, keep `DATABASE_URL` configured on the
+`nwayslovevetclinic` service and redeploy it. The public service continues to
+expose only the Node API port supplied by Render.
+
 ## Architecture on AWS
 
 ```
             +-------------------- AWS --------------------+
   Internet  |                                             |
    ─────────┼──> ALB ──> backend (ECS/Fargate :5050) ──┐  |
-            |        └─> web-staff (ECS/Fargate :80)   │  |
+            |        └─> web-as (ECS/Fargate :80)      │  |
             |            reporting (ECS/Fargate :5060) │  |
             |                                          v  |
             |                              RDS PostgreSQL |
@@ -49,18 +61,18 @@ repo root), so you can deploy it several ways. Two recommended paths:
    ```bash
    aws ecr create-repository --repository-name nways-backend
    aws ecr create-repository --repository-name nways-reporting
-   aws ecr create-repository --repository-name nways-web-staff
+   aws ecr create-repository --repository-name nways-web-as
    # authenticate, then for each image:
    docker build -t <acct>.dkr.ecr.<region>.amazonaws.com/nways-backend ./backend
    docker push <acct>.dkr.ecr.<region>.amazonaws.com/nways-backend
-   # repeat for reporting and web-staff (pass --build-arg VITE_API_BASE_URL=<backend URL> for web-staff)
+   # repeat for reporting and web-as (pass --build-arg VITE_API_BASE_URL=<backend URL> for web-as)
    ```
 3. **Secrets**: store `DB_PASSWORD` (and optionally `FIREBASE_SERVICE_ACCOUNT`)
    in AWS Secrets Manager.
 4. **ECS**: create a Fargate cluster and services using
    `deploy/ecs-task-definition.json` as a template (fill in the account id,
    region, image URIs, RDS endpoint, and secret ARNs).
-5. **ALB**: put an Application Load Balancer in front, routing `/` to web-staff,
+5. **ALB**: put an Application Load Balancer in front, routing `/` to web-as,
    and expose the backend on its own listener/hostname. Point
    `VITE_API_BASE_URL` at that backend hostname when building the web image.
 

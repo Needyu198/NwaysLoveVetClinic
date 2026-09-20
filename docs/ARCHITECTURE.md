@@ -52,7 +52,7 @@ backed by **PostgreSQL**.
 | Real-time | **Socket.io** for live queue updates | `backend/src/realtime.js`, `lib/data/realtime_client.dart` |
 | Push notifications | **Firebase Cloud Messaging (FCM)** + in-app DB notifications | see `docs/FCM_SETUP.md` |
 | Reporting | **Python/Pandas** behind the authenticated Node API, with an in-app preview fallback | `reporting/`, `backend/src/api.js`, `lib/staff/staff_reports_page.dart` |
-| Staff web app | **React.js** (optional web surface) | `web-staff/` |
+| Administrator/staff web app | **React.js** unified management portal | `web-as/` |
 | Hosting | Local dev; **Docker + AWS** config provided | `docker-compose.yml`, `deploy/` |
 
 > Note: `jsonwebtoken` is present in `backend/package.json` but the session
@@ -108,7 +108,7 @@ support tickets, doctor verifications, audit logs, and the admin user directory.
 | Planned in proposal | As originally built | Current state |
 |---------------------|---------------------|---------------|
 | Frontend: Flutter (owner, vet) | Flutter | Flutter (unchanged, matches) |
-| Frontend: React.js (clinic staff) | Flutter staff UI | Flutter staff UI **plus** optional React web app in `web-staff/` |
+| Frontend: React.js (clinic staff) | Flutter staff UI | Unified administrator/staff React portal in `web-as/` plus Flutter UI |
 | Backend: Node.js + Express | Node + Express 5 | Matches |
 | Database: PostgreSQL | PostgreSQL | Matches |
 | Auth: Firebase Auth | Custom bcrypt + session tokens | Custom auth + Firebase Auth option |

@@ -61,14 +61,18 @@ def load_table(table: str) -> pd.DataFrame:
         raise ValueError(f"Unknown table: {table}")
     # data->'value' holds the record fields; created_at drives time series.
     query = (
-        f"SELECT id, owner_id, data->'value' AS value, created_at "
+        f"SELECT id AS record_id, owner_id AS record_owner_id, "
+        f"data->'value' AS value, created_at "
         f"FROM {table} ORDER BY created_at"
     )
     with connect_database() as conn:
         with conn.cursor() as cur:
             cur.execute(query)
             rows = cur.fetchall()
-    df = pd.DataFrame(rows, columns=["id", "owner_id", "value", "created_at"])
+    df = pd.DataFrame(
+        rows,
+        columns=["record_id", "record_owner_id", "value", "created_at"],
+    )
     if df.empty:
         return df
     # Expand the JSON 'value' object into columns.
@@ -215,7 +219,7 @@ def build_inventory_report() -> dict:
         if name_col is not None:
             low_stock = df.loc[low_mask, name_col].astype(str).tolist()
         else:
-            low_stock = df.loc[low_mask, "id"].astype(str).tolist()
+            low_stock = df.loc[low_mask, "record_id"].astype(str).tolist()
     return {
         "total_items": int(len(df)),
         "total_units": total_units,
