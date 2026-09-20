@@ -104,15 +104,23 @@ class _StaffPortalPageState extends State<StaffPortalPage> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
-                                    const [
-                                      Icons.desktop_windows_outlined,
-                                      Icons.app_settings_alt,
+                                  if (i < 2)
+                                    _StaffNavAssetIcon(
+                                      key: ValueKey(
+                                        i == 0
+                                            ? 'staff-dashboard-nav-icon'
+                                            : 'staff-management-nav-icon',
+                                      ),
+                                      asset: i == 0
+                                          ? 'assets/photos/icon/staff_dashboard_nav.png'
+                                          : 'assets/photos/icon/staff_management_nav.png',
+                                    )
+                                  else
+                                    const Icon(
                                       Icons.account_circle_outlined,
-                                    ][i],
-                                    color: const Color(0xFF78968F),
-                                    size: 32,
-                                  ),
+                                      color: Color(0xFF78968F),
+                                      size: 32,
+                                    ),
                                   if (_index == i) ...[
                                     const SizedBox(width: 6),
                                     Flexible(
@@ -143,6 +151,23 @@ class _StaffPortalPageState extends State<StaffPortalPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StaffNavAssetIcon extends StatelessWidget {
+  const _StaffNavAssetIcon({required this.asset, super.key});
+
+  final String asset;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 30,
+      child: ColorFiltered(
+        colorFilter: const ColorFilter.mode(Color(0xFF78968F), BlendMode.srcIn),
+        child: Image.asset(asset, fit: BoxFit.contain),
       ),
     );
   }

@@ -27,6 +27,8 @@ class StaffManagementPage extends StatelessWidget {
                 title: 'Appointments',
                 subtitle: 'Confirm, assign and reschedule',
                 icon: Icons.event_note_rounded,
+                imageAsset:
+                    'assets/photos/icon/staff_management_appointments.png',
                 color: _mint,
                 onTap: () => _push(
                   context,
@@ -37,6 +39,7 @@ class StaffManagementPage extends StatelessWidget {
                 title: 'Queue',
                 subtitle: 'Manage the live clinic queue',
                 icon: Icons.format_list_numbered_rounded,
+                imageAsset: 'assets/photos/icon/staff_management_queue.png',
                 color: const Color(0xFFFFE3A8),
                 onTap: () => _push(context, const StaffQueueStandalonePage()),
               ),
@@ -45,6 +48,7 @@ class StaffManagementPage extends StatelessWidget {
                 title: 'Inventory',
                 subtitle: 'Stock, alerts and restock requests',
                 icon: Icons.inventory_2_rounded,
+                imageAsset: 'assets/photos/icon/staff_management_inventory.png',
                 color: const Color(0xFFE2D4FF),
                 onTap: () => _push(context, const StaffInventoryPage()),
               ),
@@ -52,6 +56,8 @@ class StaffManagementPage extends StatelessWidget {
                 title: 'Medical Records',
                 subtitle: 'View finalized clinical records',
                 icon: Icons.folder_shared_rounded,
+                imageAsset:
+                    'assets/photos/icon/staff_management_medical_records.png',
                 color: const Color(0xFFD8F3ED),
                 onTap: () => _push(context, const StaffMedicalRecordsPage()),
               ),
@@ -59,6 +65,7 @@ class StaffManagementPage extends StatelessWidget {
                 title: 'Emergency Cases',
                 subtitle: 'Review and coordinate urgent care',
                 icon: Icons.emergency_rounded,
+                imageAsset: 'assets/photos/icon/clinic_emergency.png',
                 color: const Color(0xFFFFC7C9),
                 onTap: () => _push(context, const StaffEmergencyPage()),
               ),
@@ -66,6 +73,7 @@ class StaffManagementPage extends StatelessWidget {
                 title: 'Home Visits',
                 subtitle: 'Verify and coordinate visits',
                 icon: Icons.home_work_rounded,
+                imageAsset: 'assets/photos/icon/clinic_home_visit.png',
                 color: const Color(0xFFFFE8C7),
                 onTap: () => _push(context, const StaffHomeVisitsPage()),
               ),
@@ -84,6 +92,7 @@ class _ManagementCard extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    this.imageAsset,
     super.key,
   });
   final String title;
@@ -91,6 +100,7 @@ class _ManagementCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final String? imageAsset;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -112,7 +122,17 @@ class _ManagementCard extends StatelessWidget {
                 color: color,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, color: _ink),
+              child: imageAsset == null
+                  ? Icon(icon, color: _ink)
+                  : Center(
+                      child: SizedBox.square(
+                        key: ValueKey(
+                          'staff-management-${title.toLowerCase().replaceAll(' ', '-')}-icon',
+                        ),
+                        dimension: 36,
+                        child: Image.asset(imageAsset!, fit: BoxFit.contain),
+                      ),
+                    ),
             ),
             const Spacer(),
             Text(

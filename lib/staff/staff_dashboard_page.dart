@@ -141,12 +141,16 @@ class StaffDashboardPage extends StatelessWidget {
                         children: [
                           _QuickAction(
                             icon: Icons.add_circle_outline_rounded,
+                            imageAsset:
+                                'assets/photos/icon/staff_dashboard_walk_in.png',
                             label: 'Walk in',
                             onTap: () =>
                                 _push(context, const StaffWalkInPage()),
                           ),
                           _QuickAction(
                             icon: Icons.groups_rounded,
+                            imageAsset:
+                                'assets/photos/icon/staff_dashboard_queue.png',
                             label: 'Queue',
                             onTap: () => _push(
                               context,
@@ -155,18 +159,24 @@ class StaffDashboardPage extends StatelessWidget {
                           ),
                           _QuickAction(
                             icon: Icons.home_work_outlined,
+                            imageAsset:
+                                'assets/photos/icon/clinic_home_visit.png',
                             label: 'Home Visit',
                             onTap: () =>
                                 _push(context, const StaffHomeVisitsPage()),
                           ),
                           _QuickAction(
                             icon: Icons.person_search_rounded,
+                            imageAsset:
+                                'assets/photos/icon/staff_dashboard_pet_owners.png',
                             label: 'Pets & Owners',
                             onTap: () =>
                                 _push(context, const StaffPatientsPage()),
                           ),
                           _QuickAction(
                             icon: Icons.bar_chart_rounded,
+                            imageAsset:
+                                'assets/photos/icon/staff_dashboard_reports.png',
                             label: 'Reports',
                             onTap: () =>
                                 _push(context, const StaffReportsPage()),
@@ -526,10 +536,12 @@ class _QuickAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.imageAsset,
   });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final String? imageAsset;
   @override
   Widget build(BuildContext context) => SizedBox(
     width: 98,
@@ -546,7 +558,17 @@ class _QuickAction extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.grey),
             ),
-            child: Icon(icon, color: const Color(0xFF00EF92), size: 34),
+            child: imageAsset == null
+                ? Icon(icon, color: const Color(0xFF00EF92), size: 34)
+                : Center(
+                    child: SizedBox.square(
+                      key: ValueKey(
+                        'staff-${label.toLowerCase().replaceAll(' ', '-').replaceAll('&', 'and')}-dashboard-icon',
+                      ),
+                      dimension: 42,
+                      child: Image.asset(imageAsset!, fit: BoxFit.contain),
+                    ),
+                  ),
           ),
           const SizedBox(height: 6),
           Text(
