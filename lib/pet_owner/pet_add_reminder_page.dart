@@ -346,18 +346,21 @@ enum ReminderType {
     label: 'Vaccine',
     helper: 'Best for shots, boosters, and vaccination records.',
     icon: Icons.vaccines_rounded,
+    iconAsset: 'assets/photos/icon/reminder_vaccine.png',
     selectedColor: Color(0xFF2F80FF),
   ),
   medicine(
     label: 'Medicine',
     helper: 'Use for pills, drops, dosage, and repeat medication.',
     icon: Icons.medication_rounded,
+    iconAsset: 'assets/photos/icon/reminder_medicine.png',
     selectedColor: Color(0xFF6B7280),
   ),
   checkup(
     label: 'Check-up',
     helper: 'Great for clinic visits, follow-ups, and health checks.',
     icon: Icons.medical_services_rounded,
+    iconAsset: 'assets/photos/icon/reminder_checkup.png',
     selectedColor: Color(0xFF8B3DFF),
   );
 
@@ -365,12 +368,14 @@ enum ReminderType {
     required this.label,
     required this.helper,
     required this.icon,
+    required this.iconAsset,
     required this.selectedColor,
   });
 
   final String label;
   final String helper;
   final IconData icon;
+  final String iconAsset;
   final Color selectedColor;
 }
 
@@ -398,7 +403,11 @@ class _FormHint extends StatelessWidget {
               color: type.selectedColor.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: Icon(type.icon, color: type.selectedColor, size: 22),
+            child: _ReminderTypeAssetIcon(
+              type: type,
+              size: 25,
+              placement: 'hint',
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(child: Text(type.helper, style: AddReminderStyles.helper)),
@@ -511,9 +520,6 @@ class _TypeChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     final selected = type == selectedType;
     final foreground = selected ? Colors.white : const Color(0xFF344054);
-    final iconColor = selected
-        ? const Color(0xFFC2FBE3)
-        : const Color(0xFF344054);
 
     return Material(
       color: selected ? type.selectedColor : const Color(0xFFF2F3F5),
@@ -528,7 +534,7 @@ class _TypeChoice extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(type.icon, size: 31, color: iconColor),
+              _ReminderTypeAssetIcon(type: type, size: 34, placement: 'choice'),
               const SizedBox(height: 10),
               FittedBox(
                 fit: BoxFit.scaleDown,
@@ -546,6 +552,28 @@ class _TypeChoice extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Displays every supplied reminder icon in the same square visual footprint.
+class _ReminderTypeAssetIcon extends StatelessWidget {
+  const _ReminderTypeAssetIcon({
+    required this.type,
+    required this.size,
+    required this.placement,
+  });
+
+  final ReminderType type;
+  final double size;
+  final String placement;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      key: ValueKey('add-reminder-${type.name}-$placement-icon'),
+      dimension: size,
+      child: Image.asset(type.iconAsset, fit: BoxFit.contain),
     );
   }
 }

@@ -316,6 +316,14 @@ class PetCareService {
   final IconData icon;
   final List<String> providers;
   final List<ServicePriceOption> options;
+
+  String? get iconAsset => switch (name) {
+    'Grooming' => 'assets/photos/icon/pet_care_grooming.png',
+    'Bathing' => 'assets/photos/icon/pet_care_bathing.png',
+    'Nail Trimming' => 'assets/photos/icon/pet_care_nail_trimming.png',
+    'Boarding' => 'assets/photos/icon/pet_care_boarding.png',
+    _ => null,
+  };
 }
 
 class ServicePriceOption {
@@ -498,7 +506,11 @@ class _ServiceCard extends StatelessWidget {
                   color: _CareColors.mint,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(service.icon, size: 29),
+                child: _PetCareServiceIcon(
+                  service: service,
+                  size: 38,
+                  placement: 'list',
+                ),
               ),
               const SizedBox(width: 15),
               Expanded(
@@ -579,7 +591,11 @@ class _PetCareServiceDetailsPageState extends State<PetCareServiceDetailsPage> {
                           color: _CareColors.mint,
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(widget.service.icon, size: 32),
+                        child: _PetCareServiceIcon(
+                          service: widget.service,
+                          size: 42,
+                          placement: 'details',
+                        ),
                       ),
                       const SizedBox(width: 15),
                       Expanded(
@@ -867,6 +883,13 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
                 logoKey: ValueKey(
                   'book-${widget.service.name.toLowerCase()}-logo',
                 ),
+                actions: [
+                  _PetCareServiceIcon(
+                    service: widget.service,
+                    size: 36,
+                    placement: 'booking',
+                  ),
+                ],
               ),
               LinearProgressIndicator(
                 value: (_step + 1) / 4,
@@ -1081,17 +1104,39 @@ class _ServiceConfirmation extends StatelessWidget {
             padding: const EdgeInsets.all(28),
             child: Column(
               children: [
-                Container(
-                  width: 108,
-                  height: 108,
-                  decoration: const BoxDecoration(
-                    color: _CareColors.green,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    color: Colors.white,
-                    size: 68,
+                SizedBox.square(
+                  dimension: 108,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 108,
+                        height: 108,
+                        decoration: const BoxDecoration(
+                          color: _CareColors.mint,
+                          shape: BoxShape.circle,
+                        ),
+                        child: _PetCareServiceIcon(
+                          service: booking.service,
+                          size: 66,
+                          placement: 'confirmation',
+                        ),
+                      ),
+                      const Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: CircleAvatar(
+                          radius: 19,
+                          backgroundColor: _CareColors.green,
+                          child: Icon(
+                            Icons.check_rounded,
+                            color: Colors.white,
+                            size: 25,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 28),
@@ -1161,6 +1206,20 @@ class _ServiceBookingCard extends StatelessWidget {
         children: [
           Row(
             children: [
+              Container(
+                width: 46,
+                height: 46,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: const BoxDecoration(
+                  color: _CareColors.mint,
+                  shape: BoxShape.circle,
+                ),
+                child: _PetCareServiceIcon(
+                  service: booking.service,
+                  size: 32,
+                  placement: 'booking-card',
+                ),
+              ),
               Expanded(
                 child: Text(booking.service.name, style: _CareText.cardTitle),
               ),
@@ -1252,6 +1311,22 @@ class _ServiceReportPageState extends State<ServiceReportPage> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          Center(
+            child: Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                color: _CareColors.mint,
+                shape: BoxShape.circle,
+              ),
+              child: _PetCareServiceIcon(
+                service: widget.booking.service,
+                size: 48,
+                placement: 'report',
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
           _DetailPanel(
             title: '${widget.booking.service.name} completed',
             children: [
@@ -1320,6 +1395,31 @@ class _ServiceReportPageState extends State<ServiceReportPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Keeps the supplied pet-care artwork consistent anywhere a service appears.
+class _PetCareServiceIcon extends StatelessWidget {
+  const _PetCareServiceIcon({
+    required this.service,
+    required this.size,
+    required this.placement,
+  });
+
+  final PetCareService service;
+  final double size;
+  final String placement;
+
+  @override
+  Widget build(BuildContext context) {
+    final asset = service.iconAsset;
+    return SizedBox.square(
+      key: ValueKey('pet-care-${service.name}-$placement-icon'),
+      dimension: size,
+      child: asset == null
+          ? Icon(service.icon, size: size * 0.75)
+          : Image.asset(asset, fit: BoxFit.contain),
     );
   }
 }

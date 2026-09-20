@@ -708,6 +708,14 @@ class BookingService {
   final IconData icon;
   final bool homeVisit;
   final List<String> doctors;
+
+  String? get iconAsset => switch (name) {
+    'General Checkup' => 'assets/photos/icon/reminder_checkup.png',
+    'Vaccination' => 'assets/photos/icon/reminder_vaccine.png',
+    'Emergency' => 'assets/photos/icon/clinic_emergency.png',
+    'Home Visit' => 'assets/photos/icon/clinic_home_visit.png',
+    _ => null,
+  };
 }
 
 class AppointmentDetailsPage extends StatelessWidget {
@@ -1752,7 +1760,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
               }),
               child: Row(
                 children: [
-                  _IconBubble(icon: service.icon),
+                  _IconBubble(service: service, placement: 'selection'),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -2382,9 +2390,10 @@ class _SelectedPetStrip extends StatelessWidget {
 }
 
 class _IconBubble extends StatelessWidget {
-  const _IconBubble({required this.icon});
+  const _IconBubble({required this.service, required this.placement});
 
-  final IconData icon;
+  final BookingService service;
+  final String placement;
 
   @override
   Widget build(BuildContext context) {
@@ -2395,7 +2404,15 @@ class _IconBubble extends StatelessWidget {
         color: Color(0xFFDDF8EC),
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: _BookingColors.green, size: 28),
+      child: Center(
+        child: SizedBox.square(
+          key: ValueKey('appointment-service-${service.name}-$placement-icon'),
+          dimension: 34,
+          child: service.iconAsset == null
+              ? Icon(service.icon, color: _BookingColors.green, size: 28)
+              : Image.asset(service.iconAsset!, fit: BoxFit.contain),
+        ),
+      ),
     );
   }
 }
@@ -2663,7 +2680,10 @@ class _AppointmentCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _IconBubble(icon: appointment.service.icon),
+              _IconBubble(
+                service: appointment.service,
+                placement: 'appointment-card',
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

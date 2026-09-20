@@ -34,6 +34,7 @@ class PetOwnerClinicPage extends StatelessWidget {
       'Booking',
       Icons.calendar_month_outlined,
       'Choose your pet, doctor, date, and preferred time slot.',
+      imageAsset: 'assets/photos/icon/clinic_booking.png',
     ),
     _ClinicService(
       'Queue',
@@ -44,11 +45,13 @@ class PetOwnerClinicPage extends StatelessWidget {
       'Home Visit',
       Icons.home_outlined,
       'Request a vet visit at your home for pets who cannot travel easily.',
+      imageAsset: 'assets/photos/icon/clinic_home_visit.png',
     ),
     _ClinicService(
       'Medical Services',
       Icons.medical_services_outlined,
       'Consultation, vaccination, surgery, dental care, and lab tests.',
+      imageAsset: 'assets/photos/icon/clinic_medical_services.png',
     ),
     _ClinicService(
       'Pet Care Services',
@@ -63,16 +66,19 @@ class PetOwnerClinicPage extends StatelessWidget {
       'Emergency Services',
       Icons.emergency_outlined,
       'Find urgent care information and emergency contact options.',
+      imageAsset: 'assets/photos/icon/clinic_emergency.png',
     ),
     _ClinicService(
       'History',
       Icons.history_rounded,
       'Review previous visits, prescriptions, and vaccination records.',
+      imageAsset: 'assets/photos/icon/clinic_history.png',
     ),
     _ClinicService(
       'First Aid Info',
       Icons.health_and_safety_outlined,
       'Quick guidance for bleeding, poisoning, choking, and heat stroke.',
+      imageAsset: 'assets/photos/icon/clinic_first_aid.png',
     ),
     _ClinicService(
       'Contact Clinic',
@@ -785,13 +791,14 @@ class _ServiceItem extends StatelessWidget {
                         color: PetOwnerClinicPage.inkColor,
                         size: 30,
                       )
-                    : Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Image.asset(
-                          service.imageAsset!,
-                          width: 58,
-                          height: 58,
-                          fit: BoxFit.contain,
+                    : Center(
+                        child: SizedBox.square(
+                          key: ValueKey('clinic-${service.title}-icon'),
+                          dimension: 56,
+                          child: Image.asset(
+                            service.imageAsset!,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
               ),

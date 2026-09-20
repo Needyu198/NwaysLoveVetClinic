@@ -271,46 +271,23 @@ class _ReminderSectionLabel extends StatelessWidget {
 
 class _ReminderCard extends StatelessWidget {
   const _ReminderCard({
-    required this.icon,
-    required this.iconColor,
+    required this.type,
     required this.title,
     required this.date,
     required this.time,
     required this.category,
-    required this.categoryIcon,
     required this.note,
     this.isCompleted = false,
     this.reminder,
   });
 
   factory _ReminderCard.fromModel(PetReminder reminder) {
-    final (iconColor, category, categoryIcon) = switch (reminder.type) {
-      ReminderType.vaccine => (
-        const Color(0xFF1F63FF),
-        'Vaccine',
-        Icons.vaccines_rounded,
-      ),
-      ReminderType.medicine => (
-        const Color(0xFF6B7280),
-        'Medicine',
-        Icons.medication_rounded,
-      ),
-      ReminderType.checkup => (
-        const Color(0xFFB23CFF),
-        'Check-up',
-        Icons.local_hospital_rounded,
-      ),
-    };
     return _ReminderCard(
-      icon: reminder.type.icon,
-      iconColor: reminder.completed
-          ? iconColor.withValues(alpha: 0.6)
-          : iconColor,
+      type: reminder.type,
       title: reminder.title,
       date: _reminderDate(reminder.dateTime),
       time: _reminderTime(reminder.dateTime),
-      category: category,
-      categoryIcon: categoryIcon,
+      category: reminder.type.label,
       note: reminder.note.isEmpty
           ? (reminder.createdByStaff
                 ? 'Scheduled by clinic staff'
@@ -321,13 +298,11 @@ class _ReminderCard extends StatelessWidget {
     );
   }
 
-  final IconData icon;
-  final Color iconColor;
+  final ReminderType type;
   final String title;
   final String date;
   final String time;
   final String category;
-  final IconData categoryIcon;
   final String note;
   final bool isCompleted;
   final PetReminder? reminder;
@@ -362,9 +337,9 @@ class _ReminderCard extends StatelessWidget {
                 width: 58,
                 height: 58,
                 decoration: BoxDecoration(
-                  color: isCompleted
-                      ? iconColor.withValues(alpha: 0.72)
-                      : iconColor,
+                  color: Colors.white.withValues(
+                    alpha: isCompleted ? 0.72 : 0.94,
+                  ),
                   borderRadius: BorderRadius.circular(18),
                   boxShadow: const [
                     BoxShadow(
@@ -374,7 +349,16 @@ class _ReminderCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(icon, color: Colors.white, size: 28),
+                child: Center(
+                  child: Opacity(
+                    opacity: isCompleted ? 0.6 : 1,
+                    child: SizedBox.square(
+                      key: ValueKey('reminder-${type.name}-main-icon'),
+                      dimension: 38,
+                      child: Image.asset(type.iconAsset, fit: BoxFit.contain),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -403,7 +387,7 @@ class _ReminderCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    _CategoryPill(icon: categoryIcon, label: category),
+                    _CategoryPill(type: type, label: category),
                   ],
                 ),
               ),
@@ -469,9 +453,9 @@ class _MetaPill extends StatelessWidget {
 }
 
 class _CategoryPill extends StatelessWidget {
-  const _CategoryPill({required this.icon, required this.label});
+  const _CategoryPill({required this.type, required this.label});
 
-  final IconData icon;
+  final ReminderType type;
   final String label;
 
   @override
@@ -491,7 +475,11 @@ class _CategoryPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 17),
+          SizedBox.square(
+            key: ValueKey('reminder-${type.name}-category-icon'),
+            dimension: 19,
+            child: Image.asset(type.iconAsset, fit: BoxFit.contain),
+          ),
           const SizedBox(width: 7),
           Text(label, style: ReminderStyles.category.copyWith(color: color)),
         ],

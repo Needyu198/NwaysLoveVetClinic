@@ -118,17 +118,6 @@ class _HomeContentState extends State<_HomeContent> {
     return '$h:$m $ampm';
   }
 
-  IconData _reminderIcon(ReminderType type) {
-    switch (type) {
-      case ReminderType.vaccine:
-        return Icons.vaccines_rounded;
-      case ReminderType.medicine:
-        return Icons.medication_rounded;
-      case ReminderType.checkup:
-        return Icons.medical_services_rounded;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     // Real, DB-backed reminders (soonest first, not completed).
@@ -183,7 +172,8 @@ class _HomeContentState extends State<_HomeContent> {
                                 : 'Scheduled reminder'),
                       meta:
                           '${_dateLabel(r.dateTime)} \u2022 ${_timeLabel(r.dateTime)}',
-                      icon: _reminderIcon(r.type),
+                      icon: r.type.icon,
+                      reminderType: r.type,
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -573,12 +563,14 @@ class _HomeMessage {
     required this.detail,
     required this.meta,
     required this.icon,
+    this.reminderType,
   });
 
   final String title;
   final String detail;
   final String meta;
   final IconData icon;
+  final ReminderType? reminderType;
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -899,7 +891,20 @@ class _HomeMessageCard extends StatelessWidget {
               color: PetOwnerHomePage.softMintColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(message.icon, color: const Color(0xFF5F8177), size: 24),
+            child: message.reminderType == null
+                ? Icon(message.icon, color: const Color(0xFF5F8177), size: 24)
+                : Center(
+                    child: SizedBox.square(
+                      key: ValueKey(
+                        'home-${message.reminderType!.name}-reminder-icon',
+                      ),
+                      dimension: 30,
+                      child: Image.asset(
+                        message.reminderType!.iconAsset,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
           ),
           const SizedBox(width: 13),
           Expanded(

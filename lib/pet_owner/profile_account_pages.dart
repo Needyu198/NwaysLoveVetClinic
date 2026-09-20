@@ -1151,64 +1151,266 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
         )
         .toList();
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Help & Support'),
-        backgroundColor: _profileMint,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          TextField(
-            key: const ValueKey('help-search'),
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search_rounded),
-              labelText: 'Search help',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (value) => setState(() => _query = value),
-          ),
-          const SizedBox(height: 16),
-          for (final article in filtered)
-            Card(
-              child: ExpansionTile(
-                title: Text(article.key),
-                childrenPadding: const EdgeInsets.all(16),
-                children: [Text(article.value)],
-              ),
-            ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            key: const ValueKey('contact-support'),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const SupportRequestPage(),
-              ),
-            ),
-            icon: const Icon(Icons.support_agent_rounded),
-            label: const Text('Contact Support'),
-          ),
-          const SizedBox(height: 14),
-          AnimatedBuilder(
-            animation: SupportTicketStore.instance,
-            builder: (context, _) => Column(
-              children: SupportTicketStore.instance.tickets
-                  .map(
-                    (ticket) => ListTile(
-                      title: Text('#${ticket.id} • ${ticket.subject}'),
-                      subtitle: Text(
-                        '${_supportStatus(ticket.status)}\n${ticket.staffReply}',
+      backgroundColor: const Color(0xFFF7FAF8),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Help & Support'),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE7F8F0),
+                        borderRadius: BorderRadius.circular(24),
                       ),
-                      isThreeLine: true,
-                      trailing: ticket.status == SupportStatus.resolved
-                          ? TextButton(
-                              onPressed: () =>
-                                  SupportTicketStore.instance.resolve(ticket),
-                              child: const Text('Resolved'),
-                            )
-                          : null,
+                      child: const Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 27,
+                            backgroundColor: Colors.white,
+                            child: Icon(
+                              Icons.support_agent_rounded,
+                              color: Color(0xFF177D58),
+                              size: 30,
+                            ),
+                          ),
+                          SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'How can we help?',
+                                  style: TextStyle(
+                                    color: Color(0xFF17211E),
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Find an answer or contact our clinic team.',
+                                  style: TextStyle(
+                                    color: Color(0xFF60756E),
+                                    fontSize: 14,
+                                    height: 1.3,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  )
-                  .toList(),
+                    const SizedBox(height: 16),
+                    TextField(
+                      key: const ValueKey('help-search'),
+                      decoration: InputDecoration(
+                        hintText: 'Search help',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 17,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFDCEAE4),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFDCEAE4),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF20B978),
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                      onChanged: (value) => setState(() => _query = value),
+                    ),
+                    const SizedBox(height: 14),
+                    FilledButton.icon(
+                      key: const ValueKey('contact-support'),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SupportRequestPage(),
+                        ),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF20B978),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(54),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      icon: const Icon(Icons.support_agent_rounded),
+                      label: const Text('Contact Support'),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Help topics',
+                      style: TextStyle(
+                        color: Color(0xFF17211E),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    if (filtered.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(22),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFFE2ECE8)),
+                        ),
+                        child: const Text(
+                          'No help topics match your search.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFF60756E),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    else
+                      for (final article in filtered) ...[
+                        _HelpTopicCard(
+                          title: article.key,
+                          description: article.value,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    AnimatedBuilder(
+                      animation: SupportTicketStore.instance,
+                      builder: (context, _) {
+                        final tickets = SupportTicketStore.instance.tickets;
+                        if (tickets.isEmpty) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 14),
+                            const Text(
+                              'Your requests',
+                              style: TextStyle(
+                                color: Color(0xFF17211E),
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            for (final ticket in tickets)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2ECE8),
+                                  ),
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 6,
+                                  ),
+                                  title: Text(
+                                    '#${ticket.id} • ${ticket.subject}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${_supportStatus(ticket.status)}\n${ticket.staffReply}',
+                                  ),
+                                  isThreeLine: true,
+                                  trailing:
+                                      ticket.status == SupportStatus.resolved
+                                      ? TextButton(
+                                          onPressed: () => SupportTicketStore
+                                              .instance
+                                              .resolve(ticket),
+                                          child: const Text('Resolved'),
+                                        )
+                                      : null,
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HelpTopicCard extends StatelessWidget {
+  const _HelpTopicCard({required this.title, required this.description});
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2ECE8)),
+      ),
+      child: ExpansionTile(
+        shape: const Border(),
+        collapsedShape: const Border(),
+        leading: const CircleAvatar(
+          backgroundColor: Color(0xFFE7F8F0),
+          foregroundColor: Color(0xFF177D58),
+          child: Icon(Icons.help_outline_rounded),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Color(0xFF17211E),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        iconColor: const Color(0xFF177D58),
+        collapsedIconColor: const Color(0xFF60756E),
+        childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+        children: [
+          Text(
+            description,
+            style: const TextStyle(
+              color: Color(0xFF60756E),
+              fontSize: 14,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

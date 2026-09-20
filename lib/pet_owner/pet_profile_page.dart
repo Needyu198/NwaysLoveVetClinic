@@ -385,7 +385,10 @@ class _BasicInfoPanel extends StatelessWidget {
                 value: profile.name,
               ),
               _InfoTile(
-                icon: Icons.biotech_rounded,
+                leading: const _PetProfileAssetIcon(
+                  key: ValueKey('pet-profile-breed-icon'),
+                  asset: 'assets/photos/icon/pet_breed.png',
+                ),
                 label: 'Breed',
                 value: profile.breed,
               ),
@@ -395,12 +398,18 @@ class _BasicInfoPanel extends StatelessWidget {
                 value: profile.species,
               ),
               _InfoTile(
-                icon: Icons.monitor_weight_rounded,
+                leading: const _PetProfileAssetIcon(
+                  key: ValueKey('pet-profile-weight-icon'),
+                  asset: 'assets/photos/icon/pet_weight.png',
+                ),
                 label: 'Weight',
                 value: profile.weight,
               ),
               _InfoTile(
-                icon: Icons.transgender_rounded,
+                leading: const _PetProfileAssetIcon(
+                  key: ValueKey('pet-profile-sex-icon'),
+                  asset: 'assets/photos/icon/pet_sex.png',
+                ),
                 label: 'Sex',
                 value: profile.sex,
               ),
@@ -432,7 +441,10 @@ class _MedicalInfoPanel extends StatelessWidget {
               const Expanded(
                 child: _SectionHeader(
                   title: 'Medical Info',
-                  icon: Icons.medical_information_rounded,
+                  leading: _PetProfileAssetIcon(
+                    key: ValueKey('pet-profile-medical-info-icon'),
+                    asset: 'assets/photos/icon/pet_medical_info.png',
+                  ),
                 ),
               ),
               TextButton.icon(
@@ -500,7 +512,10 @@ class _TreatmentRecordPanel extends StatelessWidget {
         children: [
           const _SectionHeader(
             title: 'Treatment Records',
-            icon: Icons.receipt_long_rounded,
+            leading: _PetProfileAssetIcon(
+              key: ValueKey('pet-profile-treatment-records-icon'),
+              asset: 'assets/photos/icon/pet_treatment_records.png',
+            ),
           ),
           const SizedBox(height: 16),
           if (records.isEmpty)
@@ -713,6 +728,24 @@ class _InfoTile extends StatelessWidget {
   }
 }
 
+/// Keeps supplied profile artwork visually consistent inside every 42px icon
+/// holder, regardless of the original image dimensions.
+class _PetProfileAssetIcon extends StatelessWidget {
+  const _PetProfileAssetIcon({required this.asset, super.key});
+
+  final String asset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SizedBox.square(
+        dimension: 28,
+        child: Image.asset(asset, fit: BoxFit.contain),
+      ),
+    );
+  }
+}
+
 class _MedicalCard extends StatelessWidget {
   const _MedicalCard({
     required this.icon,
@@ -846,10 +879,12 @@ class _SectionPanel extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.icon});
+  const _SectionHeader({required this.title, this.icon, this.leading})
+    : assert(icon != null || leading != null);
 
   final String title;
-  final IconData icon;
+  final IconData? icon;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -862,7 +897,8 @@ class _SectionHeader extends StatelessWidget {
             color: Colors.white,
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, color: Color(0xFF16785B), size: 24),
+          child:
+              leading ?? Icon(icon, color: const Color(0xFF16785B), size: 24),
         ),
         const SizedBox(width: 12),
         Expanded(child: Text(title, style: _PetProfileStyles.sectionTitle)),
