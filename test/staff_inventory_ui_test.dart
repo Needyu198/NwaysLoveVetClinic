@@ -46,8 +46,20 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('staff-inventory-category-Pet Food')),
+      find.byKey(const ValueKey('staff-inventory-category-Food')),
       findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('staff-inventory-category-Medicine')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('staff-inventory-category-Accessories')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('staff-inventory-category-Toys')),
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey('staff-inventory-stock-filters')),
@@ -76,5 +88,28 @@ void main() {
       find.descendant(of: detailImage, matching: find.byType(Image)),
       findsOneWidget,
     );
+  });
+
+  testWidgets('add inventory only offers the shared product categories', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: StaffAddInventoryPage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Food'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Medicine'), findsOneWidget);
+    expect(find.text('Accessories'), findsOneWidget);
+    expect(find.text('Treats'), findsNothing);
+    expect(find.text('Grooming'), findsNothing);
+    expect(find.text('Toys'), findsNothing);
+    expect(find.text('Vaccines'), findsNothing);
+    expect(find.text('Medical Supplies'), findsNothing);
   });
 }

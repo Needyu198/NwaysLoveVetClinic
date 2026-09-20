@@ -88,7 +88,7 @@ class StaffOperationsStore extends ChangeNotifier {
     InventoryItem(
       id: 'FOOD-0010',
       name: 'Dog Food 01',
-      category: 'Pet Food',
+      category: 'Food',
       quantity: 10,
       reorderLevel: 8,
       unit: 'bags',
@@ -100,7 +100,7 @@ class StaffOperationsStore extends ChangeNotifier {
     InventoryItem(
       id: 'FOOD-0011',
       name: 'Cat Food 01',
-      category: 'Pet Food',
+      category: 'Food',
       quantity: 11,
       reorderLevel: 8,
       unit: 'bags',
@@ -112,7 +112,7 @@ class StaffOperationsStore extends ChangeNotifier {
     InventoryItem(
       id: 'FOOD-0013',
       name: 'Dog Food 02',
-      category: 'Pet Food',
+      category: 'Food',
       quantity: 13,
       reorderLevel: 8,
       unit: 'bags',
@@ -148,7 +148,7 @@ class StaffOperationsStore extends ChangeNotifier {
     InventoryItem(
       id: 'SUP-008',
       name: 'Sterile Examination Gloves',
-      category: 'Medical Supplies',
+      category: 'Accessories',
       quantity: 240,
       reorderLevel: 100,
       unit: 'pairs',
@@ -160,7 +160,7 @@ class StaffOperationsStore extends ChangeNotifier {
     InventoryItem(
       id: 'SUP-021',
       name: 'Wound Dressing 10 cm',
-      category: 'Medical Supplies',
+      category: 'Accessories',
       quantity: 0,
       reorderLevel: 25,
       unit: 'packs',
@@ -172,15 +172,7 @@ class StaffOperationsStore extends ChangeNotifier {
   ];
 
   /// All inventory categories used by the product catalog and filters.
-  static const inventoryCategories = [
-    'Pet Food',
-    'Medicine',
-    'Vaccines',
-    'Medical Supplies',
-    'Cleaning Supplies',
-    'Accessories',
-    'Other',
-  ];
+  static const inventoryCategories = ['Food', 'Medicine', 'Accessories'];
 
   List<InventoryItem> get activeInventory =>
       inventory.where((item) => !item.archived).toList();
@@ -696,7 +688,7 @@ class InventoryItem {
     final value = InventoryItem(
       id: data['id'] as String,
       name: data['name'] as String,
-      category: data['category'] as String,
+      category: _normalizeInventoryCategory(data['category'] as String),
       quantity: data['quantity'] as int,
       reorderLevel: data['reorderLevel'] as int,
       unit: data['unit'] as String,
@@ -774,6 +766,27 @@ class InventoryItem {
     if (isOutOfStock) return 'Out of Stock';
     if (isLowStock) return 'Low Stock';
     return 'In Stock';
+  }
+}
+
+String _normalizeInventoryCategory(String category) {
+  switch (category) {
+    case 'Food':
+    case 'Pet Food':
+    case 'Treats':
+      return 'Food';
+    case 'Medicine':
+    case 'Vaccines':
+    case 'Medical Supplies':
+      return 'Medicine';
+    case 'Accessories':
+    case 'Grooming':
+    case 'Toys':
+    case 'Cleaning Supplies':
+    case 'Other':
+      return 'Accessories';
+    default:
+      return 'Accessories';
   }
 }
 

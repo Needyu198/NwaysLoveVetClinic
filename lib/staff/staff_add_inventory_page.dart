@@ -22,9 +22,9 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
   late final _description = TextEditingController(
     text: widget.existing?.description ?? '',
   );
-  late String _category =
-      widget.existing?.category ??
-      StaffOperationsStore.inventoryCategories.first;
+  late String _category = widget.existing == null
+      ? StaffOperationsStore.inventoryCategories.first
+      : _normalizeInventoryCategory(widget.existing!.category);
   // Item photo stored as a base64 data URI (or a bundled asset path for demo
   // items) so it persists to the database and shows in the shop.
   late String? _imageData = widget.existing?.imageAsset;

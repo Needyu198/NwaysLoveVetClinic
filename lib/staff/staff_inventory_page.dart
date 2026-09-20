@@ -19,7 +19,9 @@ class _StaffInventoryPageState extends State<StaffInventoryPage> {
     final matchesSearch =
         q.isEmpty ||
         '${item.id} ${item.name} ${item.category}'.toLowerCase().contains(q);
-    final matchesCategory = _category == 'All' || item.category == _category;
+    final matchesCategory =
+        _category == 'All' ||
+        _normalizeInventoryCategory(item.category) == _category;
     final matchesStock = switch (_stockFilter) {
       'In Stock' => !item.isLowStock,
       'Low Stock' => item.isLowStock && !item.isOutOfStock,
@@ -115,26 +117,9 @@ class _StaffInventoryPageState extends State<StaffInventoryPage> {
                   ],
                 ),
               ),
-            SizedBox(
-              height: 50,
-              child: ListView.separated(
-                key: const ValueKey('staff-inventory-category-filters'),
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
-                itemCount: StaffOperationsStore.inventoryCategories.length + 1,
-                separatorBuilder: (_, _) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
-                  final category = index == 0
-                      ? 'All'
-                      : StaffOperationsStore.inventoryCategories[index - 1];
-                  return _InventoryFilterChip(
-                    key: ValueKey('staff-inventory-category-$category'),
-                    label: category,
-                    selected: _category == category,
-                    onTap: () => setState(() => _category = category),
-                  );
-                },
-              ),
+            _InventoryCategoryStrip(
+              selected: _category,
+              onChanged: (category) => setState(() => _category = category),
             ),
             SizedBox(
               height: 50,
@@ -189,6 +174,90 @@ class _StaffInventoryPageState extends State<StaffInventoryPage> {
 }
 
 const _inventoryStockFilters = ['All', 'In Stock', 'Low Stock', 'Out of Stock'];
+
+class _InventoryCategoryStrip extends StatelessWidget {
+  const _InventoryCategoryStrip({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final String selected;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final categories = ['All', ...StaffOperationsStore.inventoryCategories];
+    return SizedBox(
+      height: 106,
+      child: ListView.separated(
+        key: const ValueKey('staff-inventory-category-filters'),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 14),
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final isSelected = selected == category;
+          final imageAsset = _staffCategoryIconAsset(category);
+          return GestureDetector(
+            key: ValueKey('staff-inventory-category-$category'),
+            onTap: () => onChanged(category),
+            child: SizedBox(
+              width: 64,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFFE8FFF5)
+                          : Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFF147D5B) : _border,
+                        width: 2,
+                      ),
+                    ),
+                    child: imageAsset == null
+                        ? const Icon(
+                            Icons.grid_view_rounded,
+                            color: Color(0xFF147D5B),
+                            size: 24,
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Image.asset(
+                              imageAsset,
+                              width: 34,
+                              height: 34,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    category,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 11,
+                      fontWeight: isSelected
+                          ? FontWeight.w800
+                          : FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
 
 /// Matches the Live Queue filter bar: mint pills with a yellow active state.
 class _InventoryFilterChip extends StatelessWidget {
@@ -573,6 +642,7 @@ Widget _inventoryImage(
 }
 
 IconData _categoryIcon(String category) => switch (category) {
+  'Food' => Icons.restaurant_rounded,
   'Pet Food' => Icons.pets_rounded,
   'Medicine' => Icons.medication_rounded,
   'Vaccines' => Icons.vaccines_rounded,
@@ -580,6 +650,13 @@ IconData _categoryIcon(String category) => switch (category) {
   'Cleaning Supplies' => Icons.cleaning_services_rounded,
   'Accessories' => Icons.shopping_bag_outlined,
   _ => Icons.inventory_2_outlined,
+};
+
+String? _staffCategoryIconAsset(String category) => switch (category) {
+  'Food' => 'assets/photos/icon/pet_food.png',
+  'Medicine' => 'assets/photos/icon/pet_medicine.png',
+  'Accessories' => 'assets/photos/icon/pet_accessories.png',
+  _ => null,
 };
 
 String _money(int value) {

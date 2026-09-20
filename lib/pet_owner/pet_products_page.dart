@@ -493,7 +493,7 @@ int _originalPriceFor(String key, int sellingPrice) {
 }
 
 Color _categoryColor(String category) {
-  switch (category) {
+  switch (_normalizedProductCategory(category)) {
     case 'Food':
       return const Color(0xFFFFD329);
     case 'Medicine':
@@ -510,7 +510,7 @@ Color _categoryColor(String category) {
 }
 
 IconData _categoryIcon(String category) {
-  switch (category) {
+  switch (_normalizedProductCategory(category)) {
     case 'Food':
       return Icons.restaurant_rounded;
     case 'Medicine':
@@ -527,7 +527,7 @@ IconData _categoryIcon(String category) {
 }
 
 String? _categoryIconAsset(String category) {
-  switch (category) {
+  switch (_normalizedProductCategory(category)) {
     case 'Food':
       return 'assets/photos/icon/pet_food.png';
     case 'Medicine':
@@ -539,13 +539,34 @@ String? _categoryIconAsset(String category) {
   }
 }
 
+String _normalizedProductCategory(String category) {
+  switch (category) {
+    case 'Food':
+    case 'Pet Food':
+    case 'Treats':
+      return 'Food';
+    case 'Medicine':
+    case 'Vaccines':
+    case 'Medical Supplies':
+      return 'Medicine';
+    case 'Accessories':
+    case 'Grooming':
+    case 'Toys':
+    case 'Cleaning Supplies':
+    case 'Other':
+      return 'Accessories';
+    default:
+      return 'Accessories';
+  }
+}
+
 List<Product> get products => ClinicApi.instance.token == null
     ? _demoProducts
     : StaffOperationsStore.instance.activeInventory
           .map(
             (item) => Product(
               name: item.name,
-              category: item.category,
+              category: _normalizedProductCategory(item.category),
               brand: item.supplier.isEmpty ? 'Clinic Shop' : item.supplier,
               price: item.sellingPrice,
               originalPrice: _originalPriceFor(item.id, item.sellingPrice),
@@ -615,7 +636,7 @@ const _demoProducts = <Product>[
   ),
   Product(
     name: 'Dog Toy',
-    category: 'Toys',
+    category: 'Accessories',
     brand: 'Nway',
     price: 5000,
     originalPrice: 5800,
@@ -628,15 +649,7 @@ const _demoProducts = <Product>[
   ),
 ];
 
-const categories = [
-  'All Product',
-  'Food',
-  'Treats',
-  'Medicine',
-  'Grooming',
-  'Toys',
-  'Accessories',
-];
+const categories = ['All Product', 'Food', 'Medicine', 'Accessories'];
 
 // ---------------------------------------------------------------------------
 // List page widgets
