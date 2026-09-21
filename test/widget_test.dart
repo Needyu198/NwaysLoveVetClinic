@@ -159,7 +159,15 @@ void main() {
     expect(find.text('Dashboard'), findsOneWidget);
     expect(find.byKey(const ValueKey('doctor-navigation-bar')), findsOneWidget);
     expect(
+      find.byKey(const ValueKey('doctor-dashboard-tab-icon')),
+      findsOneWidget,
+    );
+    expect(
       find.byKey(const ValueKey('doctor-appointments-tab')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('doctor-appointments-tab-icon')),
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('doctor-profile-tab')), findsOneWidget);
@@ -167,6 +175,18 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('doctor-appointments-tab')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('doctor-appointments')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('doctor-appointment-queue-icon')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('doctor-appointment-records-icon')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('doctor-appointment-visits-icon')),
+      findsOneWidget,
+    );
     expect(find.text('Bruno'), findsWidgets);
 
     final firstAppointment = DoctorAppointmentStore.instance.appointments.first;

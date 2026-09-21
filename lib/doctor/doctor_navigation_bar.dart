@@ -13,13 +13,13 @@ class DoctorNavigationBar extends StatelessWidget {
   static const _items = [
     _DoctorNavigationItem(
       label: 'Dashboard',
-      icon: Icons.pets_rounded,
+      asset: 'assets/photos/icon/doctor_dashboard_nav.png',
       keyValue: 'doctor-dashboard-tab',
       color: Color(0xFF789A93),
     ),
     _DoctorNavigationItem(
       label: 'Appointments',
-      icon: Icons.add_rounded,
+      asset: 'assets/photos/icon/clinic_booking.png',
       keyValue: 'doctor-appointments-tab',
       color: Color(0xFFEF4E43),
     ),
@@ -75,13 +75,15 @@ class DoctorNavigationBar extends StatelessWidget {
 class _DoctorNavigationItem {
   const _DoctorNavigationItem({
     required this.label,
-    required this.icon,
     required this.keyValue,
     required this.color,
+    this.icon,
+    this.asset,
   });
 
   final String label;
-  final IconData icon;
+  final IconData? icon;
+  final String? asset;
   final String keyValue;
   final Color color;
 }
@@ -123,7 +125,21 @@ class _DoctorNavigationDestination extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(item.icon, color: item.color, size: selected ? 30 : 34),
+                  if (item.asset != null)
+                    Image.asset(
+                      item.asset!,
+                      key: ValueKey('${item.keyValue}-icon'),
+                      width: selected ? 34 : 38,
+                      height: selected ? 34 : 38,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                    )
+                  else
+                    Icon(
+                      item.icon,
+                      color: item.color,
+                      size: selected ? 30 : 34,
+                    ),
                   if (selected) ...[
                     const SizedBox(width: 9),
                     Flexible(

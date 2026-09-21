@@ -127,7 +127,11 @@ class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
                       Expanded(
                         child: _DoctorAppointmentNavCard(
                           navKey: const ValueKey('doctor-open-queue'),
-                          icon: Icons.groups_2_outlined,
+                          iconKey: const ValueKey(
+                            'doctor-appointment-queue-icon',
+                          ),
+                          asset:
+                              'assets/photos/icon/staff_management_queue.png',
                           label: 'Queue',
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
@@ -140,7 +144,11 @@ class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
                       Expanded(
                         child: _DoctorAppointmentNavCard(
                           navKey: const ValueKey('doctor-open-medical-records'),
-                          icon: Icons.assignment_outlined,
+                          iconKey: const ValueKey(
+                            'doctor-appointment-records-icon',
+                          ),
+                          asset:
+                              'assets/photos/icon/staff_management_medical_records.png',
                           label: 'Records',
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
@@ -153,7 +161,10 @@ class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
                       Expanded(
                         child: _DoctorAppointmentNavCard(
                           navKey: const ValueKey('doctor-open-home-visits'),
-                          icon: Icons.home_work_outlined,
+                          iconKey: const ValueKey(
+                            'doctor-appointment-visits-icon',
+                          ),
+                          asset: 'assets/photos/icon/clinic_home_visit.png',
                           label: 'Visits',
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
@@ -859,13 +870,15 @@ class _DoctorAppointmentDetailsSection extends StatelessWidget {
 class _DoctorAppointmentNavCard extends StatelessWidget {
   const _DoctorAppointmentNavCard({
     required this.navKey,
-    required this.icon,
+    required this.iconKey,
+    required this.asset,
     required this.label,
     required this.onTap,
   });
 
   final Key navKey;
-  final IconData icon;
+  final Key iconKey;
+  final String asset;
   final String label;
   final VoidCallback onTap;
 
@@ -884,7 +897,14 @@ class _DoctorAppointmentNavCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 28, color: Colors.black),
+            Image.asset(
+              asset,
+              key: iconKey,
+              width: 38,
+              height: 38,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
             const SizedBox(height: 6),
             Text(
               label,

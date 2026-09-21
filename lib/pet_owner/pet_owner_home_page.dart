@@ -207,6 +207,8 @@ class _HomeContentState extends State<_HomeContent> {
                           : 'With ${a.veterinarian}',
                       meta: '${_dateLabel(a.date)} \u2022 ${a.time}',
                       icon: Icons.event_available_rounded,
+                      iconAsset: a.service.iconAsset,
+                      appointmentService: a.service.name,
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -564,6 +566,8 @@ class _HomeMessage {
     required this.meta,
     required this.icon,
     this.reminderType,
+    this.iconAsset,
+    this.appointmentService,
   });
 
   final String title;
@@ -571,6 +575,8 @@ class _HomeMessage {
   final String meta;
   final IconData icon;
   final ReminderType? reminderType;
+  final String? iconAsset;
+  final String? appointmentService;
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -891,9 +897,8 @@ class _HomeMessageCard extends StatelessWidget {
               color: PetOwnerHomePage.softMintColor,
               shape: BoxShape.circle,
             ),
-            child: message.reminderType == null
-                ? Icon(message.icon, color: const Color(0xFF5F8177), size: 24)
-                : Center(
+            child: message.reminderType != null
+                ? Center(
                     child: SizedBox.square(
                       key: ValueKey(
                         'home-${message.reminderType!.name}-reminder-icon',
@@ -904,7 +909,22 @@ class _HomeMessageCard extends StatelessWidget {
                         fit: BoxFit.contain,
                       ),
                     ),
-                  ),
+                  )
+                : message.iconAsset != null
+                ? Center(
+                    child: SizedBox.square(
+                      key: ValueKey(
+                        'home-appointment-${message.appointmentService}-icon',
+                      ),
+                      dimension: 32,
+                      child: Image.asset(
+                        message.iconAsset!,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                      ),
+                    ),
+                  )
+                : Icon(message.icon, color: const Color(0xFF5F8177), size: 24),
           ),
           const SizedBox(width: 13),
           Expanded(
