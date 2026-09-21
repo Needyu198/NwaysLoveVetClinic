@@ -131,7 +131,7 @@ npm start          # serves on http://127.0.0.1:5050
 brew services start postgresql@14
 
 # Flutter client
-flutter run        # physical devices use the .local hostname / API_BASE_URL
+flutter run        # mobile uses Render; pass API_BASE_URL for a local backend
 ```
 
 See `README.md` and the per-feature setup docs under `docs/` for details.

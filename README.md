@@ -27,11 +27,10 @@ npm run migrate
 npm start
 ```
 
-The backend listens on all network interfaces (`0.0.0.0`) by default. The app
-uses `http://127.0.0.1:5050` on desktop and web and `http://10.0.2.2:5050` on
-the Android emulator. For a physical device on the local network, or for an
-internet-accessible HTTPS deployment, pass the reachable API address when
-starting Flutter. For a phone on the same local network:
+The backend listens on all network interfaces (`0.0.0.0`) by default. Mobile
+builds use the hosted Render API by default, while desktop and locally served
+web builds use `http://127.0.0.1:5050`. To use a local backend from a phone,
+explicitly pass its reachable address:
 
 ```sh
 flutter run --dart-define=API_BASE_URL=http://YOUR_MAC_LAN_IP:5050
