@@ -332,11 +332,35 @@ class _DoctorConsultationPageState extends State<DoctorConsultationPage> {
       finalized: true,
       testResult: _testResult,
     );
-    DoctorAppointmentStore.instance.updateStatus(widget.record, 'Completed');
+    final ticket = widget.record.source == null
+        ? null
+        : QueueStore.instance.existingEntryFor(widget.record.source!);
+    try {
+      await DoctorAppointmentStore.instance.persist(widget.record);
+      if (ticket != null) {
+        await QueueStore.instance.transition(
+          ticket,
+          QueueStatus.completed,
+          medicalRecordId: 'MED-${widget.record.id}',
+        );
+      } else {
+        DoctorAppointmentStore.instance.updateStatus(
+          widget.record,
+          'Completed',
+        );
+      }
+    } on ClinicApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    }
     DoctorNotificationStore.instance.add(
       'Medical record finalized',
       '${widget.record.petName}’s consultation record is available in History.',
     );
+    if (!mounted) return;
     Navigator.of(context).pop();
   }
 

@@ -19,6 +19,7 @@ class DatabaseSync extends ChangeNotifier {
   String? error;
   Timer? _timer;
   Future<void>? _inFlight;
+  bool _suppressDirtyTracking = false;
   bool get pending => _bindings.any((b) => b.dirty);
 
   void bind(
@@ -30,12 +31,23 @@ class DatabaseSync extends ChangeNotifier {
     final binding = _Binding(table, read, restore, store);
     _bindings.add(binding);
     store.addListener(() {
-      if (!active || busy || !binding.allowed) return;
+      if (!active || busy || _suppressDirtyTracking || !binding.allowed) return;
       binding.dirty = true;
       _timer?.cancel();
       _timer = Timer(const Duration(milliseconds: 300), () => flush());
       notifyListeners();
     });
+  }
+
+  /// Notify UI listeners for derived/read-only presentation state without
+  /// treating that notification as a database mutation.
+  void notifyViewOnly(ChangeNotifier store) {
+    _suppressDirtyTracking = true;
+    try {
+      store.notifyListeners();
+    } finally {
+      _suppressDirtyTracking = false;
+    }
   }
 
   Future<void> start() async {

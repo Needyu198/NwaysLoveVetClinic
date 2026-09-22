@@ -18,6 +18,7 @@ class RealtimeClient {
 
   io.Socket? _socket;
   Timer? _queueRefreshDebounce;
+  Future<void> Function()? queueRefreshHook;
 
   static const queueTables = {
     'appointments',
@@ -75,7 +76,10 @@ class RealtimeClient {
       _queueRefreshDebounce?.cancel();
       _queueRefreshDebounce = Timer(
         const Duration(milliseconds: 150),
-        () => DatabaseSync.instance.refreshTables(tables),
+        () async {
+          await DatabaseSync.instance.refreshTables(tables);
+          await queueRefreshHook?.call();
+        },
       );
     });
 

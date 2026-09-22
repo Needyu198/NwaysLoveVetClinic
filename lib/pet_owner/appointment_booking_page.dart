@@ -2,6 +2,7 @@ import '../data/clinic_api.dart';
 import '../data/clinic_directory.dart';
 import 'profile_flows.dart';
 import '../data/database_sync.dart';
+import '../data/realtime_client.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -167,23 +168,38 @@ class AppointmentStore extends ChangeNotifier {
         appointment.status == 'Completed') {
       return;
     }
+    if (!appointment.service.homeVisit && status == 'Checked In') {
+      unawaited(QueueStore.instance.checkIn(appointment));
+      return;
+    }
     if (!appointment.service.homeVisit &&
         const {
-          'Checked In',
           'Called',
+          'Arrived',
           'In Consultation',
           'Completed',
+          'Missed',
+          'Cancelled',
         }.contains(status)) {
-      QueueStore.instance.syncConfirmedAppointments([appointment]);
       final queue = QueueStore.instance.existingEntryFor(appointment);
       if (queue != null) {
         final queueStatus = switch (status) {
-          'Checked In' => QueueStatus.almostTurn,
           'Called' => QueueStatus.called,
+          'Arrived' => QueueStatus.arrived,
           'In Consultation' => QueueStatus.inConsultation,
-          _ => QueueStatus.completed,
+          'Completed' => QueueStatus.completed,
+          'Missed' => QueueStatus.missed,
+          _ => QueueStatus.cancelled,
         };
-        QueueStore.instance.staffUpdate(queue, queueStatus);
+        unawaited(
+          QueueStore.instance.transition(
+            queue,
+            queueStatus,
+            medicalRecordId: status == 'Completed'
+                ? 'MED-${appointment.id}'
+                : null,
+          ),
+        );
         return;
       }
     }
@@ -233,11 +249,11 @@ class AppointmentStore extends ChangeNotifier {
       );
     }
     final queue = QueueStore.instance.existingEntryFor(appointment);
-    if (queue != null && queue.status != QueueStatus.waiting) {
+    if (queue != null && !queue.isTerminal) {
       return const CancellationEligibility(
         allowed: false,
         message:
-            'Check-in or consultation has already started. Please contact clinic staff for help.',
+            'This appointment is already checked in. Please contact clinic staff for help.',
       );
     }
     final current = now ?? DateTime.now();
@@ -273,7 +289,7 @@ class AppointmentStore extends ChangeNotifier {
     } else {
       final queue = QueueStore.instance.existingEntryFor(appointment);
       if (!const {'Pending', 'Confirmed'}.contains(appointment.status) ||
-          (queue != null && queue.status != QueueStatus.waiting)) {
+          (queue != null && !queue.isTerminal)) {
         return null;
       }
     }
@@ -305,23 +321,44 @@ class AppointmentStore extends ChangeNotifier {
   }
 }
 
-enum QueueStatus { waiting, almostTurn, called, inConsultation, completed }
+enum QueueStatus {
+  waiting,
+  called,
+  arrived,
+  inConsultation,
+  completed,
+  missed,
+  cancelled,
+}
 
 class QueueEntry {
   Map<String, dynamic> toDb() => {
+    'appointmentId': appointment.id,
+    'ownerId': ownerId,
+    'petId': petId,
     'appointment': appointment.toDb(),
+    'clinicDate': clinicDate.toIso8601String(),
+    'sequence': sequence,
     'queueNumber': queueNumber,
+    'priority': priority,
     'status': status.name,
+    'position': position,
     'petsAhead': petsAhead,
     'estimatedWaitMinutes': estimatedWaitMinutes,
+    'checkedInAt': checkedInAt.toIso8601String(),
+    'calledAt': calledAt?.toIso8601String(),
+    'arrivedAt': arrivedAt?.toIso8601String(),
+    'consultationStartedAt': consultationStartedAt?.toIso8601String(),
+    'completedAt': completedAt?.toIso8601String(),
+    'assignedDoctor': assignedDoctor,
     'room': room,
-    'consultationSummary': consultationSummary,
-    'diagnosis': diagnosis,
-    'treatment': treatment,
-    'prescription': prescription,
-    'recommendations': recommendations,
+    'delayReason': delayReason,
+    'medicalRecordId': medicalRecordId,
+    'ownerAcknowledgedAt': ownerAcknowledgedAt?.toIso8601String(),
+    'version': version,
   };
   static QueueEntry fromDb(Map<String, dynamic> data) {
+    final rawStatus = data['status'] as String? ?? 'waiting';
     final value = QueueEntry(
       appointment: AppointmentStore.instance.appointments.firstWhere(
         (a) => a.id == (data['appointment'] as Map)['id'],
@@ -329,44 +366,113 @@ class QueueEntry {
           Map<String, dynamic>.from(data['appointment'] as Map),
         ),
       ),
+      ownerId: data['ownerId'] as String? ?? '',
+      petId: data['petId'] as String? ?? '',
+      clinicDate:
+          DateTime.tryParse(data['clinicDate'] as String? ?? '') ??
+          DateTime.now(),
+      sequence:
+          data['sequence'] as int? ??
+          int.tryParse(
+            (data['queueNumber'] as String? ?? '').replaceAll(
+              RegExp(r'\D'),
+              '',
+            ),
+          ) ??
+          0,
       queueNumber: data['queueNumber'] as String,
-      status: QueueStatus.values.byName(data['status'] as String),
-      petsAhead: data['petsAhead'] as int,
-      estimatedWaitMinutes: data['estimatedWaitMinutes'] as int,
-      room: data['room'] as String,
+      priority: data['priority'] as String? ?? 'normal',
+      status: rawStatus == 'almostTurn'
+          ? QueueStatus.waiting
+          : QueueStatus.values.byName(rawStatus),
+      position: data['position'] as int? ?? 0,
+      petsAhead: data['petsAhead'] as int? ?? 0,
+      estimatedWaitMinutes: data['estimatedWaitMinutes'] as int? ?? 0,
+      checkedInAt:
+          DateTime.tryParse(data['checkedInAt'] as String? ?? '') ??
+          DateTime.now(),
+      calledAt: DateTime.tryParse(data['calledAt'] as String? ?? ''),
+      arrivedAt: DateTime.tryParse(data['arrivedAt'] as String? ?? ''),
+      consultationStartedAt: DateTime.tryParse(
+        data['consultationStartedAt'] as String? ?? '',
+      ),
+      completedAt: DateTime.tryParse(data['completedAt'] as String? ?? ''),
+      assignedDoctor:
+          data['assignedDoctor'] as String? ??
+          (data['appointment'] as Map)['veterinarian'] as String? ??
+          '',
+      room: data['room'] as String? ?? '',
+      delayReason: data['delayReason'] as String? ?? '',
+      medicalRecordId: data['medicalRecordId'] as String?,
+      ownerAcknowledgedAt: DateTime.tryParse(
+        data['ownerAcknowledgedAt'] as String? ?? '',
+      ),
+      version: data['version'] as int? ?? 1,
     );
-    value.consultationSummary = data['consultationSummary'] as String;
-    value.diagnosis = data['diagnosis'] as String;
-    value.treatment = data['treatment'] as String;
-    value.prescription = data['prescription'] as String;
-    value.recommendations = data['recommendations'] as String;
     return value;
   }
 
   QueueEntry({
     required this.appointment,
     required this.queueNumber,
+    this.ownerId = '',
+    this.petId = '',
+    DateTime? clinicDate,
+    this.sequence = 0,
+    this.priority = 'normal',
     this.status = QueueStatus.waiting,
-    this.petsAhead = 2,
-    this.estimatedWaitMinutes = 20,
+    this.position = 1,
+    this.petsAhead = 0,
+    this.estimatedWaitMinutes = 0,
+    DateTime? checkedInAt,
+    this.calledAt,
+    this.arrivedAt,
+    this.consultationStartedAt,
+    this.completedAt,
+    String? assignedDoctor,
     this.room = '',
-  });
+    this.delayReason = '',
+    this.medicalRecordId,
+    this.ownerAcknowledgedAt,
+    this.version = 1,
+  }) : clinicDate = clinicDate ?? appointment.date,
+       checkedInAt = checkedInAt ?? DateTime.now(),
+       assignedDoctor = assignedDoctor ?? appointment.veterinarian;
 
   final BookedAppointment appointment;
+  final String ownerId;
+  final String petId;
+  final DateTime clinicDate;
+  final int sequence;
   final String queueNumber;
+  final String priority;
   QueueStatus status;
+  int position;
   int petsAhead;
   int estimatedWaitMinutes;
+  final DateTime checkedInAt;
+  DateTime? calledAt;
+  DateTime? arrivedAt;
+  DateTime? consultationStartedAt;
+  DateTime? completedAt;
+  String assignedDoctor;
   String room;
-  String consultationSummary = '';
-  String diagnosis = '';
-  String treatment = '';
-  String prescription = '';
-  String recommendations = '';
+  String delayReason;
+  String? medicalRecordId;
+  DateTime? ownerAcknowledgedAt;
+  int version;
+
+  bool get isTerminal => const {
+    QueueStatus.completed,
+    QueueStatus.missed,
+    QueueStatus.cancelled,
+  }.contains(status);
 }
 
 class QueueStore extends ChangeNotifier {
   void connectDatabase() {
+    RealtimeClient.instance.queueRefreshHook = () =>
+        refreshLive(refreshDatabase: false);
     DatabaseSync.instance.bind(
       'queue_entries',
       this,
@@ -391,39 +497,167 @@ class QueueStore extends ChangeNotifier {
   static final instance = QueueStore._();
 
   final List<QueueEntry> _entries = [];
+  DateTime? lastUpdatedAt;
+  String? refreshError;
+  bool refreshing = false;
 
-  List<QueueEntry> get active => List.unmodifiable(
-    _entries.where((entry) => entry.status != QueueStatus.completed),
-  );
+  List<QueueEntry> get active =>
+      List.unmodifiable(_entries.where((entry) => !entry.isTerminal));
 
   List<QueueEntry> get history => List.unmodifiable(
-    _entries.where((entry) => entry.status == QueueStatus.completed),
+    _entries.where((entry) => entry.isTerminal).toList()
+      ..sort((a, b) => b.checkedInAt.compareTo(a.checkedInAt)),
   );
 
-  void syncConfirmedAppointments(Iterable<BookedAppointment> appointments) {
-    final before = _entries.length;
-    for (final appointment in appointments) {
-      if (appointment.service.homeVisit ||
-          !const {'Pending', 'Confirmed'}.contains(appointment.status) ||
-          _entries.any((entry) => entry.appointment.id == appointment.id)) {
-        continue;
-      }
-      _entries.add(
-        QueueEntry(
-          appointment: appointment,
-          queueNumber: 'Q${12 + _entries.length}',
-        ),
-      );
-    }
-    if (_entries.length != before) scheduleMicrotask(notifyListeners);
-  }
-
   QueueEntry? entryFor(BookedAppointment appointment) {
-    syncConfirmedAppointments([appointment]);
     return _entries.cast<QueueEntry?>().firstWhere(
       (entry) => entry?.appointment.id == appointment.id,
       orElse: () => null,
     );
+  }
+
+  Future<QueueEntry?> checkIn(
+    BookedAppointment appointment, {
+    String priority = 'normal',
+  }) async {
+    final existing = existingEntryFor(appointment);
+    if (existing != null && !existing.isTerminal) return existing;
+    if (ClinicApi.instance.token == null) {
+      final todayEntries = _entries.where(
+        (entry) => DateUtils.isSameDay(entry.clinicDate, appointment.date),
+      );
+      final sequence =
+          todayEntries.fold<int>(
+            0,
+            (maximum, entry) =>
+                entry.sequence > maximum ? entry.sequence : maximum,
+          ) +
+          1;
+      final entry = QueueEntry(
+        appointment: appointment,
+        ownerId: ClinicApi.instance.accountId,
+        petId: appointment.pet.id.isNotEmpty
+            ? appointment.pet.id
+            : '${ClinicApi.instance.accountId}:${appointment.pet.name}',
+        clinicDate: appointment.date,
+        sequence: sequence,
+        queueNumber: 'Q${sequence.toString().padLeft(3, '0')}',
+        priority: priority,
+      );
+      _entries.add(entry);
+      appointment.status = 'Checked In';
+      _recalculateLocalPositions();
+      notifyListeners();
+      return entry;
+    }
+    await ClinicApi.instance.request('POST', '/queue/check-in', {
+      'appointmentId': appointment.id,
+      'priority': priority,
+    });
+    await DatabaseSync.instance.refreshTables([
+      'appointments',
+      'queue_entries',
+    ]);
+    return existingEntryFor(appointment);
+  }
+
+  Future<void> transition(
+    QueueEntry entry,
+    QueueStatus status, {
+    String? room,
+    String? delayReason,
+    String? medicalRecordId,
+    String? assignedDoctor,
+  }) async {
+    if (ClinicApi.instance.token == null) {
+      _applyLocalTransition(
+        entry,
+        status,
+        room: room,
+        delayReason: delayReason,
+        medicalRecordId: medicalRecordId,
+        assignedDoctor: assignedDoctor,
+      );
+      return;
+    }
+    await ClinicApi.instance.request(
+      'POST',
+      '/queue/${Uri.encodeComponent(entry.appointment.id)}/transition',
+      {
+        'status': status.name,
+        'version': entry.version,
+        'room': ?room,
+        'delayReason': ?delayReason,
+        'medicalRecordId': ?medicalRecordId,
+        'assignedDoctor': ?assignedDoctor,
+      },
+    );
+    await DatabaseSync.instance.refreshTables([
+      'appointments',
+      'queue_entries',
+    ]);
+  }
+
+  Future<void> acknowledgeCalled(QueueEntry entry) async {
+    if (ClinicApi.instance.token == null) {
+      entry.ownerAcknowledgedAt = DateTime.now();
+      notifyListeners();
+      return;
+    }
+    await ClinicApi.instance.request(
+      'POST',
+      '/queue/${Uri.encodeComponent(entry.appointment.id)}/acknowledge',
+    );
+    await DatabaseSync.instance.refreshTable('queue_entries');
+  }
+
+  Future<void> refreshLive({bool refreshDatabase = true}) async {
+    if (refreshing) return;
+    refreshing = true;
+    refreshError = null;
+    DatabaseSync.instance.notifyViewOnly(this);
+    try {
+      if (refreshDatabase) {
+        await DatabaseSync.instance.refreshTables([
+          'appointments',
+          'queue_entries',
+        ]);
+      }
+      if (ClinicApi.instance.token != null &&
+          ClinicApi.instance.role == 'petOwner') {
+        final result = await ClinicApi.instance.request('GET', '/queue/my');
+        final records = result['records'] as List;
+        for (final record in records.whereType<Map>()) {
+          final value = record['data'] is Map
+              ? (record['data'] as Map)['value']
+              : null;
+          if (value is! Map) continue;
+          final appointmentId = value['appointmentId'] as String?;
+          final local = _entries.cast<QueueEntry?>().firstWhere(
+            (item) => item?.appointment.id == appointmentId,
+            orElse: () => null,
+          );
+          if (local != null) {
+            local.position = value['position'] as int? ?? local.position;
+            local.petsAhead = value['petsAhead'] as int? ?? local.petsAhead;
+            local.estimatedWaitMinutes =
+                value['estimatedWaitMinutes'] as int? ??
+                local.estimatedWaitMinutes;
+          }
+        }
+        lastUpdatedAt =
+            DateTime.tryParse(result['refreshedAt'] as String? ?? '') ??
+            DateTime.now();
+      } else {
+        _recalculateLocalPositions();
+        lastUpdatedAt = DateTime.now();
+      }
+    } catch (error) {
+      refreshError = error.toString();
+    } finally {
+      refreshing = false;
+      DatabaseSync.instance.notifyViewOnly(this);
+    }
   }
 
   QueueEntry? existingEntryFor(BookedAppointment appointment) {
@@ -449,54 +683,80 @@ class QueueStore extends ChangeNotifier {
     int? estimatedWaitMinutes,
     String? room,
   }) {
-    entry.status = status;
-    entry.petsAhead =
-        petsAhead ??
-        switch (status) {
-          QueueStatus.waiting => entry.petsAhead,
-          QueueStatus.almostTurn => 1,
-          QueueStatus.called ||
-          QueueStatus.inConsultation ||
-          QueueStatus.completed => 0,
-        };
-    entry.estimatedWaitMinutes =
-        estimatedWaitMinutes ??
-        switch (status) {
-          QueueStatus.waiting => entry.estimatedWaitMinutes,
-          QueueStatus.almostTurn => 5,
-          QueueStatus.called ||
-          QueueStatus.inConsultation ||
-          QueueStatus.completed => 0,
-        };
-    if (room != null) entry.room = room;
-    if (status == QueueStatus.called && entry.room.isEmpty) {
-      entry.room = 'Consultation Room 2';
+    if (ClinicApi.instance.token == null) {
+      _applyLocalTransition(entry, status, room: room);
+    } else {
+      unawaited(transition(entry, status, room: room));
     }
-    if (status == QueueStatus.completed) {
-      entry.consultationSummary =
-          'Clinical examination completed and findings added to the pet’s history.';
-      entry.diagnosis = 'Consultation diagnosis recorded by the veterinarian.';
-      entry.treatment =
-          'Treatment and care were provided according to the recorded diagnosis.';
-      entry.prescription =
-          'Prescribed medicine, dosage, and usage instructions recorded by the veterinarian.';
-      entry.recommendations =
-          'Follow the veterinarian’s care instructions and monitor symptoms.';
+  }
+
+  void _applyLocalTransition(
+    QueueEntry entry,
+    QueueStatus status, {
+    String? room,
+    String? delayReason,
+    String? medicalRecordId,
+    String? assignedDoctor,
+  }) {
+    final now = DateTime.now();
+    final previousStatus = entry.status;
+    entry.status = status;
+    entry.version += 1;
+    if (status != previousStatus && status == QueueStatus.called) {
+      entry.calledAt = now;
+    }
+    if (status != previousStatus && status == QueueStatus.arrived) {
+      entry.arrivedAt = now;
+    }
+    if (status != previousStatus && status == QueueStatus.inConsultation) {
+      entry.consultationStartedAt = now;
+    }
+    if (status != previousStatus && status == QueueStatus.completed) {
+      entry.completedAt = now;
+      entry.medicalRecordId = medicalRecordId ?? 'MED-${entry.appointment.id}';
+    }
+    if (room != null) entry.room = room;
+    if (delayReason != null) entry.delayReason = delayReason;
+    if (assignedDoctor != null) {
+      entry.assignedDoctor = assignedDoctor;
+      entry.appointment.veterinarian = assignedDoctor;
     }
     entry.appointment.status = switch (status) {
-      QueueStatus.waiting => entry.appointment.status,
-      QueueStatus.almostTurn => 'Checked In',
+      QueueStatus.waiting => 'Checked In',
       QueueStatus.called => 'Called',
+      QueueStatus.arrived => 'Arrived',
       QueueStatus.inConsultation => 'In Consultation',
       QueueStatus.completed => 'Completed',
+      QueueStatus.missed => 'Missed',
+      QueueStatus.cancelled => 'Cancelled',
     };
+    _recalculateLocalPositions();
     AppointmentStore.instance.notifyListeners();
     notifyListeners();
+  }
+
+  void _recalculateLocalPositions() {
+    final waiting =
+        _entries.where((entry) => entry.status == QueueStatus.waiting).toList()
+          ..sort((a, b) {
+            if (a.priority != b.priority) {
+              return a.priority == 'urgent' ? -1 : 1;
+            }
+            return a.sequence.compareTo(b.sequence);
+          });
+    for (var index = 0; index < waiting.length; index++) {
+      waiting[index]
+        ..position = index + 1
+        ..petsAhead = index
+        ..estimatedWaitMinutes = index * 10;
+    }
   }
 
   @visibleForTesting
   void clear() {
     _entries.clear();
+    lastUpdatedAt = null;
+    refreshError = null;
     notifyListeners();
   }
 }
@@ -643,6 +903,7 @@ class CancellationEligibility {
 
 class BookingPet {
   Map<String, dynamic> toDb() => {
+    'id': id,
     'name': name,
     'species': species,
     'breed': breed,
@@ -652,6 +913,7 @@ class BookingPet {
   };
   static BookingPet fromDb(Map<String, dynamic> data) {
     final value = BookingPet(
+      id: data['id'] as String? ?? '',
       name: data['name'] as String,
       species: data['species'] as String,
       breed: data['breed'] as String,
@@ -663,6 +925,7 @@ class BookingPet {
   }
 
   const BookingPet({
+    this.id = '',
     required this.name,
     required this.species,
     required this.breed,
@@ -671,6 +934,7 @@ class BookingPet {
     required this.color,
   });
 
+  final String id;
   final String name;
   final String species;
   final String breed;
@@ -1131,16 +1395,24 @@ class _BookingCancellationPageState extends State<BookingCancellationPage> {
   );
 }
 
-class MyQueuePage extends StatelessWidget {
+class MyQueuePage extends StatefulWidget {
   const MyQueuePage({super.key});
 
   static const routeName = '/my-queue';
 
   @override
+  State<MyQueuePage> createState() => _MyQueuePageState();
+}
+
+class _MyQueuePageState extends State<MyQueuePage> {
+  @override
+  void initState() {
+    super.initState();
+    scheduleMicrotask(QueueStore.instance.refreshLive);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    QueueStore.instance.syncConfirmedAppointments(
-      AppointmentStore.instance.appointments,
-    );
     return Scaffold(
       backgroundColor: _BookingColors.page,
       body: SafeArea(
@@ -1163,31 +1435,103 @@ class MyQueuePage extends StatelessWidget {
                 animation: QueueStore.instance,
                 builder: (context, _) {
                   final entries = QueueStore.instance.active;
-                  if (entries.isEmpty) {
-                    return const _EmptyQueue(
-                      icon: Icons.groups_2_outlined,
-                      title: 'No active queue',
-                      message:
-                          'Your queue information appears after clinic staff verifies and checks in a confirmed appointment.',
-                    );
-                  }
-                  return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-                    itemCount: entries.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) => _QueueCard(
-                      entry: entries[index],
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              QueueDetailsPage(entry: entries[index]),
-                        ),
-                      ),
+                  return RefreshIndicator(
+                    onRefresh: QueueStore.instance.refreshLive,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 36),
+                      children: [
+                        const _QueueConnectionBanner(),
+                        if (QueueStore.instance.refreshError != null) ...[
+                          const SizedBox(height: 10),
+                          _NoticeBox(
+                            icon: Icons.sync_problem_rounded,
+                            text:
+                                '${QueueStore.instance.refreshError} Pull down to retry.',
+                          ),
+                        ],
+                        if (entries.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 90),
+                            child: _EmptyQueue(
+                              icon: Icons.groups_2_outlined,
+                              title: 'No active queue',
+                              message:
+                                  'Your queue ticket appears after clinic staff checks in your appointment.',
+                            ),
+                          )
+                        else
+                          ...entries.map(
+                            (entry) => Padding(
+                              padding: const EdgeInsets.only(top: 14),
+                              child: _QueueCard(
+                                entry: entry,
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        QueueDetailsPage(entry: entry),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   );
                 },
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QueueConnectionBanner extends StatelessWidget {
+  const _QueueConnectionBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final store = QueueStore.instance;
+    final connected =
+        ClinicApi.instance.token == null || RealtimeClient.instance.isConnected;
+    final updated = store.lastUpdatedAt;
+    final time = updated == null
+        ? 'Not refreshed yet'
+        : 'Updated ${updated.hour.toString().padLeft(2, '0')}:${updated.minute.toString().padLeft(2, '0')}:${updated.second.toString().padLeft(2, '0')}';
+    return Semantics(
+      liveRegion: true,
+      label:
+          '${connected ? 'Live queue connected' : 'Live queue offline'}. $time',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: connected ? const Color(0xFFE3F8EF) : const Color(0xFFFFF1D6),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              connected ? Icons.wifi_rounded : Icons.wifi_off_rounded,
+              size: 18,
+              color: connected
+                  ? const Color(0xFF147A55)
+                  : const Color(0xFF9A5B00),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${connected ? 'Live updates connected' : 'Offline — pull to retry'} • $time',
+                style: _BookingText.caption,
+              ),
+            ),
+            if (store.refreshing)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
           ],
         ),
       ),
@@ -1220,19 +1564,41 @@ class QueueHistoryPage extends StatelessWidget {
                       message: 'Completed clinic queues will appear here.',
                     );
                   }
-                  return ListView.separated(
+                  final groups = <DateTime, List<QueueEntry>>{};
+                  for (final entry in entries) {
+                    final date = DateTime(
+                      entry.clinicDate.year,
+                      entry.clinicDate.month,
+                      entry.clinicDate.day,
+                    );
+                    groups.putIfAbsent(date, () => []).add(entry);
+                  }
+                  return ListView(
                     padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-                    itemCount: entries.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) => _QueueCard(
-                      entry: entries[index],
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              QueueDetailsPage(entry: entries[index]),
+                    children: [
+                      for (final group in groups.entries) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, bottom: 8),
+                          child: Text(
+                            _longDate(group.key),
+                            style: _BookingText.section,
+                          ),
                         ),
-                      ),
-                    ),
+                        for (final entry in group.value)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: _QueueCard(
+                              entry: entry,
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      QueueDetailsPage(entry: entry),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ],
                   );
                 },
               ),
@@ -1272,6 +1638,18 @@ class QueueDetailsPage extends StatelessWidget {
                 ('Veterinarian', entry.appointment.veterinarian),
                 ('Service', entry.appointment.service.name),
                 ('Booking ID', '#${entry.appointment.id}'),
+                ('Checked in', _queueDateTime(entry.checkedInAt)),
+                if (entry.calledAt != null)
+                  ('Called', _queueDateTime(entry.calledAt!)),
+                if (entry.arrivedAt != null)
+                  ('Arrived', _queueDateTime(entry.arrivedAt!)),
+                if (entry.consultationStartedAt != null)
+                  (
+                    'Consultation started',
+                    _queueDateTime(entry.consultationStartedAt!),
+                  ),
+                if (entry.completedAt != null)
+                  ('Completed', _queueDateTime(entry.completedAt!)),
                 if (entry.room.isNotEmpty) ('Room', entry.room),
               ],
             ),
@@ -1281,31 +1659,53 @@ class QueueDetailsPage extends StatelessWidget {
               text:
                   'Queue status is updated by clinic staff. Pet owners cannot change it manually.',
             ),
-            if (entry.status == QueueStatus.almostTurn) ...[
+            if (entry.delayReason.isNotEmpty) ...[
               const SizedBox(height: 16),
-              const _NoticeBox(
-                icon: Icons.notifications_active_outlined,
-                text: 'Almost your turn. Please stay near the waiting area.',
+              _NoticeBox(
+                icon: Icons.schedule_rounded,
+                text: 'Clinic delay: ${entry.delayReason}',
               ),
+            ],
+            if (entry.status == QueueStatus.called) ...[
+              const SizedBox(height: 16),
+              _NoticeBox(
+                icon: Icons.notifications_active_outlined,
+                text: entry.ownerAcknowledgedAt == null
+                    ? 'It is your turn. Please proceed to ${entry.room.isEmpty ? 'the reception desk' : entry.room}.'
+                    : 'You confirmed that you are on your way.',
+              ),
+              if (entry.ownerAcknowledgedAt == null) ...[
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: () async {
+                    try {
+                      await QueueStore.instance.acknowledgeCalled(entry);
+                    } on ClinicApiException catch (error) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(error.message)));
+                    }
+                  },
+                  icon: const Icon(Icons.directions_walk_rounded),
+                  label: const Text("I'm on my way"),
+                ),
+              ],
             ],
             if (entry.status == QueueStatus.completed) ...[
               const SizedBox(height: 20),
-              const Text('Consultation Record', style: _BookingText.section),
+              const Text('Medical Record', style: _BookingText.section),
               const SizedBox(height: 10),
               _SummaryCard(
                 rows: [
-                  ('Consultation', entry.consultationSummary),
-                  ('Diagnosis', entry.diagnosis),
-                  ('Treatment', entry.treatment),
-                  ('Prescription', entry.prescription),
-                  ('Recommendations', entry.recommendations),
+                  ('Record', entry.medicalRecordId ?? 'Pending finalization'),
                 ],
               ),
               const SizedBox(height: 12),
               const _NoticeBox(
                 icon: Icons.receipt_long_outlined,
                 text:
-                    'This completed consultation is saved in the pet’s medical history. No payment controls are included.',
+                    'The veterinarian’s finalized record is available from your pet’s medical history.',
               ),
             ],
           ],
@@ -1366,12 +1766,20 @@ class _QueueCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              Text(
-                entry.status == QueueStatus.completed
-                    ? 'Completed appointment • Tap for consultation record'
-                    : '${entry.petsAhead} pet${entry.petsAhead == 1 ? '' : 's'} ahead • About ${entry.estimatedWaitMinutes} min',
-                style: _BookingText.body,
-              ),
+              Text(switch (entry.status) {
+                QueueStatus.waiting =>
+                  'You are #${entry.position} • ${entry.petsAhead} pet${entry.petsAhead == 1 ? '' : 's'} ahead • About ${entry.estimatedWaitMinutes} min',
+                QueueStatus.called =>
+                  entry.room.isEmpty
+                      ? 'It is your turn • Tap to acknowledge'
+                      : 'It is your turn • ${entry.room}',
+                QueueStatus.arrived =>
+                  'Arrival confirmed • Please wait near ${entry.room.isEmpty ? 'reception' : entry.room}',
+                QueueStatus.inConsultation => 'Consultation in progress',
+                QueueStatus.completed => 'Completed • Tap for medical record',
+                QueueStatus.missed => 'Marked missed by the clinic',
+                QueueStatus.cancelled => 'Queue ticket cancelled',
+              }, style: _BookingText.body),
             ],
           ),
         ),
@@ -1387,10 +1795,17 @@ class _QueueStatusPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final background = switch (entry.status) {
+      QueueStatus.called => const Color(0xFFD7E6FF),
+      QueueStatus.arrived => const Color(0xFFFFF1D6),
+      QueueStatus.inConsultation => const Color(0xFFFFE89A),
+      QueueStatus.missed || QueueStatus.cancelled => const Color(0xFFFFD9DC),
+      _ => _BookingColors.mint,
+    };
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _BookingColors.mint,
+        color: background,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
@@ -1405,11 +1820,10 @@ class _QueueStatusPanel extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(_queueStatusLabel(entry.status), style: _BookingText.cardTitle),
-          if (entry.status == QueueStatus.waiting ||
-              entry.status == QueueStatus.almostTurn) ...[
+          if (entry.status == QueueStatus.waiting) ...[
             const SizedBox(height: 8),
             Text(
-              '${entry.petsAhead} pet${entry.petsAhead == 1 ? '' : 's'} ahead • Estimated ${entry.estimatedWaitMinutes} minutes',
+              'You are #${entry.position} • ${entry.petsAhead} pet${entry.petsAhead == 1 ? '' : 's'} ahead • Approximately ${entry.estimatedWaitMinutes} minutes',
               textAlign: TextAlign.center,
               style: _BookingText.body,
             ),
@@ -1431,13 +1845,33 @@ class _QueueStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE3F8EF),
-        borderRadius: BorderRadius.circular(50),
+    final (background, foreground) = switch (status) {
+      QueueStatus.waiting => (const Color(0xFFE3F8EF), const Color(0xFF147A55)),
+      QueueStatus.called => (const Color(0xFFD7E6FF), const Color(0xFF2358A5)),
+      QueueStatus.arrived => (const Color(0xFFFFF1D6), const Color(0xFF8A5200)),
+      QueueStatus.inConsultation => (const Color(0xFFFFE89A), Colors.black),
+      QueueStatus.completed => (
+        const Color(0xFFE7E9EC),
+        const Color(0xFF39424E),
       ),
-      child: Text(_queueStatusLabel(status), style: _BookingText.success),
+      QueueStatus.missed || QueueStatus.cancelled => (
+        const Color(0xFFFFD9DC),
+        const Color(0xFFB3261E),
+      ),
+    };
+    return Semantics(
+      label: 'Queue status: ${_queueStatusLabel(status)}',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(50),
+        ),
+        child: Text(
+          _queueStatusLabel(status),
+          style: _BookingText.success.copyWith(color: foreground),
+        ),
+      ),
     );
   }
 }
@@ -2910,11 +3344,16 @@ String _longDate(DateTime date) {
 
 String _queueStatusLabel(QueueStatus status) => switch (status) {
   QueueStatus.waiting => 'Waiting',
-  QueueStatus.almostTurn => 'Almost Your Turn',
   QueueStatus.called => 'Called',
+  QueueStatus.arrived => 'Arrived',
   QueueStatus.inConsultation => 'In Consultation',
   QueueStatus.completed => 'Completed',
+  QueueStatus.missed => 'Missed',
+  QueueStatus.cancelled => 'Cancelled',
 };
+
+String _queueDateTime(DateTime value) =>
+    '${_longDate(value)} • ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
 
 String _formatCountdown(int seconds) {
   final minutes = seconds ~/ 60;

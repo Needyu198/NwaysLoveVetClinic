@@ -69,7 +69,7 @@ class DoctorNotificationsPage extends StatelessWidget {
                   if (QueueStore.instance.active.any(
                     (entry) =>
                         entry.status == QueueStatus.called ||
-                        entry.status == QueueStatus.almostTurn,
+                        entry.status == QueueStatus.arrived,
                   ))
                     (
                       'Queue update',

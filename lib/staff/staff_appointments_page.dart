@@ -324,6 +324,34 @@ class StaffAppointmentDetailsPage extends StatelessWidget {
               icon: Icons.edit_calendar_outlined,
               onTap: () => _reschedule(context, item),
             ),
+          if (item.status == 'Confirmed')
+            _ActionButton(
+              label: 'Check In Patient',
+              icon: Icons.login_rounded,
+              onTap: () async {
+                try {
+                  if (item.source case final source?) {
+                    await QueueStore.instance.checkIn(
+                      source,
+                      priority: item.priority.toLowerCase(),
+                    );
+                  } else {
+                    StaffOperationsStore.instance.update(
+                      item,
+                      status: 'Checked In',
+                    );
+                  }
+                  if (context.mounted) {
+                    _notice(
+                      context,
+                      'Patient checked in and added to the live queue.',
+                    );
+                  }
+                } on ClinicApiException catch (error) {
+                  if (context.mounted) _notice(context, error.message);
+                }
+              },
+            ),
           if (const {'Pending', 'Confirmed'}.contains(item.status))
             _ActionButton(
               label: 'Cancel Appointment',
@@ -587,8 +615,23 @@ Future<void> _chooseDoctor(BuildContext context, StaffAppointment item) async {
     ),
   );
   if (choice != null) {
-    StaffOperationsStore.instance.update(item, doctor: choice);
-    if (context.mounted) _notice(context, '$choice assigned and notified.');
+    try {
+      final entry = item.source == null
+          ? null
+          : QueueStore.instance.existingEntryFor(item.source!);
+      if (entry != null) {
+        await QueueStore.instance.transition(
+          entry,
+          entry.status,
+          assignedDoctor: choice,
+        );
+      } else {
+        StaffOperationsStore.instance.update(item, doctor: choice);
+      }
+      if (context.mounted) _notice(context, '$choice assigned and notified.');
+    } on ClinicApiException catch (error) {
+      if (context.mounted) _notice(context, error.message);
+    }
   }
 }
 

@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const { resources } = require('./resources');
 const { broadcastChange } = require('./realtime');
+const { sendToAccount } = require('./messaging');
 const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 const fail = (status, message) => Object.assign(new Error(message), { status });
 async function syncUserDirectoryAccount(client, value, existing, sessionAccountId) {
@@ -51,7 +52,7 @@ function installApi(app, pool) {
     await pool.query("INSERT INTO app_sessions(token_hash, account_id, role, expires_at) VALUES($1,$2,$3,NOW() + INTERVAL '12 hours')", [hash(token), account.id, account.role]);
     res.json({ token, account: { id: account.id, username: account.username, fullName: account.full_name, role: account.role } });
   }));
-  app.use(['/data', '/reports', '/auth/logout', '/auth/change-password', '/devices'], async (req, res, next) => {
+  app.use(['/data', '/reports', '/queue', '/auth/logout', '/auth/change-password', '/devices'], async (req, res, next) => {
     try {
       const token = (req.headers.authorization || '').replace(/^Bearer /, '');
       const session = (await pool.query('SELECT s.* FROM app_sessions s JOIN app_accounts a ON a.id=s.account_id AND a.active AND a.role=s.role WHERE s.token_hash=$1 AND s.expires_at>NOW()', [hash(token)])).rows[0];
@@ -98,6 +99,318 @@ function installApi(app, pool) {
     const token = String(req.body.token || '').trim();
     if (token) await pool.query('DELETE FROM device_tokens WHERE token=$1 AND account_id=$2', [token, req.session.account_id]);
     res.json({ ok: true });
+  }));
+
+  const requireClinic = req => {
+    if (!['staff', 'doctor', 'systemAdmin'].includes(req.session.role)) {
+      throw fail(403, 'Clinic access required.');
+    }
+  };
+  const terminalQueueStatuses = new Set(['completed', 'missed', 'cancelled']);
+  const queueTransitions = {
+    waiting: new Set(['called', 'missed', 'cancelled']),
+    called: new Set(['arrived', 'missed', 'cancelled']),
+    arrived: new Set(['inConsultation', 'missed', 'cancelled']),
+    inConsultation: new Set(['completed']),
+  };
+  const appointmentStatusForQueue = {
+    waiting: 'Checked In',
+    called: 'Called',
+    arrived: 'Arrived',
+    inConsultation: 'In Consultation',
+    completed: 'Completed',
+    missed: 'Missed',
+    cancelled: 'Cancelled',
+  };
+  const saveOwnerNotification = async (client, ownerId, title, message) => {
+    const id = `queue-notification:${crypto.randomUUID()}`;
+    const value = {
+      id,
+      title,
+      message,
+      createdAt: new Date().toISOString(),
+      read: false,
+    };
+    await client.query(
+      `INSERT INTO owner_notifications(id,owner_id,data) VALUES($1,$2,$3)`,
+      [id, ownerId, { key: `${ownerId}:${id}`, value }],
+    );
+    return { title, message };
+  };
+
+  // Return an owner's active tickets with position and wait derived from the
+  // complete clinic queue. Position/ETA are deliberately not owner-writable.
+  app.get('/queue/my', wrap(async (req, res) => {
+    if (req.session.role !== 'petOwner') throw fail(403, 'Pet owner access required.');
+    const rows = (await pool.query(`SELECT id,owner_id,data,version FROM queue_entries
+      WHERE (data->'value'->>'status') NOT IN ('completed','missed','cancelled')
+      ORDER BY (data->'value'->>'clinicDate'),
+        CASE data->'value'->>'priority' WHEN 'urgent' THEN 0 ELSE 1 END,
+        (data->'value'->>'sequence')::int, created_at`)).rows;
+    let activeAhead = 0;
+    let currentDate = null;
+    const records = [];
+    for (const row of rows) {
+      const clinicDate = row.data.value.clinicDate;
+      if (clinicDate !== currentDate) {
+        currentDate = clinicDate;
+        activeAhead = 0;
+      }
+      const status = row.data.value.status;
+      const waiting = status === 'waiting';
+      if (row.owner_id === req.session.account_id) {
+        records.push({
+          ...row,
+          data: {
+            ...row.data,
+            value: {
+              ...row.data.value,
+              position: waiting ? activeAhead + 1 : 0,
+              petsAhead: waiting ? activeAhead : 0,
+              estimatedWaitMinutes: waiting ? activeAhead * 10 : 0,
+            },
+          },
+        });
+      }
+      if (waiting) activeAhead += 1;
+    }
+    res.json({ records, refreshedAt: new Date().toISOString() });
+  }));
+
+  // Allocate the day's queue number under a row lock. Opening an owner screen
+  // can never create a ticket; check-in is a clinic-only operation.
+  app.post('/queue/check-in', wrap(async (req, res) => {
+    requireClinic(req);
+    const appointmentId = String(req.body.appointmentId || '');
+    const requestedPriority = String(req.body.priority || 'normal');
+    if (!appointmentId || appointmentId.length > 250) throw fail(400, 'A valid appointment is required.');
+    if (!['normal', 'urgent'].includes(requestedPriority)) throw fail(400, 'Invalid queue priority.');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const appointmentRows = (await client.query(
+        `SELECT * FROM appointments WHERE data->'value'->>'id'=$1 FOR UPDATE`,
+        [appointmentId],
+      )).rows;
+      if (appointmentRows.length !== 1) throw fail(appointmentRows.length ? 409 : 404, 'Appointment not found or is not unique.');
+      const appointmentRow = appointmentRows[0];
+      const appointment = appointmentRow.data.value;
+      if (appointment.service?.homeVisit) throw fail(400, 'Home visits do not use the clinic queue.');
+      if (!['Pending', 'Confirmed', 'Checked In'].includes(appointment.status)) {
+        throw fail(409, `This appointment cannot be checked in from ${appointment.status}.`);
+      }
+      const existing = (await client.query(
+        `SELECT id,owner_id,data,version FROM queue_entries
+         WHERE owner_id=$1 AND (data->'value'->>'appointmentId'=$2 OR data->'value'->'appointment'->>'id'=$2)
+         ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+        [appointmentRow.owner_id, appointmentId],
+      )).rows[0];
+      if (existing && !terminalQueueStatuses.has(existing.data.value.status)) {
+        await client.query('COMMIT');
+        return res.json({ record: existing, created: false });
+      }
+      const clinicDate = String(appointment.date || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+      const counter = (await client.query(
+        `INSERT INTO queue_daily_counters(clinic_date,last_number) VALUES($1,1)
+         ON CONFLICT(clinic_date) DO UPDATE SET last_number=queue_daily_counters.last_number+1
+         RETURNING last_number`,
+        [clinicDate],
+      )).rows[0].last_number;
+      const queueNumber = `Q${String(counter).padStart(3, '0')}`;
+      const now = new Date().toISOString();
+      const petName = String(appointment.pet?.name || 'pet');
+      const petId = String(appointment.pet?.id || `${appointmentRow.owner_id}:${petName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`);
+      const value = {
+        appointmentId,
+        ownerId: appointmentRow.owner_id,
+        petId,
+        appointment,
+        clinicDate,
+        sequence: counter,
+        queueNumber,
+        priority: requestedPriority,
+        status: 'waiting',
+        checkedInAt: now,
+        calledAt: null,
+        arrivedAt: null,
+        consultationStartedAt: null,
+        completedAt: null,
+        assignedDoctor: appointment.veterinarian || '',
+        room: '',
+        delayReason: '',
+        medicalRecordId: null,
+        ownerAcknowledgedAt: null,
+        version: 1,
+      };
+      const id = `queue:${clinicDate}:${String(counter).padStart(6, '0')}`;
+      const key = `${appointmentRow.owner_id}:${appointmentId}`;
+      const record = (await client.query(
+        `INSERT INTO queue_entries(id,owner_id,data) VALUES($1,$2,$3)
+         RETURNING id,owner_id,data,version`,
+        [id, appointmentRow.owner_id, { key, value }],
+      )).rows[0];
+      const appointmentData = structuredClone(appointmentRow.data);
+      appointmentData.value.status = 'Checked In';
+      await client.query('UPDATE appointments SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1', [appointmentRow.id, appointmentData]);
+      const notification = await saveOwnerNotification(
+        client,
+        appointmentRow.owner_id,
+        'Queue check-in',
+        `${petName} is checked in as ${queueNumber}.`,
+      );
+      await client.query('COMMIT');
+      broadcastChange('appointments', { ownerId: appointmentRow.owner_id });
+      broadcastChange('queue_entries', { ownerId: appointmentRow.owner_id });
+      broadcastChange('owner_notifications', { ownerId: appointmentRow.owner_id });
+      await sendToAccount(pool, appointmentRow.owner_id, {
+        title: notification.title,
+        body: notification.message,
+        data: { type: 'queue', appointmentId },
+      });
+      res.status(201).json({ record, created: true });
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally { client.release(); }
+  }));
+
+  app.post('/queue/:appointmentId/transition', wrap(async (req, res) => {
+    requireClinic(req);
+    const appointmentId = String(req.params.appointmentId || '');
+    const nextStatus = String(req.body.status || '');
+    const expectedVersion = Number(req.body.version);
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw fail(400, 'A queue version is required.');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const ticketRows = (await client.query(
+        `SELECT * FROM queue_entries
+         WHERE data->'value'->>'appointmentId'=$1 OR data->'value'->'appointment'->>'id'=$1
+         ORDER BY created_at DESC FOR UPDATE`,
+        [appointmentId],
+      )).rows;
+      if (ticketRows.length !== 1) throw fail(ticketRows.length ? 409 : 404, 'Queue ticket not found or is not unique.');
+      const ticket = ticketRows[0];
+      if (ticket.version !== expectedVersion) throw fail(409, 'This queue ticket changed. Refresh before trying again.');
+      const value = structuredClone(ticket.data.value);
+      const current = value.status === 'almostTurn' ? 'waiting' : value.status;
+      if (nextStatus !== current && !queueTransitions[current]?.has(nextStatus)) {
+        throw fail(409, `Queue cannot move from ${current} to ${nextStatus}.`);
+      }
+      const now = new Date().toISOString();
+      value.status = nextStatus;
+      value.version = ticket.version + 1;
+      if (nextStatus !== current && nextStatus === 'called') value.calledAt = now;
+      if (nextStatus !== current && nextStatus === 'arrived') value.arrivedAt = now;
+      if (nextStatus !== current && nextStatus === 'inConsultation') value.consultationStartedAt = now;
+      if (nextStatus !== current && nextStatus === 'completed') {
+        value.completedAt = now;
+        value.medicalRecordId = req.body.medicalRecordId || value.medicalRecordId || null;
+        if (!value.medicalRecordId) throw fail(400, 'Complete the medical record before completing the queue ticket.');
+        const medicalRecord = (await client.query(
+          `SELECT 1 FROM medical_records
+           WHERE data->'value'->>'id'=$1
+             AND data->'value'->>'appointmentId'=$2
+             AND data->'value'->>'finalized'='true'
+           LIMIT 1`,
+          [value.medicalRecordId, appointmentId],
+        )).rows[0];
+        if (!medicalRecord) throw fail(409, 'The finalized medical record must be saved before completing this queue ticket.');
+      }
+      if (typeof req.body.room === 'string') value.room = req.body.room.trim().slice(0, 100);
+      if (typeof req.body.delayReason === 'string') value.delayReason = req.body.delayReason.trim().slice(0, 500);
+      if (typeof req.body.assignedDoctor === 'string') {
+        const assignedDoctor = req.body.assignedDoctor.trim().slice(0, 200);
+        if (!assignedDoctor) throw fail(400, 'An assigned doctor is required.');
+        value.assignedDoctor = assignedDoctor;
+      }
+      const data = { ...ticket.data, value };
+      const saved = (await client.query(
+        `UPDATE queue_entries SET data=$2,version=version+1,updated_at=NOW()
+         WHERE id=$1 RETURNING id,owner_id,data,version`,
+        [ticket.id, data],
+      )).rows[0];
+      const appointmentRow = (await client.query(
+        `SELECT * FROM appointments WHERE owner_id=$1 AND data->'value'->>'id'=$2 FOR UPDATE`,
+        [ticket.owner_id, appointmentId],
+      )).rows[0];
+      if (appointmentRow) {
+        const appointmentData = structuredClone(appointmentRow.data);
+        appointmentData.value.status = appointmentStatusForQueue[nextStatus];
+        if (typeof req.body.assignedDoctor === 'string') {
+          appointmentData.value.veterinarian = value.assignedDoctor;
+        }
+        await client.query('UPDATE appointments SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1', [appointmentRow.id, appointmentData]);
+      }
+      const petName = String(value.appointment?.pet?.name || 'Your pet');
+      let notification = null;
+      if (typeof req.body.delayReason === 'string' && value.delayReason) {
+        notification = await saveOwnerNotification(
+          client,
+          ticket.owner_id,
+          'Queue delay',
+          `${petName}: ${value.delayReason}`,
+        );
+      } else if (typeof req.body.assignedDoctor === 'string') {
+        notification = await saveOwnerNotification(
+          client,
+          ticket.owner_id,
+          'Doctor assigned',
+          `${value.assignedDoctor} is now assigned to ${petName}.`,
+        );
+      } else if (nextStatus !== current) {
+        const content = {
+          called: ['It is your turn', `${petName}, please proceed to ${value.room || 'the reception desk'}.`],
+          arrived: ['Arrival confirmed', `${petName}'s arrival has been recorded.`],
+          inConsultation: ['Consultation started', `${petName}'s consultation is now in progress.`],
+          completed: ['Visit completed', `${petName}'s visit is complete and the medical record is available.`],
+          missed: ['Queue ticket missed', `${petName}'s queue ticket was marked missed.`],
+          cancelled: ['Queue ticket cancelled', `${petName}'s queue ticket was cancelled.`],
+        }[nextStatus];
+        if (content) {
+          notification = await saveOwnerNotification(
+            client,
+            ticket.owner_id,
+            content[0],
+            content[1],
+          );
+        }
+      }
+      await client.query('COMMIT');
+      broadcastChange('appointments', { ownerId: ticket.owner_id });
+      broadcastChange('queue_entries', { ownerId: ticket.owner_id });
+      if (notification) {
+        broadcastChange('owner_notifications', { ownerId: ticket.owner_id });
+        await sendToAccount(pool, ticket.owner_id, {
+          title: notification.title,
+          body: notification.message,
+          data: { type: 'queue', appointmentId, status: nextStatus },
+        });
+      }
+      res.json({ record: saved });
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally { client.release(); }
+  }));
+
+  app.post('/queue/:appointmentId/acknowledge', wrap(async (req, res) => {
+    if (req.session.role !== 'petOwner') throw fail(403, 'Pet owner access required.');
+    const ticket = (await pool.query(
+      `SELECT * FROM queue_entries WHERE owner_id=$1 AND data->'value'->>'appointmentId'=$2
+       ORDER BY created_at DESC LIMIT 1`,
+      [req.session.account_id, req.params.appointmentId],
+    )).rows[0];
+    if (!ticket || ticket.data.value.status !== 'called') throw fail(409, 'Only a called queue ticket can be acknowledged.');
+    const value = { ...ticket.data.value, ownerAcknowledgedAt: new Date().toISOString(), version: ticket.version + 1 };
+    const saved = (await pool.query(
+      `UPDATE queue_entries SET data=$2,version=version+1,updated_at=NOW()
+       WHERE id=$1 AND version=$3 RETURNING id,owner_id,data,version`,
+      [ticket.id, { ...ticket.data, value }, ticket.version],
+    )).rows[0];
+    if (!saved) throw fail(409, 'This queue ticket changed. Refresh before trying again.');
+    broadcastChange('queue_entries', { ownerId: ticket.owner_id });
+    res.json({ record: saved });
   }));
   const staffReportNames = new Set(['appointments', 'queue', 'cancellations', 'payments', 'home-visits']);
   app.get('/reports/:name', wrap(async (req, res) => {

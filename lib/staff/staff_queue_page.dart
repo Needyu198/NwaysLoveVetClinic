@@ -24,7 +24,14 @@ class _QueueBodyState extends State<_QueueBody> {
   String _filter = 'All';
 
   // Chip label -> matcher. 'Consulting' maps to the 'In Consultation' status.
-  static const _filters = ['All', 'Urgent', 'Waiting', 'Called', 'Consulting'];
+  static const _filters = [
+    'All',
+    'Urgent',
+    'Waiting',
+    'Called',
+    'Arrived',
+    'Consulting',
+  ];
 
   bool _matches(StaffAppointment a, String filter) => switch (filter) {
     'All' => true,
@@ -228,6 +235,11 @@ class _QueueCard extends StatelessWidget {
         const Color(0xFFF5C518),
       ),
       'Called' => ('Called', const Color(0xFF2358A5), const Color(0xFFD7E6FF)),
+      'Arrived' => (
+        'Arrived',
+        const Color(0xFF8A5200),
+        const Color(0xFFFFF1D6),
+      ),
       _ => ('Waiting', _green, _mint),
     };
   }
@@ -237,6 +249,7 @@ class _QueueCard extends StatelessWidget {
     final (statusLabel, statusText, statusBg) = _statusStyle;
     final showCall = item.status == 'Waiting';
     final showArrived = item.status == 'Called';
+    final showStart = item.status == 'Arrived';
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -335,19 +348,49 @@ class _QueueCard extends StatelessWidget {
             _QueueActionButton(
               key: ValueKey('queue-call-${item.id}'),
               label: 'Call Patient',
-              onTap: () {
-                StaffOperationsStore.instance.update(item, status: 'Called');
-                _notice(context, '${item.queueNumber} called. Owner notified.');
+              onTap: () async {
+                final entry = item.source == null
+                    ? null
+                    : QueueStore.instance.existingEntryFor(item.source!);
+                try {
+                  if (entry != null) {
+                    await QueueStore.instance.transition(
+                      entry,
+                      QueueStatus.called,
+                      room: entry.room.isEmpty
+                          ? 'Consultation Room 2'
+                          : entry.room,
+                    );
+                  } else {
+                    StaffOperationsStore.instance.update(
+                      item,
+                      status: 'Called',
+                    );
+                  }
+                  if (context.mounted) {
+                    _notice(
+                      context,
+                      '${item.queueNumber} called. Owner notified.',
+                    );
+                  }
+                } on ClinicApiException catch (error) {
+                  if (context.mounted) _notice(context, error.message);
+                }
               },
             )
           else if (showArrived)
             _QueueActionButton(
               key: ValueKey('queue-arrived-${item.id}'),
-              label: 'Room Arrived',
-              onTap: () => StaffOperationsStore.instance.update(
-                item,
-                status: 'In Consultation',
-              ),
+              label: 'Patient Arrived',
+              onTap: () =>
+                  _advanceQueueItem(context, item, QueueStatus.arrived),
+            )
+          else if (showStart)
+            _QueueActionButton(
+              key: ValueKey('queue-start-${item.id}'),
+              label: 'Start Consultation',
+              onTap: () =>
+                  _advanceQueueItem(context, item, QueueStatus.inConsultation),
             )
           else
             _QueueOverflowMenu(item: item),
@@ -394,16 +437,97 @@ class _QueueOverflowMenu extends StatelessWidget {
     child: PopupMenuButton<String>(
       key: ValueKey('queue-menu-${item.id}'),
       icon: const Icon(Icons.more_horiz_rounded, color: _muted),
-      onSelected: (value) {
+      onSelected: (value) async {
         if (value == 'Missed') {
-          StaffOperationsStore.instance.update(item, status: 'Missed');
+          await _advanceQueueItem(context, item, QueueStatus.missed);
+          return;
         }
-        if (value == 'Reassign') _chooseDoctor(context, item);
+        if (value == 'Reassign') {
+          _chooseDoctor(context, item);
+          return;
+        }
+        if (value == 'Delay') {
+          await _announceQueueDelay(context, item);
+        }
       },
       itemBuilder: (_) => const [
         PopupMenuItem(value: 'Reassign', child: Text('Reassign doctor')),
+        PopupMenuItem(value: 'Delay', child: Text('Announce delay')),
         PopupMenuItem(value: 'Missed', child: Text('Mark missed')),
       ],
     ),
   );
+}
+
+Future<void> _advanceQueueItem(
+  BuildContext context,
+  StaffAppointment item,
+  QueueStatus status,
+) async {
+  final entry = item.source == null
+      ? null
+      : QueueStore.instance.existingEntryFor(item.source!);
+  try {
+    if (entry != null) {
+      await QueueStore.instance.transition(entry, status);
+    } else {
+      final appointmentStatus = switch (status) {
+        QueueStatus.arrived => 'Arrived',
+        QueueStatus.inConsultation => 'In Consultation',
+        QueueStatus.missed => 'Missed',
+        _ => null,
+      };
+      if (appointmentStatus != null) {
+        StaffOperationsStore.instance.update(item, status: appointmentStatus);
+      }
+    }
+  } on ClinicApiException catch (error) {
+    if (context.mounted) _notice(context, error.message);
+  }
+}
+
+Future<void> _announceQueueDelay(
+  BuildContext context,
+  StaffAppointment item,
+) async {
+  final controller = TextEditingController();
+  final reason = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Announce queue delay'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        maxLength: 500,
+        decoration: const InputDecoration(
+          labelText: 'Reason',
+          hintText: 'Emergency case is being prioritized',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.of(dialogContext).pop(controller.text.trim()),
+          child: const Text('Notify owner'),
+        ),
+      ],
+    ),
+  );
+  controller.dispose();
+  if (reason == null || reason.isEmpty || item.source == null) return;
+  final entry = QueueStore.instance.existingEntryFor(item.source!);
+  if (entry == null) return;
+  try {
+    await QueueStore.instance.transition(
+      entry,
+      entry.status,
+      delayReason: reason,
+    );
+  } on ClinicApiException catch (error) {
+    if (context.mounted) _notice(context, error.message);
+  }
 }

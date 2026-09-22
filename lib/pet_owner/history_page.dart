@@ -157,9 +157,6 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    QueueStore.instance.syncConfirmedAppointments(
-      AppointmentStore.instance.appointments,
-    );
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF8),
       body: SafeArea(
@@ -630,45 +627,22 @@ class _HistoryPageState extends State<HistoryPage> {
           source: entry,
           details: {
             ...common,
-            if (completed) 'Consultation': entry.consultationSummary,
-            if (completed) 'Diagnosis': entry.diagnosis,
-            if (completed) 'Treatment': entry.treatment,
-            if (completed) 'Prescription': entry.prescription,
-            if (completed) 'Recommendations': entry.recommendations,
+            'Checked in': _historyDateTime(entry.checkedInAt),
+            if (entry.calledAt != null)
+              'Called': _historyDateTime(entry.calledAt!),
+            if (entry.arrivedAt != null)
+              'Arrived': _historyDateTime(entry.arrivedAt!),
+            if (entry.consultationStartedAt != null)
+              'Consultation started': _historyDateTime(
+                entry.consultationStartedAt!,
+              ),
+            if (entry.completedAt != null)
+              'Completed': _historyDateTime(entry.completedAt!),
+            if (entry.medicalRecordId != null)
+              'Medical record ID': entry.medicalRecordId!,
           },
         ),
       );
-      if (completed &&
-          !DoctorMedicalRecordStore.instance.records.any(
-            (record) =>
-                record.appointmentId == entry.appointment.id &&
-                record.finalized,
-          )) {
-        records.add(
-          HistoryRecord(
-            id: 'MED-${entry.appointment.id}',
-            petName: entry.appointment.pet.name,
-            category: HistoryCategory.medical,
-            title: entry.appointment.service.name,
-            subtitle: entry.appointment.veterinarian,
-            date: entry.appointment.date,
-            time: entry.appointment.time,
-            status: 'Completed',
-            completed: true,
-            source: entry,
-            details: {
-              'Medical record ID': '#MED-${entry.appointment.id}',
-              'Symptoms': entry.appointment.symptoms,
-              'Diagnosis': entry.diagnosis,
-              'Treatment': entry.treatment,
-              'Prescription': entry.prescription,
-              'Recommendations': entry.recommendations,
-              'Veterinarian': entry.appointment.veterinarian,
-              'Date': _historyDate(entry.appointment.date),
-            },
-          ),
-        );
-      }
     }
     return records;
   }
@@ -1104,11 +1078,16 @@ String _homeVisitStatus(HomeVisitStatus status) => switch (status) {
 
 String _queueHistoryStatus(QueueStatus status) => switch (status) {
   QueueStatus.waiting => 'Waiting',
-  QueueStatus.almostTurn => 'Almost Your Turn',
   QueueStatus.called => 'Called',
+  QueueStatus.arrived => 'Arrived',
   QueueStatus.inConsultation => 'In Consultation',
   QueueStatus.completed => 'Completed',
+  QueueStatus.missed => 'Missed',
+  QueueStatus.cancelled => 'Cancelled',
 };
+
+String _historyDateTime(DateTime date) =>
+    '${_historyDate(date)} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 
 String _historyDate(DateTime date) {
   const months = [

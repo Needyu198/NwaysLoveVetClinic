@@ -409,7 +409,19 @@ class StaffOperationsStore extends ChangeNotifier {
         AppointmentStore.instance.staffSetStatus(source, status);
       }
     }
-    if (source != null) AppointmentStore.instance.databaseChanged();
+    if (source != null &&
+        (status == null ||
+            !const {
+              'Checked In',
+              'Called',
+              'Arrived',
+              'In Consultation',
+              'Completed',
+              'Missed',
+              'Cancelled',
+            }.contains(status))) {
+      AppointmentStore.instance.databaseChanged();
+    }
     notifyListeners();
     _notifyOwner(
       item,
@@ -427,6 +439,19 @@ class StaffOperationsStore extends ChangeNotifier {
     String? doctor,
     bool rescheduled = false,
   }) {
+    if (DatabaseSync.instance.active &&
+        status != null &&
+        const {
+          'Checked In',
+          'Called',
+          'Arrived',
+          'In Consultation',
+          'Completed',
+          'Missed',
+          'Cancelled',
+        }.contains(status)) {
+      return;
+    }
     final pet = item.pet;
     final ownerId = databaseOwnerOf(item.source);
     if (ownerId == null && DatabaseSync.instance.active) return;
@@ -543,23 +568,35 @@ class StaffAppointment {
     this.source,
   });
 
-  factory StaffAppointment.fromBooking(BookedAppointment value) =>
-      StaffAppointment(
-        id: value.id,
-        pet: value.pet.name,
-        owner: 'Registered Owner',
-        phone: 'Owner account',
-        service: value.service.name,
-        doctor: value.veterinarian,
-        date: value.date,
-        time: value.time,
-        reason: value.reason,
-        status: value.status,
-        priority: 'Normal',
-        source: value,
-        queueNumber:
-            QueueStore.instance.existingEntryFor(value)?.queueNumber ?? '',
-      );
+  factory StaffAppointment.fromBooking(BookedAppointment value) {
+    final queue = QueueStore.instance.existingEntryFor(value);
+    final queueStatus = queue == null
+        ? value.status
+        : switch (queue.status) {
+            QueueStatus.waiting => 'Waiting',
+            QueueStatus.called => 'Called',
+            QueueStatus.arrived => 'Arrived',
+            QueueStatus.inConsultation => 'In Consultation',
+            QueueStatus.completed => 'Completed',
+            QueueStatus.missed => 'Missed',
+            QueueStatus.cancelled => 'Cancelled',
+          };
+    return StaffAppointment(
+      id: value.id,
+      pet: value.pet.name,
+      owner: 'Registered Owner',
+      phone: 'Owner account',
+      service: value.service.name,
+      doctor: value.veterinarian,
+      date: value.date,
+      time: value.time,
+      reason: value.reason,
+      status: queueStatus,
+      priority: queue?.priority == 'urgent' ? 'Urgent' : 'Normal',
+      source: value,
+      queueNumber: queue?.queueNumber ?? '',
+    );
+  }
 
   final String id;
   final String pet;

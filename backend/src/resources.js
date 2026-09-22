@@ -7,7 +7,9 @@ const resources = {
   owner_profiles: { roles: ['petOwner'], scope: 'private' },
   pets: { roles: owner, scope: 'owner' },
   appointments: { roles: owner, scope: 'owner' },
-  queue_entries: { roles: owner, scope: 'owner' },
+  // Everyone uses the validated /queue endpoints; the generic sync route is
+  // read-only for this table so lifecycle checks cannot be bypassed.
+  queue_entries: { roles: owner, scope: 'owner', writers: [] },
   home_visits: { roles: owner, scope: 'owner' },
   pet_care_bookings: { roles: owner, scope: 'owner' },
   emergency_requests: { roles: owner, scope: 'owner' },

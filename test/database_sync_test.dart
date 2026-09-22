@@ -46,6 +46,50 @@ void main() {
       ClinicApi.instance.token = 'test-token';
       ClinicApi.instance.clientFactory = () => MockClient((request) async {
         if (request.url.path == '/auth/logout') return http.Response('{}', 200);
+        if (request.url.path == '/queue/check-in') {
+          final body = jsonDecode(request.body) as Map;
+          final appointmentId = body['appointmentId'] as String;
+          final appointmentRecord = database['appointments']!.values.firstWhere(
+            (record) => record['data']['value']['id'] == appointmentId,
+          );
+          final appointment = appointmentRecord['data']['value'] as Map;
+          final value = {
+            'appointmentId': appointmentId,
+            'ownerId': 'owner-test',
+            'petId': 'pet-milo',
+            'appointment': appointment,
+            'clinicDate': appointment['date'],
+            'sequence': 1,
+            'queueNumber': 'Q001',
+            'priority': 'normal',
+            'status': 'waiting',
+            'position': 1,
+            'petsAhead': 0,
+            'estimatedWaitMinutes': 0,
+            'checkedInAt': '2027-01-01T09:45:00.000',
+            'calledAt': null,
+            'arrivedAt': null,
+            'consultationStartedAt': null,
+            'completedAt': null,
+            'assignedDoctor': appointment['veterinarian'],
+            'room': '',
+            'delayReason': '',
+            'medicalRecordId': null,
+            'ownerAcknowledgedAt': null,
+            'version': 1,
+          };
+          final record = {
+            'id': 'queue-1',
+            'owner_id': 'owner-test',
+            'version': 1,
+            'data': {'key': 'owner-test:$appointmentId', 'value': value},
+          };
+          database.putIfAbsent('queue_entries', () => {})['queue-1'] = record;
+          return http.Response(
+            jsonEncode({'record': record, 'created': true}),
+            201,
+          );
+        }
         final table = request.url.pathSegments[1];
         final records = database.putIfAbsent(table, () => {});
         if (request.method == 'GET') {
@@ -116,7 +160,8 @@ void main() {
         status: 'Confirmed',
       );
       AppointmentStore.instance.add(booking);
-      QueueStore.instance.entryFor(booking);
+      await sync.flush();
+      await QueueStore.instance.checkIn(booking);
       ReminderStore.instance.addNew(
         title: 'Follow-up',
         type: ReminderType.checkup,

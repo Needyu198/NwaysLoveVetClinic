@@ -2026,91 +2026,94 @@ void main() {
     expect(QueueStore.instance.existingEntryFor(appointment), isNull);
   });
 
-  test('cancellation rules prevent duplicates and started cancellations', () {
-    AppointmentStore.instance.clear();
-    BookedAppointment appointment(String id, DateTime date) =>
-        BookedAppointment(
-          id: id,
-          createdAt: DateTime.now(),
-          pet: const BookingPet(
-            name: 'Max',
-            species: 'Dog',
-            breed: 'Golden Retriever',
-            age: '2 years',
-            icon: Icons.pets,
-            color: Colors.blue,
-          ),
-          service: const BookingService(
-            name: 'General Checkup',
-            description: 'Routine examination',
-            icon: Icons.health_and_safety,
-            homeVisit: false,
-            doctors: ['Dr. Aye Chan'],
-          ),
-          veterinarian: 'Dr. Aye Chan',
-          date: date,
-          time: '10:00 AM',
-          symptoms: 'Low appetite',
-          reason: 'Checkup',
-          notes: '',
-          address: '',
-          status: 'Confirmed',
-        );
+  test(
+    'cancellation rules prevent duplicates and started cancellations',
+    () async {
+      AppointmentStore.instance.clear();
+      BookedAppointment appointment(String id, DateTime date) =>
+          BookedAppointment(
+            id: id,
+            createdAt: DateTime.now(),
+            pet: const BookingPet(
+              name: 'Max',
+              species: 'Dog',
+              breed: 'Golden Retriever',
+              age: '2 years',
+              icon: Icons.pets,
+              color: Colors.blue,
+            ),
+            service: const BookingService(
+              name: 'General Checkup',
+              description: 'Routine examination',
+              icon: Icons.health_and_safety,
+              homeVisit: false,
+              doctors: ['Dr. Aye Chan'],
+            ),
+            veterinarian: 'Dr. Aye Chan',
+            date: date,
+            time: '10:00 AM',
+            symptoms: 'Low appetite',
+            reason: 'Checkup',
+            notes: '',
+            address: '',
+            status: 'Confirmed',
+          );
 
-    final cancellable = appointment(
-      'CANCEL-RULE-1',
-      DateTime.now().add(const Duration(days: 3)),
-    );
-    AppointmentStore.instance.add(cancellable);
-    final first = AppointmentStore.instance.cancelWithDetails(
-      cancellable,
-      reason: 'Schedule conflict',
-    );
-    expect(first, isNotNull);
-    expect(
-      AppointmentStore.instance.cancelWithDetails(
+      final cancellable = appointment(
+        'CANCEL-RULE-1',
+        DateTime.now().add(const Duration(days: 3)),
+      );
+      AppointmentStore.instance.add(cancellable);
+      final first = AppointmentStore.instance.cancelWithDetails(
         cancellable,
-        reason: 'Personal reason',
-      ),
-      isNull,
-    );
-    expect(
-      AppointmentStore.instance.reschedule(
-        cancellable,
-        date: DateTime.now().add(const Duration(days: 4)),
-        time: '11:00 AM',
-      ),
-      isFalse,
-    );
+        reason: 'Schedule conflict',
+      );
+      expect(first, isNotNull);
+      expect(
+        AppointmentStore.instance.cancelWithDetails(
+          cancellable,
+          reason: 'Personal reason',
+        ),
+        isNull,
+      );
+      expect(
+        AppointmentStore.instance.reschedule(
+          cancellable,
+          date: DateTime.now().add(const Duration(days: 4)),
+          time: '11:00 AM',
+        ),
+        isFalse,
+      );
 
-    final started = appointment(
-      'CANCEL-RULE-2',
-      DateTime.now().add(const Duration(days: 3)),
-    );
-    AppointmentStore.instance.add(started);
-    QueueStore.instance.syncConfirmedAppointments([started]);
-    final entry = QueueStore.instance.existingEntryFor(started)!;
-    QueueStore.instance.staffUpdate(entry, QueueStatus.inConsultation);
-    expect(
-      AppointmentStore.instance.cancellationEligibility(started).allowed,
-      isFalse,
-    );
-    expect(
-      AppointmentStore.instance.cancelWithDetails(
-        started,
-        reason: 'Staff cancellation',
-        initiatedBy: CancellationInitiator.staff,
-      ),
-      isNull,
-    );
+      final started = appointment(
+        'CANCEL-RULE-2',
+        DateTime.now().add(const Duration(days: 3)),
+      );
+      AppointmentStore.instance.add(started);
+      await QueueStore.instance.checkIn(started);
+      final entry = QueueStore.instance.existingEntryFor(started)!;
+      QueueStore.instance.staffUpdate(entry, QueueStatus.inConsultation);
+      expect(
+        AppointmentStore.instance.cancellationEligibility(started).allowed,
+        isFalse,
+      );
+      expect(
+        AppointmentStore.instance.cancelWithDetails(
+          started,
+          reason: 'Staff cancellation',
+          initiatedBy: CancellationInitiator.staff,
+        ),
+        isNull,
+      );
 
-    final sameDay = appointment('CANCEL-RULE-3', DateTime.now());
-    expect(
-      AppointmentStore.instance.cancellationEligibility(sameDay).late,
-      isTrue,
-    );
-    AppointmentStore.instance.clear();
-  });
+      final sameDay = appointment('CANCEL-RULE-3', DateTime.now());
+      expect(
+        AppointmentStore.instance.cancellationEligibility(sameDay).late,
+        isTrue,
+      );
+      AppointmentStore.instance.clear();
+    },
+  );
 
   testWidgets(
     'profile medical summary opens read-only vaccine treatment records',
@@ -2410,16 +2413,18 @@ void main() {
     await tester.tap(find.text('General Checkup'));
     await tester.pumpAndSettle();
     expect(find.text('Appointment Details'), findsOneWidget);
-    expect(
-      find.textContaining('Pet owners can only view these updates.'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('after staff check-in'), findsOneWidget);
 
+    await QueueStore.instance.checkIn(
+      AppointmentStore.instance.appointments.first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Open My Queue'));
     await tester.pumpAndSettle();
     expect(find.text('My Queue'), findsOneWidget);
     expect(find.text('Waiting'), findsOneWidget);
-    expect(find.textContaining('2 pets ahead'), findsOneWidget);
+    expect(find.textContaining('You are #1'), findsOneWidget);
+    expect(find.textContaining('0 pets ahead'), findsOneWidget);
 
     final queueEntry = QueueStore.instance.active.single;
     await tester.tap(find.text(queueEntry.queueNumber));
@@ -2430,19 +2435,18 @@ void main() {
     );
     expect(find.text('Check In'), findsNothing);
 
-    QueueStore.instance.staffUpdate(queueEntry, QueueStatus.almostTurn);
-    await tester.pumpAndSettle();
-    expect(find.text('Almost Your Turn'), findsOneWidget);
-    expect(find.textContaining('Almost your turn.'), findsOneWidget);
-
     QueueStore.instance.staffUpdate(
       queueEntry,
       QueueStatus.called,
       room: 'Consultation Room 2',
     );
     await tester.pumpAndSettle();
-    expect(find.text('Called'), findsOneWidget);
+    expect(find.text('Called'), findsWidgets);
     expect(find.text('Consultation Room 2'), findsWidgets);
+
+    QueueStore.instance.staffUpdate(queueEntry, QueueStatus.arrived);
+    await tester.pumpAndSettle();
+    expect(find.text('Arrived'), findsWidgets);
 
     QueueStore.instance.staffUpdate(queueEntry, QueueStatus.inConsultation);
     await tester.pumpAndSettle();
@@ -2450,19 +2454,18 @@ void main() {
 
     QueueStore.instance.staffUpdate(queueEntry, QueueStatus.completed);
     await tester.pumpAndSettle();
-    expect(find.text('Completed'), findsOneWidget);
-    await tester.ensureVisible(find.text('Consultation Record'));
+    expect(find.text('Completed'), findsWidgets);
+    await tester.drag(find.byType(ListView).last, const Offset(0, -900));
     await tester.pumpAndSettle();
-    expect(find.text('Consultation Record'), findsOneWidget);
-    expect(find.text('Diagnosis'), findsOneWidget);
-    expect(find.text('Recommendations'), findsOneWidget);
+    expect(find.text('Medical Record'), findsOneWidget);
+    expect(find.text('MED-${queueEntry.appointment.id}'), findsOneWidget);
 
-    Navigator.of(tester.element(find.text('Consultation Record'))).pop();
+    Navigator.of(tester.element(find.text('Medical Record'))).pop();
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Queue History'));
     await tester.pumpAndSettle();
     expect(find.text('Queue History'), findsOneWidget);
-    expect(find.textContaining('Completed appointment'), findsOneWidget);
+    expect(find.textContaining('Completed •'), findsOneWidget);
   });
 
   testWidgets('books pet care and shows staff-managed status', (
@@ -2587,7 +2590,7 @@ void main() {
       status: 'Confirmed',
     );
     AppointmentStore.instance.add(appointment);
-    QueueStore.instance.syncConfirmedAppointments([appointment]);
+    await QueueStore.instance.checkIn(appointment);
     final queueEntry = QueueStore.instance.entryFor(appointment)!;
     QueueStore.instance.staffUpdate(queueEntry, QueueStatus.completed);
 

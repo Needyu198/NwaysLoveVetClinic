@@ -20,18 +20,56 @@ class DoctorQueuePage extends StatelessWidget {
                   QueueStore.instance,
                 ]),
                 builder: (context, _) {
-                  final queue = DoctorAppointmentStore.instance.appointments
-                      .where(
-                        (record) =>
-                            DateUtils.isSameDay(record.date, DateTime.now()) &&
-                            !const {
-                              'Completed',
-                              'Cancelled',
-                              'Rejected',
-                              'Missed',
-                            }.contains(record.status),
-                      )
-                      .toList();
+                  final doctorRecords =
+                      DoctorAppointmentStore.instance.appointments;
+                  final tickets =
+                      QueueStore.instance.active
+                          .where(
+                            (entry) =>
+                                DateUtils.isSameDay(
+                                  entry.clinicDate,
+                                  DateTime.now(),
+                                ) &&
+                                (entry.assignedDoctor.isEmpty ||
+                                    entry.assignedDoctor ==
+                                        DoctorAppointmentStore.doctorName),
+                          )
+                          .toList()
+                        ..sort((a, b) {
+                          if (a.priority != b.priority) {
+                            return a.priority == 'urgent' ? -1 : 1;
+                          }
+                          return a.sequence.compareTo(b.sequence);
+                        });
+                  final queue = <(DoctorAppointmentRecord, QueueEntry?)>[];
+                  for (final ticket in tickets) {
+                    final record = doctorRecords
+                        .cast<DoctorAppointmentRecord?>()
+                        .firstWhere(
+                          (item) => item?.id == ticket.appointment.id,
+                          orElse: () => null,
+                        );
+                    if (record != null) queue.add((record, ticket));
+                  }
+                  if (queue.isEmpty && ClinicApi.instance.token == null) {
+                    queue.addAll(
+                      doctorRecords
+                          .where(
+                            (record) =>
+                                DateUtils.isSameDay(
+                                  record.date,
+                                  DateTime.now(),
+                                ) &&
+                                !const {
+                                  'Completed',
+                                  'Cancelled',
+                                  'Rejected',
+                                  'Missed',
+                                }.contains(record.status),
+                          )
+                          .map((record) => (record, null)),
+                    );
+                  }
                   if (queue.isEmpty) {
                     return const _EmptyDoctorState(
                       icon: Icons.groups_2_outlined,
@@ -40,7 +78,9 @@ class DoctorQueuePage extends StatelessWidget {
                     );
                   }
                   final called = queue.where(
-                    (record) => record.status == 'Called',
+                    (item) =>
+                        item.$2?.status == QueueStatus.called ||
+                        item.$1.status == 'Called',
                   );
                   final canCallNext = called.isEmpty;
                   return ListView.separated(
@@ -56,14 +96,19 @@ class DoctorQueuePage extends StatelessWidget {
                         );
                       }
                       final queueIndex = index - 1;
-                      final record = queue[queueIndex];
-                      final displayStatus =
-                          const {'Pending', 'Confirmed'}.contains(record.status)
-                          ? 'Waiting'
-                          : record.status;
+                      final (record, ticket) = queue[queueIndex];
+                      final displayStatus = ticket == null
+                          ? const {
+                                  'Pending',
+                                  'Confirmed',
+                                }.contains(record.status)
+                                ? 'Waiting'
+                                : record.status
+                          : _doctorQueueStatusLabel(ticket.status);
                       return _DoctorQueueCard(
                         record: record,
-                        position: queueIndex + 1,
+                        ticket: ticket,
+                        fallbackPosition: queueIndex + 1,
                         displayStatus: displayStatus,
                         canCall:
                             displayStatus == 'Waiting' &&
@@ -117,13 +162,15 @@ class _QueueSummaryCard extends StatelessWidget {
 class _DoctorQueueCard extends StatelessWidget {
   const _DoctorQueueCard({
     required this.record,
-    required this.position,
+    required this.ticket,
+    required this.fallbackPosition,
     required this.displayStatus,
     required this.canCall,
   });
 
   final DoctorAppointmentRecord record;
-  final int position;
+  final QueueEntry? ticket;
+  final int fallbackPosition;
   final String displayStatus;
   final bool canCall;
 
@@ -154,7 +201,7 @@ class _DoctorQueueCard extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: Text(
-                'Q$position',
+                ticket?.queueNumber ?? 'Q$fallbackPosition',
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
@@ -185,7 +232,8 @@ class _DoctorQueueCard extends StatelessWidget {
             _StatusBadge(status: displayStatus),
           ],
         ),
-        if (record.status != 'In Consultation') ...[
+        if (ticket?.status != QueueStatus.inConsultation &&
+            record.status != 'In Consultation') ...[
           const SizedBox(height: 13),
           Row(
             children: [
@@ -193,22 +241,62 @@ class _DoctorQueueCard extends StatelessWidget {
                 Expanded(
                   child: FilledButton.icon(
                     key: ValueKey('doctor-call-${record.id}'),
-                    onPressed: () => DoctorAppointmentStore.instance
-                        .updateStatus(record, 'Called'),
+                    onPressed: () {
+                      final value = ticket;
+                      if (value == null) {
+                        DoctorAppointmentStore.instance.updateStatus(
+                          record,
+                          'Called',
+                        );
+                      } else {
+                        unawaited(
+                          QueueStore.instance.transition(
+                            value,
+                            QueueStatus.called,
+                            room: value.room.isEmpty
+                                ? 'Consultation Room 2'
+                                : value.room,
+                          ),
+                        );
+                      }
+                    },
                     icon: const Icon(Icons.campaign_outlined),
                     label: const Text('Call Next'),
                     style: _queueFilledStyle(),
                   ),
                 ),
-              if (record.status == 'Called')
+              if (ticket?.status == QueueStatus.called ||
+                  ticket?.status == QueueStatus.arrived ||
+                  record.status == 'Called')
                 Expanded(
                   child: FilledButton.icon(
                     key: ValueKey('doctor-queue-start-${record.id}'),
                     onPressed: () {
-                      DoctorAppointmentStore.instance.updateStatus(
-                        record,
-                        'In Consultation',
+                      final value = ticket;
+                      if (value == null) {
+                        DoctorAppointmentStore.instance.updateStatus(
+                          record,
+                          'In Consultation',
+                        );
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                DoctorConsultationPage(record: record),
+                          ),
+                        );
+                        return;
+                      }
+                      final confirmingArrival =
+                          value.status == QueueStatus.called;
+                      unawaited(
+                        QueueStore.instance.transition(
+                          value,
+                          confirmingArrival
+                              ? QueueStatus.arrived
+                              : QueueStatus.inConsultation,
+                        ),
                       );
+                      if (confirmingArrival) return;
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) =>
@@ -217,18 +305,34 @@ class _DoctorQueueCard extends StatelessWidget {
                       );
                     },
                     icon: const Icon(Icons.medical_services_outlined),
-                    label: const Text('Start Consultation'),
+                    label: Text(
+                      ticket?.status == QueueStatus.called
+                          ? 'Confirm Arrival'
+                          : 'Start Consultation',
+                    ),
                     style: _queueFilledStyle(),
                   ),
                 ),
-              if (canCall || record.status == 'Called')
+              if (canCall ||
+                  ticket?.status == QueueStatus.called ||
+                  ticket?.status == QueueStatus.arrived ||
+                  record.status == 'Called')
                 const SizedBox(width: 8),
               OutlinedButton(
                 key: ValueKey('doctor-missed-${record.id}'),
-                onPressed: () => DoctorAppointmentStore.instance.updateStatus(
-                  record,
-                  'Missed',
-                ),
+                onPressed: () {
+                  final value = ticket;
+                  if (value == null) {
+                    DoctorAppointmentStore.instance.updateStatus(
+                      record,
+                      'Missed',
+                    );
+                  } else {
+                    unawaited(
+                      QueueStore.instance.transition(value, QueueStatus.missed),
+                    );
+                  }
+                },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFB3261E),
                   side: const BorderSide(color: Color(0xFFB3261E)),
@@ -252,3 +356,13 @@ ButtonStyle _queueFilledStyle() => FilledButton.styleFrom(
   shape: const StadiumBorder(),
   textStyle: const TextStyle(fontWeight: FontWeight.w800),
 );
+
+String _doctorQueueStatusLabel(QueueStatus status) => switch (status) {
+  QueueStatus.waiting => 'Waiting',
+  QueueStatus.called => 'Called',
+  QueueStatus.arrived => 'Arrived',
+  QueueStatus.inConsultation => 'In Consultation',
+  QueueStatus.completed => 'Completed',
+  QueueStatus.missed => 'Missed',
+  QueueStatus.cancelled => 'Cancelled',
+};

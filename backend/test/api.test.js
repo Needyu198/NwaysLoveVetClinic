@@ -65,6 +65,51 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
     assert.equal((await request('/data/pets',tokens.ownerA)).records[0].data.value.name,'Updated');
     assert.equal((await request('/data/pets/sync',tokens.ownerA,{deletions:[{id:'pet-1',version:2}]})).status,200);
     assert.equal((await request('/data/pets',tokens.ownerA)).records.length,0);
+    // Queue tickets are clinic-owned, receive atomic daily numbers, expose a
+    // derived owner position, and enforce versioned lifecycle transitions.
+    const appointmentValue = {
+      id:'queue-appointment', date:'2026-09-22T09:00:00.000Z', time:'09:00 AM',
+      status:'Confirmed', veterinarian:'Dr. Queue', pet:{id:'pet-a',name:'Max'},
+      service:{name:'Checkup',homeVisit:false},
+    };
+    result = await request('/data/appointments/sync',tokens.ownerA,{changes:[{
+      id:'appointment-row',version:0,
+      data:{key:'ownerA:queue-appointment',value:appointmentValue},
+    }]});
+    assert.equal(result.status,200);
+    assert.equal((await request('/data/queue_entries/sync',tokens.ownerA,{changes:[{
+      id:'forged-queue',version:0,data:{key:'forged',value:{status:'called'}},
+    }]})).status,403);
+    const checkedIn = await request('/queue/check-in',tokens.staff,{
+      appointmentId:'queue-appointment',priority:'normal',
+    });
+    assert.equal(checkedIn.status,201);
+    assert.equal(checkedIn.record.data.value.queueNumber,'Q001');
+    assert.equal(checkedIn.record.data.value.status,'waiting');
+    const myQueue = await request('/queue/my',tokens.ownerA);
+    assert.equal(myQueue.records[0].data.value.position,1);
+    assert.equal(myQueue.records[0].data.value.petsAhead,0);
+    assert.equal((await request('/queue/queue-appointment/transition',tokens.staff,{status:'arrived',version:1})).status,409);
+    result = await request('/queue/queue-appointment/transition',tokens.staff,{status:'called',version:1,room:'Room 1'});
+    assert.equal(result.status,200);
+    assert.ok(result.record.data.value.calledAt);
+    result = await request('/queue/queue-appointment/acknowledge',tokens.ownerA,{});
+    assert.equal(result.status,200);
+    assert.ok(result.record.data.value.ownerAcknowledgedAt);
+    assert.equal((await request('/queue/queue-appointment/transition',tokens.staff,{status:'arrived',version:2})).status,409);
+    result = await request('/queue/queue-appointment/transition',tokens.staff,{status:'arrived',version:3});
+    assert.equal(result.status,200);
+    result = await request('/queue/queue-appointment/transition',tokens.doctor,{status:'inConsultation',version:4});
+    assert.equal(result.status,200);
+    assert.equal((await request('/queue/queue-appointment/transition',tokens.doctor,{status:'completed',version:5})).status,400);
+    result = await request('/data/medical_records/sync',tokens.doctor,{changes:[{
+      id:'medical-queue-appointment',version:0,
+      data:{key:'MED-queue-appointment',value:{id:'MED-queue-appointment',appointmentId:'queue-appointment',finalized:true}},
+    }]});
+    assert.equal(result.status,200);
+    result = await request('/queue/queue-appointment/transition',tokens.doctor,{status:'completed',version:5,medicalRecordId:'MED-queue-appointment'});
+    assert.equal(result.status,200);
+    assert.equal(result.record.data.value.medicalRecordId,'MED-queue-appointment');
     // Administrator provisioning creates both the directory row and a real,
     // hashed login for every assignable role. Pending users cannot sign in.
     const provisioned = [];
