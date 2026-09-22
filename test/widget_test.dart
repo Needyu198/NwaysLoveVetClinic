@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:senior_project/data/clinic_api.dart';
+import 'package:senior_project/data/clinic_directory.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -1235,7 +1236,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(visit.veterinarian, 'Dr. Cindy Lynn');
-    expect(visit.status, HomeVisitStatus.onTheWay);
+    expect(visit.status, HomeVisitStatus.confirmed);
     expect(find.byKey(const ValueKey('staff-home-visits')), findsOneWidget);
     HomeVisitStore.instance.clear();
   });
@@ -1826,7 +1827,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('profile-location-action')));
     await tester.pumpAndSettle();
     expect(find.text('Clinic Location'), findsOneWidget);
-    expect(find.text('8:00 AM–10:00 PM'), findsOneWidget);
+    expect(find.text('8:00 AM–7:00 PM'), findsOneWidget);
     expect(find.text(ContactClinicPage.address), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('get-clinic-directions')));
     await tester.pumpAndSettle();
@@ -2320,6 +2321,7 @@ void main() {
     );
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -1400));
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('clinic-Queue-icon')), findsOneWidget);
     await tester.tap(bookingCategory);
     await tester.pumpAndSettle();
 
@@ -2333,17 +2335,43 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Pet Care Services'), findsOneWidget);
+    expect(find.byKey(const ValueKey('booking-pet-care-icon')), findsOneWidget);
+    await tester.ensureVisible(find.text('Pet Care Services'));
+    await tester.tap(find.text('Pet Care Services'));
+    await tester.pumpAndSettle();
+    expect(find.text('Care made comfortable'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('General Checkup'));
     await tester.pump();
+    ClinicDirectory.instance.replaceForTesting({
+      'doctor-photo': {
+        'id': 'doctor-photo',
+        'name': 'Dr. Aye Chan',
+        'role': 'doctor',
+        'photoUrl':
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lZkAAAAASUVORK5CYII=',
+      },
+    });
+    addTearDown(() => ClinicDirectory.instance.replaceForTesting({}));
     await tester.tap(find.text('Find Veterinarians'));
     await tester.pumpAndSettle();
 
+    expect(
+      tester
+          .widget<CircleAvatar>(find.byType(CircleAvatar).first)
+          .backgroundImage,
+      isA<MemoryImage>(),
+    );
     await tester.tap(find.text('Dr. Aye Chan'));
     await tester.pump();
     await tester.tap(find.text('Choose Date'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(ChoiceChip).first);
+    expect(find.textContaining('Today,'), findsOneWidget);
+    expect(find.text('Clinic hours: 8:00 AM–7:00 PM.'), findsOneWidget);
+    await tester.tap(find.byType(ChoiceChip).at(1));
     await tester.pump();
     await tester.tap(find.text('View Time Slots'));
     await tester.pumpAndSettle();
@@ -2693,15 +2721,36 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('home-visit-pet-Max')));
     await tester.pump();
+    ClinicDirectory.instance.replaceForTesting({
+      'home-visit-doctor-photo': {
+        'id': 'home-visit-doctor-photo',
+        'name': 'Dr. Hnin Thiri Aung',
+        'role': 'doctor',
+        'photoUrl':
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lZkAAAAASUVORK5CYII=',
+      },
+    });
+    addTearDown(() => ClinicDirectory.instance.replaceForTesting({}));
     await tester.tap(find.text('Select Veterinarian'));
     await tester.pumpAndSettle();
 
+    expect(
+      tester
+          .widget<CircleAvatar>(
+            find.byKey(
+              const ValueKey('home-visit-vet-photo-Dr. Hnin Thiri Aung'),
+            ),
+          )
+          .backgroundImage,
+      isA<MemoryImage>(),
+    );
     await tester.tap(find.text('Dr. Hnin Thiri Aung'));
     await tester.pump();
     await tester.tap(find.text('View Available Dates'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(ChoiceChip).first);
+    expect(find.textContaining('Today,'), findsOneWidget);
+    await tester.tap(find.byType(ChoiceChip).at(1));
     await tester.pump();
     await tester.tap(find.text('View Home Visit Times'));
     await tester.pumpAndSettle();
@@ -2738,30 +2787,46 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Home Visit confirmed!'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home-visit-confirmed-icon')),
+      findsOneWidget,
+    );
     expect(find.textContaining('Booking ID: #HOME'), findsOneWidget);
     await tester.tap(find.text('Open Visit Reminder'));
     await tester.pumpAndSettle();
 
     expect(find.text('Confirmed'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home-visit-reminder-icon')),
+      findsOneWidget,
+    );
     expect(find.textContaining('Reminder:'), findsOneWidget);
-    await tester.tap(find.text('Veterinarian On the Way'));
+    expect(find.text('Veterinarian On the Way'), findsNothing);
+    final visit = HomeVisitStore.instance.visits.first;
+    HomeVisitStore.instance.updateStatus(visit, HomeVisitStatus.onTheWay);
     await tester.pumpAndSettle();
     expect(find.text('On the Way'), findsOneWidget);
 
-    await tester.tap(find.text('Confirm Veterinarian Arrived'));
+    HomeVisitStore.instance.updateStatus(visit, HomeVisitStatus.arrived);
     await tester.pumpAndSettle();
     expect(find.text('Arrived'), findsOneWidget);
-    await tester.tap(find.text('Begin Home Consultation'));
+    HomeVisitStore.instance.updateStatus(visit, HomeVisitStatus.consultation);
     await tester.pumpAndSettle();
     expect(find.text('Consultation'), findsOneWidget);
 
-    await tester.tap(find.text('Record Findings'));
+    HomeVisitStore.instance.updateStatus(
+      visit,
+      HomeVisitStatus.treatmentProposed,
+    );
     await tester.pumpAndSettle();
     expect(find.text('Treatment Proposed'), findsOneWidget);
-    expect(find.text('Proposed treatment'), findsOneWidget);
-    await tester.ensureVisible(find.text('Approve Treatment'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Approve Treatment'));
+    expect(find.text('Approve Treatment'), findsNothing);
+    visit
+      ..findings = 'Home examination completed.'
+      ..treatmentNotes = 'Supportive care provided.'
+      ..medicines = 'Use prescribed medicine as directed.'
+      ..recommendations = 'Monitor appetite and activity.';
+    HomeVisitStore.instance.updateStatus(visit, HomeVisitStatus.completed);
     await tester.pumpAndSettle();
     expect(find.text('Completed'), findsOneWidget);
 
@@ -3107,7 +3172,7 @@ void main() {
 
       expect(find.text('Contact Clinic'), findsOneWidget);
       expect(find.text("Nway's Love Vet Clinic"), findsOneWidget);
-      expect(find.text('8:00 AM–10:00 PM'), findsOneWidget);
+      expect(find.text('8:00 AM–7:00 PM'), findsOneWidget);
       expect(find.text(ContactClinicPage.email), findsOneWidget);
       expect(find.text('Call Clinic'), findsOneWidget);
       expect(find.text('Chat'), findsOneWidget);

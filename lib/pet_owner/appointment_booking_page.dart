@@ -8,6 +8,9 @@ import 'package:flutter/material.dart';
 
 import 'pet_owner_home_page.dart';
 import 'pet_owner_page_header.dart';
+import 'booking_slot_time.dart';
+import 'pet_care_booking_page.dart';
+import 'pet_image.dart';
 import 'profile_pet_avatar.dart';
 
 class AppointmentBookingPage extends StatefulWidget {
@@ -1578,7 +1581,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
 
   List<DateTime> get _availableDates {
     final today = DateUtils.dateOnly(DateTime.now());
-    return List.generate(7, (index) => today.add(Duration(days: index + 1)));
+    return List.generate(7, (index) => today.add(Duration(days: index)));
   }
 
   List<String> get _availableTimes {
@@ -1586,9 +1589,14 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       return const ['12:00 PM', '1:00 PM', '2:00 PM'];
     }
     return const [
+      '8:00 AM',
       '9:00 AM',
       '10:00 AM',
       '11:00 AM',
+      '12:00 PM',
+      '1:00 PM',
+      '2:00 PM',
+      '3:00 PM',
       '4:00 PM',
       '5:00 PM',
       '6:00 PM',
@@ -1777,6 +1785,41 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
             ),
             const SizedBox(height: 12),
           ],
+          _SelectionCard(
+            selected: false,
+            onTap: () =>
+                Navigator.of(context).pushNamed(PetCareServicesPage.routeName),
+            child: Row(
+              children: [
+                SizedBox.square(
+                  key: const ValueKey('booking-pet-care-icon'),
+                  dimension: 44,
+                  child: Image.asset(
+                    'assets/photos/icon/pet_care_services.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Pet Care Services', style: _BookingText.cardTitle),
+                      SizedBox(height: 4),
+                      Text(
+                        'Browse grooming, boarding, and other pet care options.',
+                        style: _BookingText.caption,
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: _BookingColors.green,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1792,52 +1835,74 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       child: Column(
         children: [
           for (final doctor in _service!.doctors) ...[
-            _SelectionCard(
-              selected: _veterinarian == doctor,
-              onTap: () => setState(() {
-                _veterinarian = doctor;
-                _date = null;
-                _clearHeldTime();
-              }),
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 31,
-                    backgroundColor: Color(0xFFE7F8F1),
-                    child: Icon(
-                      Icons.person_rounded,
-                      size: 38,
-                      color: _BookingColors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(doctor, style: _BookingText.cardTitle),
-                        const SizedBox(height: 4),
-                        Text(
-                          _doctorSpecialty(doctor),
-                          style: _BookingText.caption,
-                        ),
-                        const SizedBox(height: 6),
-                        const Row(
+            Builder(
+              builder: (context) {
+                final profiles = ClinicDirectory.instance.doctorProfiles;
+                ClinicPerson? profile;
+                for (final candidate in profiles) {
+                  if (candidate.name == doctor) {
+                    profile = candidate;
+                    break;
+                  }
+                }
+                final bytes = profile?.photoUrl == null
+                    ? null
+                    : PetPhoto.decodeDataUri(profile!.photoUrl!);
+                return _SelectionCard(
+                  selected: _veterinarian == doctor,
+                  onTap: () => setState(() {
+                    _veterinarian = doctor;
+                    _date = null;
+                    _clearHeldTime();
+                  }),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 31,
+                        backgroundColor: const Color(0xFFE7F8F1),
+                        backgroundImage: bytes == null
+                            ? null
+                            : MemoryImage(bytes),
+                        child: bytes == null
+                            ? const Icon(
+                                Icons.person_rounded,
+                                size: 38,
+                                color: _BookingColors.green,
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.verified_rounded,
-                              color: _BookingColors.green,
-                              size: 17,
+                            Text(doctor, style: _BookingText.cardTitle),
+                            const SizedBox(height: 4),
+                            Text(
+                              profile?.specialty?.trim().isNotEmpty == true
+                                  ? profile!.specialty!
+                                  : _doctorSpecialty(doctor),
+                              style: _BookingText.caption,
                             ),
-                            SizedBox(width: 5),
-                            Text('Available', style: _BookingText.success),
+                            const SizedBox(height: 6),
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.verified_rounded,
+                                  color: _BookingColors.green,
+                                  size: 17,
+                                ),
+                                SizedBox(width: 5),
+                                Text('Available', style: _BookingText.success),
+                              ],
+                            ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
             const SizedBox(height: 12),
           ],
@@ -1849,7 +1914,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
   Widget _selectDateStep() {
     return _StepLayout(
       title: 'Select Date',
-      subtitle: 'Appointments can be booked from tomorrow.',
+      subtitle: 'Choose today or another available date.',
       actionLabel: 'View Time Slots',
       actionEnabled: _date != null,
       onAction: _next,
@@ -1883,7 +1948,11 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
                         : _BookingColors.ink,
                     fontWeight: FontWeight.w800,
                   ),
-                  label: Text(_shortDate(date)),
+                  label: Text(
+                    DateUtils.isSameDay(date, DateTime.now())
+                        ? 'Today, ${_shortDate(date)}'
+                        : _shortDate(date),
+                  ),
                 ),
             ],
           ),
@@ -1892,7 +1961,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
             icon: Icons.schedule_rounded,
             text: _service!.homeVisit
                 ? 'Home visits are available only from 12:00 PM to 3:00 PM.'
-                : 'Clinic hours: 9:00 AM–12:00 PM and 4:00 PM–7:00 PM.',
+                : 'Clinic hours: 8:00 AM–7:00 PM.',
           ),
         ],
       ),
@@ -1930,11 +1999,13 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
             ),
             itemBuilder: (context, index) {
               final time = _availableTimes[index];
-              final available = AppointmentStore.instance.isSlotAvailable(
-                veterinarian: _veterinarian!,
-                date: _date!,
-                time: time,
-              );
+              final available =
+                  isFutureBookingSlot(_date!, time) &&
+                  AppointmentStore.instance.isSlotAvailable(
+                    veterinarian: _veterinarian!,
+                    date: _date!,
+                    time: time,
+                  );
               return FilledButton(
                 key: ValueKey('appointment-time-$time'),
                 onPressed: available ? () => _holdTime(time) : null,
@@ -2071,6 +2142,10 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
   }
 
   void _holdTime(String time) {
+    if (!isFutureBookingSlot(_date!, time)) {
+      setState(() => _error = 'That time has passed. Select a later slot.');
+      return;
+    }
     _holdTimer?.cancel();
     setState(() {
       _time = time;
@@ -2123,6 +2198,11 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       setState(
         () => _error = 'The slot hold expired. Please select a time again.',
       );
+      _goToStep(4);
+      return;
+    }
+    if (!isFutureBookingSlot(_date!, _time!)) {
+      setState(() => _error = 'That time has passed. Select a later slot.');
       _goToStep(4);
       return;
     }

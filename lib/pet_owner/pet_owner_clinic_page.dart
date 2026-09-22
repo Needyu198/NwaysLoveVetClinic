@@ -40,6 +40,7 @@ class PetOwnerClinicPage extends StatelessWidget {
       'Queue',
       Icons.groups_2_outlined,
       'Check the current waiting queue before visiting the clinic.',
+      imageAsset: 'assets/photos/icon/staff_management_queue.png',
     ),
     _ClinicService(
       'Home Visit',
@@ -260,7 +261,7 @@ class _ClinicInfoCard extends StatelessWidget {
                       icon: Icons.alarm_on_rounded,
                       iconColor: Color(0xFFFF6B00),
                       title: 'Clinic Hours',
-                      value: '8AM - 10PM',
+                      value: '8AM - 7PM',
                     ),
                     SizedBox(height: 18),
                     Row(
@@ -338,7 +339,7 @@ class _StatusStrip extends StatelessWidget {
             ),
           ),
           Text(
-            '8:00 AM–10:00 PM',
+            '8:00 AM–7:00 PM',
             style: TextStyle(
               color: PetOwnerClinicPage.mutedTextColor,
               fontSize: 13,

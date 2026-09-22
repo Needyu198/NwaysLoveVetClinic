@@ -7,7 +7,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'pet_owner_page_header.dart';
+import 'pet_image.dart';
 import 'profile_pet_avatar.dart';
+import 'booking_slot_time.dart';
 
 class HomeVisitBookingPage extends StatefulWidget {
   const HomeVisitBookingPage({super.key});
@@ -128,6 +130,13 @@ class HomeVisitStore extends ChangeNotifier {
 
   List<HomeVisit> get visits => List.unmodifiable(_visits.reversed);
 
+  HomeVisit? findById(String id) {
+    for (final visit in _visits) {
+      if (visit.id == id) return visit;
+    }
+    return null;
+  }
+
   bool isSlotAvailable({
     required String veterinarian,
     required DateTime date,
@@ -154,19 +163,6 @@ class HomeVisitStore extends ChangeNotifier {
 
   void assignDoctor(HomeVisit visit, String veterinarian) {
     visit.veterinarian = veterinarian;
-    notifyListeners();
-  }
-
-  void completeVisit(HomeVisit visit) {
-    visit.status = HomeVisitStatus.completed;
-    visit.findings =
-        'General examination completed. Temperature, breathing, and hydration are stable.';
-    visit.treatmentNotes =
-        'Supportive home care provided and symptoms discussed with the pet owner.';
-    visit.medicines =
-        'Prescribed medicines: follow the veterinarian’s dosage instructions.';
-    visit.recommendations =
-        'Monitor appetite and activity. Contact the clinic if symptoms worsen.';
     notifyListeners();
   }
 
@@ -380,7 +376,7 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
 
   List<DateTime> get _availableDates {
     final today = DateUtils.dateOnly(DateTime.now());
-    return List.generate(7, (index) => today.add(Duration(days: index + 1)));
+    return List.generate(7, (index) => today.add(Duration(days: index)));
   }
 
   static const _availableTimes = ['12:00 PM', '1:00 PM', '2:00 PM'];
@@ -415,6 +411,10 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
   }
 
   void _holdSlot() {
+    if (!isFutureBookingSlot(_date!, _time!)) {
+      setState(() => _error = 'That time has passed. Select a later slot.');
+      return;
+    }
     if (!HomeVisitStore.instance.isSlotAvailable(
       veterinarian: _veterinarian!,
       date: _date!,
@@ -491,6 +491,14 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
   }
 
   void _confirm() {
+    if (!isFutureBookingSlot(_date!, _time!)) {
+      setState(() {
+        _step = 3;
+        _time = null;
+        _error = 'That time has passed. Select a later slot.';
+      });
+      return;
+    }
     if (_holdSeconds == 0 ||
         !HomeVisitStore.instance.isSlotAvailable(
           veterinarian: _veterinarian!,
@@ -627,20 +635,47 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
       action: 'View Available Dates',
       enabled: _veterinarian != null,
       onAction: _next,
-      child: ListView.separated(
-        itemCount: _veterinarians.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final veterinarian = _veterinarians[index];
-          return _VisitSelectTile(
-            selected: _veterinarian == veterinarian,
-            icon: Icons.medical_services_outlined,
-            color: _VisitColors.green,
-            title: veterinarian,
-            subtitle: 'Home consultation veterinarian • Available this week',
-            onTap: () => setState(() => _veterinarian = veterinarian),
-          );
-        },
+      child: AnimatedBuilder(
+        animation: ClinicDirectory.instance,
+        builder: (context, _) => ListView.separated(
+          itemCount: _veterinarians.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final veterinarian = _veterinarians[index];
+            ClinicPerson? profile;
+            for (final doctor in ClinicDirectory.instance.doctorProfiles) {
+              if (doctor.name == veterinarian) {
+                profile = doctor;
+                break;
+              }
+            }
+            final bytes = profile?.photoUrl == null
+                ? null
+                : PetPhoto.decodeDataUri(profile!.photoUrl!);
+            return _VisitSelectTile(
+              selected: _veterinarian == veterinarian,
+              icon: Icons.medical_services_outlined,
+              leading: CircleAvatar(
+                key: ValueKey('home-visit-vet-photo-$veterinarian'),
+                radius: 23,
+                backgroundColor: _VisitColors.mint,
+                backgroundImage: bytes == null ? null : MemoryImage(bytes),
+                child: bytes == null
+                    ? const Icon(
+                        Icons.medical_services_outlined,
+                        color: _VisitColors.green,
+                      )
+                    : null,
+              ),
+              color: _VisitColors.green,
+              title: veterinarian,
+              subtitle: profile?.specialty?.trim().isNotEmpty == true
+                  ? profile!.specialty!
+                  : 'Home consultation veterinarian • Available this week',
+              onTap: () => setState(() => _veterinarian = veterinarian),
+            );
+          },
+        ),
       ),
     );
   }
@@ -660,7 +695,11 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
             children: [
               for (final date in _availableDates)
                 ChoiceChip(
-                  label: Text(_shortDate(date)),
+                  label: Text(
+                    DateUtils.isSameDay(date, DateTime.now())
+                        ? 'Today, ${_shortDate(date)}'
+                        : _shortDate(date),
+                  ),
                   selected: _date == date,
                   onSelected: (_) => setState(() {
                     _date = date;
@@ -684,7 +723,16 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
       onAction: _holdSlot,
       child: ListView(
         children: [
-          for (final time in _availableTimes)
+          if (!_availableTimes.any((time) => isFutureBookingSlot(_date!, time)))
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Text(
+                'No home visit times remain today. Choose another date.',
+              ),
+            ),
+          for (final time in _availableTimes.where(
+            (time) => isFutureBookingSlot(_date!, time),
+          ))
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _VisitSelectTile(
@@ -694,7 +742,19 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
                 color: _VisitColors.green,
                 title: time,
                 subtitle: 'One-hour Home Visit slot',
-                onTap: () => setState(() => _time = time),
+                onTap: () {
+                  if (!isFutureBookingSlot(_date!, time)) {
+                    setState(
+                      () =>
+                          _error = 'That time has passed. Select a later slot.',
+                    );
+                    return;
+                  }
+                  setState(() {
+                    _error = null;
+                    _time = time;
+                  });
+                },
               ),
             ),
         ],
@@ -875,7 +935,8 @@ class _HomeVisitConfirmation extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
-                    Icons.home_rounded,
+                    Icons.check_circle_rounded,
+                    key: ValueKey('home-visit-confirmed-icon'),
                     color: Colors.white,
                     size: 58,
                   ),
@@ -944,35 +1005,53 @@ class HomeVisitTrackingPage extends StatelessWidget {
               child: AnimatedBuilder(
                 animation: HomeVisitStore.instance,
                 builder: (context, _) {
+                  final currentVisit =
+                      HomeVisitStore.instance.findById(visit.id) ?? visit;
                   return ListView(
                     padding: const EdgeInsets.all(20),
                     children: [
-                      _VisitStatusHeader(status: visit.status),
+                      _VisitStatusHeader(status: currentVisit.status),
                       const SizedBox(height: 18),
                       _VisitDetailPanel(
                         title: 'Upcoming Home Visit',
                         children: [
-                          _VisitDetailRow('Booking ID', '#${visit.id}'),
-                          _VisitDetailRow('Pet', visit.pet.name),
-                          _VisitDetailRow('Veterinarian', visit.veterinarian),
+                          _VisitDetailRow('Booking ID', '#${currentVisit.id}'),
+                          _VisitDetailRow('Pet', currentVisit.pet.name),
+                          _VisitDetailRow(
+                            'Veterinarian',
+                            currentVisit.veterinarian,
+                          ),
                           _VisitDetailRow(
                             'Date and time',
-                            '${_longDate(visit.date)} • ${visit.time}',
+                            '${_longDate(currentVisit.date)} • ${currentVisit.time}',
                           ),
-                          _VisitDetailRow('Address', visit.address),
+                          _VisitDetailRow('Address', currentVisit.address),
                           _VisitDetailRow(
                             'Contact',
-                            '${visit.contactPerson} • ${visit.phone}',
+                            '${currentVisit.contactPerson} • ${currentVisit.phone}',
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
                       _VisitNotice(
                         icon: Icons.info_outline,
-                        text: _statusMessage(visit.status),
+                        text: _statusMessage(currentVisit.status),
                       ),
-                      const SizedBox(height: 20),
-                      _statusAction(context),
+                      if (currentVisit.status == HomeVisitStatus.completed) ...[
+                        const SizedBox(height: 20),
+                        FilledButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => HomeVisitMedicalRecordPage(
+                                visit: currentVisit,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.description_outlined),
+                          label: const Text('Open Medical Record'),
+                          style: _VisitStyles.primaryButton,
+                        ),
+                      ],
                     ],
                   );
                 },
@@ -982,73 +1061,6 @@ class HomeVisitTrackingPage extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Widget _statusAction(BuildContext context) {
-    final store = HomeVisitStore.instance;
-    return switch (visit.status) {
-      HomeVisitStatus.confirmed => FilledButton.icon(
-        onPressed: () => store.updateStatus(visit, HomeVisitStatus.onTheWay),
-        icon: const Icon(Icons.directions_car_outlined),
-        label: const Text('Veterinarian On the Way'),
-        style: _VisitStyles.primaryButton,
-      ),
-      HomeVisitStatus.onTheWay => FilledButton.icon(
-        onPressed: () => store.updateStatus(visit, HomeVisitStatus.arrived),
-        icon: const Icon(Icons.location_on_outlined),
-        label: const Text('Confirm Veterinarian Arrived'),
-        style: _VisitStyles.primaryButton,
-      ),
-      HomeVisitStatus.arrived => FilledButton.icon(
-        onPressed: () =>
-            store.updateStatus(visit, HomeVisitStatus.consultation),
-        icon: const Icon(Icons.health_and_safety_outlined),
-        label: const Text('Begin Home Consultation'),
-        style: _VisitStyles.primaryButton,
-      ),
-      HomeVisitStatus.consultation => FilledButton.icon(
-        onPressed: () =>
-            store.updateStatus(visit, HomeVisitStatus.treatmentProposed),
-        icon: const Icon(Icons.medication_outlined),
-        label: const Text('Record Findings'),
-        style: _VisitStyles.primaryButton,
-      ),
-      HomeVisitStatus.treatmentProposed => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const _VisitDetailPanel(
-            title: 'Proposed treatment',
-            children: [
-              _VisitDetailRow(
-                'Plan',
-                'Supportive care, prescribed medicine, and symptom monitoring',
-              ),
-              _VisitDetailRow(
-                'Consent',
-                'Review the plan before approving treatment.',
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          FilledButton.icon(
-            onPressed: () => store.completeVisit(visit),
-            icon: const Icon(Icons.check_circle_outline),
-            label: const Text('Approve Treatment'),
-            style: _VisitStyles.primaryButton,
-          ),
-        ],
-      ),
-      HomeVisitStatus.completed => FilledButton.icon(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => HomeVisitMedicalRecordPage(visit: visit),
-          ),
-        ),
-        icon: const Icon(Icons.description_outlined),
-        label: const Text('Open Medical Record'),
-        style: _VisitStyles.primaryButton,
-      ),
-    };
   }
 }
 
@@ -1464,7 +1476,8 @@ class _VisitStatusHeader extends StatelessWidget {
       child: Row(
         children: [
           const Icon(
-            Icons.home_work_rounded,
+            Icons.notifications_active_rounded,
+            key: ValueKey('home-visit-reminder-icon'),
             size: 40,
             color: _VisitColors.green,
           ),
@@ -1584,7 +1597,7 @@ String _statusMessage(HomeVisitStatus status) => switch (status) {
   HomeVisitStatus.consultation =>
     'The veterinarian is examining the pet and recording findings.',
   HomeVisitStatus.treatmentProposed =>
-    'Review and approve the proposed care before treatment continues.',
+    'The veterinarian has proposed a treatment plan. Contact the clinic for details.',
   HomeVisitStatus.completed =>
     'The visit is complete. Treatment notes and recommendations are ready.',
 };

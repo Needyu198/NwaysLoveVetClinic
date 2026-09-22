@@ -186,7 +186,7 @@ class _ClinicConversationPageState extends State<ClinicConversationPage> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               color: const Color(0xFFFFF4D6),
               child: const Text(
-                'Clinic hours: 8:00 AM–10:00 PM. After-hours replies depend on staff availability. Chat advice does not replace an examination.',
+                'Clinic hours: 8:00 AM–7:00 PM. After-hours replies depend on staff availability. Chat advice does not replace an examination.',
                 style: TextStyle(fontSize: 12.5, height: 1.3),
               ),
             ),
@@ -423,7 +423,7 @@ class _ClinicInformationCard extends StatelessWidget {
           _InformationRow(
             icon: Icons.schedule_rounded,
             label: 'Clinic hours',
-            value: '8:00 AM–10:00 PM',
+            value: '8:00 AM–7:00 PM',
           ),
           _InformationRow(
             icon: Icons.call_outlined,

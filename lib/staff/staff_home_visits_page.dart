@@ -312,16 +312,10 @@ class _StaffHomeVisitDetailPageState extends State<StaffHomeVisitDetailPage> {
 
   void _assign() {
     HomeVisitStore.instance.assignDoctor(widget.visit, _doctor);
-    if (widget.visit.status == HomeVisitStatus.confirmed) {
-      HomeVisitStore.instance.updateStatus(
-        widget.visit,
-        HomeVisitStatus.onTheWay,
-      );
-    }
     OwnerNotificationStore.instance.push(
       'Home visit doctor assigned',
       ownerId: databaseOwnerOf(widget.visit),
-      '$_doctor is assigned to ${widget.visit.pet.name}\u2019s home visit and is on the way.',
+      '$_doctor is assigned to ${widget.visit.pet.name}\u2019s home visit.',
     );
     Navigator.pop(context);
     _notice(context, '$_doctor assigned to ${widget.visit.pet.name}.');

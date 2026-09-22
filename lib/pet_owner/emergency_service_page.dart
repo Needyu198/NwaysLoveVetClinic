@@ -485,7 +485,7 @@ class _EmergencyServicePageState extends State<EmergencyServicePage> {
           const SizedBox(height: 14),
           const _EmergencyInfoCard(
             title: 'Clinic Hours',
-            value: '8:00 AM–10:00 PM',
+            value: '8:00 AM–7:00 PM',
             icon: Icons.schedule_rounded,
           ),
           const SizedBox(height: 12),

@@ -842,7 +842,7 @@ class ClinicLocationPage extends StatelessWidget {
                   const _LocationInfo(
                     icon: Icons.schedule_outlined,
                     title: 'Operating hours',
-                    value: '8:00 AM–10:00 PM',
+                    value: '8:00 AM–7:00 PM',
                   ),
                   const _LocationInfo(
                     icon: Icons.call_outlined,
