@@ -1486,7 +1486,6 @@ void main() {
     await fill('Item Name', 'Cat Litter 5kg');
     await fill('Subcategory', 'Cat Litter');
     await fill('Brand', 'Clean Paws');
-    await fill('Stock', '20');
     await fill('Price', '3000');
 
     await tester.scrollUntilVisible(
@@ -1506,6 +1505,7 @@ void main() {
     expect(saved.subcategory, 'Cat Litter');
     expect(saved.petType, 'Dog');
     expect(saved.brand, 'Clean Paws');
+    expect(saved.quantity, 0);
   });
 
   testWidgets('doctor inventory is view and restock only', (
@@ -2313,7 +2313,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('product-detail-price')), findsOneWidget);
-    expect(find.byKey(const ValueKey('product-detail-stock')), findsOneWidget);
+    expect(find.byKey(const ValueKey('product-detail-stock')), findsNothing);
+    expect(find.byKey(const ValueKey('product-detail-facts')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('product-detail-description')),
       findsOneWidget,
@@ -2326,7 +2327,8 @@ void main() {
     expect(find.text('Chat with the clinic'), findsNothing);
     expect(find.text('Variations'), findsNothing);
     expect(find.text('View shop'), findsNothing);
-    expect(find.text('More for you'), findsNothing);
+    expect(find.text('More for You'), findsOneWidget);
+    expect(find.text('Collection You May Love'), findsOneWidget);
   });
 
   testWidgets('books an appointment and shows it in My Appointments', (

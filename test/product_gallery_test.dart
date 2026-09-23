@@ -72,12 +72,40 @@ void main() {
 
     expect(find.text('Product Options'), findsOneWidget);
     expect(find.text('Recommended Products'), findsOneWidget);
+    expect(find.byKey(const ValueKey('pet-type-filters')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('product-subcategory-filters')),
+      findsOneWidget,
+    );
+    expect(find.text('Dog Food'), findsOneWidget);
+    expect(find.text('Cat Food'), findsOneWidget);
     await tester.enterText(
       find.byKey(const ValueKey('pet-products-search')),
       'Shared Royal Canin Product',
     );
     await tester.pumpAndSettle();
     expect(find.text('Shared Royal Canin Product'), findsWidgets);
+  });
+
+  testWidgets('pet and subcategory filters narrow the product catalog', (
+    tester,
+  ) async {
+    final previousToken = ClinicApi.instance.token;
+    ClinicApi.instance.token = null;
+    addTearDown(() => ClinicApi.instance.token = previousToken);
+
+    await tester.pumpWidget(const MaterialApp(home: PetProductsPage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('Pet-filter-Dog')));
+    await tester.pumpAndSettle();
+    expect(find.text('Dog Food 01'), findsOneWidget);
+    expect(find.text('Cat Food 01'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('Type-filter-Dog Food')));
+    await tester.pumpAndSettle();
+    expect(find.text('Dog Food 01'), findsOneWidget);
+    expect(find.text('Dog Toy'), findsNothing);
   });
 
   testWidgets('pet owner can swipe through all three product photos', (
@@ -89,8 +117,6 @@ void main() {
       subcategory: 'Dog Food',
       brand: 'Royal Canin',
       price: 850,
-      originalPrice: 850,
-      stock: 5,
       description: 'Complete dry food.',
       petType: 'Dog',
       weight: 'pcs',
@@ -126,9 +152,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('2/3'), findsOneWidget);
     expect(find.byKey(const ValueKey('product-detail-price')), findsOneWidget);
-    expect(find.byKey(const ValueKey('product-detail-stock')), findsOneWidget);
+    expect(find.byKey(const ValueKey('product-detail-stock')), findsNothing);
+    expect(find.byKey(const ValueKey('product-detail-facts')), findsOneWidget);
+    expect(find.byKey(const ValueKey('product-image-dot-0')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('product-image-thumbnails')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('product-detail-description')),
+      findsOneWidget,
+    );
+    expect(find.text('More for You'), findsOneWidget);
+    expect(find.text('Collection You May Love'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('open-product-photo-1')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('full-screen-product-gallery')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('zoomable-product-photo-1')),
       findsOneWidget,
     );
   });

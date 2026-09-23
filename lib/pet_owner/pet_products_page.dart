@@ -34,6 +34,8 @@ class PetProductsPage extends StatefulWidget {
 
 class _PetProductsPageState extends State<PetProductsPage> {
   String _category = 'All Product';
+  String _petType = 'All Pets';
+  String _subcategory = 'All';
   String _query = '';
   String _sort = 'Popular';
 
@@ -58,13 +60,22 @@ class _PetProductsPageState extends State<PetProductsPage> {
     final filtered = products.where((product) {
       final categoryMatch =
           _category == 'All Product' || product.category == _category;
+      final petTypeMatch =
+          _petType == 'All Pets' ||
+          product.petType == _petType ||
+          product.petType == 'All Pets';
+      final effectiveSubcategory = product.subcategory.isEmpty
+          ? product.category
+          : product.subcategory;
+      final subcategoryMatch =
+          _subcategory == 'All' || effectiveSubcategory == _subcategory;
       final queryMatch =
           lowered.isEmpty ||
           product.name.toLowerCase().contains(lowered) ||
           product.brand.toLowerCase().contains(lowered) ||
           product.subcategory.toLowerCase().contains(lowered) ||
           product.petType.toLowerCase().contains(lowered);
-      return categoryMatch && queryMatch;
+      return categoryMatch && petTypeMatch && subcategoryMatch && queryMatch;
     }).toList();
 
     switch (_sort) {
@@ -72,10 +83,9 @@ class _PetProductsPageState extends State<PetProductsPage> {
         filtered.sort((a, b) => a.price.compareTo(b.price));
       case 'Price High':
         filtered.sort((a, b) => b.price.compareTo(a.price));
-      case 'Discount':
-        filtered.sort((a, b) => b.discountPercent.compareTo(a.discountPercent));
       case 'Newest':
-        filtered.sort((a, b) => b.stock.compareTo(a.stock));
+        // Inventory records already arrive in clinic-defined display order.
+        break;
     }
     return filtered;
   }
@@ -118,6 +128,13 @@ class _PetProductsPageState extends State<PetProductsPage> {
                 _CategoryIconStrip(
                   selected: _category,
                   onChanged: (value) => setState(() => _category = value),
+                ),
+                _ProductFilters(
+                  petType: _petType,
+                  subcategory: _subcategory,
+                  onPetTypeChanged: (value) => setState(() => _petType = value),
+                  onSubcategoryChanged: (value) =>
+                      setState(() => _subcategory = value),
                 ),
                 const Padding(
                   padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
@@ -218,20 +235,19 @@ class _PetProductsPageState extends State<PetProductsPage> {
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
-                children:
-                    ['Popular', 'Newest', 'Price Low', 'Price High', 'Discount']
-                        .map(
-                          (sort) => ChoiceChip(
-                            label: Text(sort),
-                            selected: _sort == sort,
-                            selectedColor: ProductStyles.mint,
-                            onSelected: (_) {
-                              setState(() => _sort = sort);
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                        )
-                        .toList(),
+                children: ['Popular', 'Newest', 'Price Low', 'Price High']
+                    .map(
+                      (sort) => ChoiceChip(
+                        label: Text(sort),
+                        selected: _sort == sort,
+                        selectedColor: ProductStyles.mint,
+                        onSelected: (_) {
+                          setState(() => _sort = sort);
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    )
+                    .toList(),
               ),
             ],
           ),
@@ -259,6 +275,18 @@ class ProductDetailsPage extends StatelessWidget {
       );
     }
     final product = args is Product ? args : products.first;
+    final moreForYou = _recommendationsFor(
+      product,
+      (candidate) =>
+          candidate.petType == product.petType ||
+          candidate.petType == 'All Pets',
+    );
+    final collectionYouMayLove = _recommendationsFor(
+      product,
+      (candidate) =>
+          candidate.category == product.category ||
+          candidate.subcategory == product.subcategory,
+    );
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -316,11 +344,8 @@ class ProductDetailsPage extends StatelessWidget {
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                          const SizedBox(height: 14),
-                          KeyedSubtree(
-                            key: const ValueKey('product-detail-stock'),
-                            child: _StockPill(stock: product.stock),
-                          ),
+                          const SizedBox(height: 16),
+                          _ProductFacts(product: product),
                           const Divider(height: 30),
                           const Text(
                             'Description',
@@ -331,7 +356,21 @@ class ProductDetailsPage extends StatelessWidget {
                             key: const ValueKey('product-detail-description'),
                             child: _Description(text: product.description),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 28),
+                          _RecommendationSection(
+                            key: const ValueKey('more-for-you-section'),
+                            title: 'More for You',
+                            products: moreForYou,
+                          ),
+                          const SizedBox(height: 26),
+                          _RecommendationSection(
+                            key: const ValueKey(
+                              'collection-you-may-love-section',
+                            ),
+                            title: 'Collection You May Love',
+                            products: collectionYouMayLove,
+                          ),
+                          const SizedBox(height: 30),
                         ],
                       ),
                     ),
@@ -346,6 +385,26 @@ class ProductDetailsPage extends StatelessWidget {
   }
 }
 
+List<Product> _recommendationsFor(
+  Product current,
+  bool Function(Product product) matches, {
+  List<Product> excluded = const [],
+}) {
+  final excludedNames = {current.name, ...excluded.map((item) => item.name)};
+  final available = products
+      .where((item) => !excludedNames.contains(item.name))
+      .toList();
+  final preferred = available.where(matches).take(4).toList();
+  if (preferred.length < 4) {
+    preferred.addAll(
+      available
+          .where((item) => !preferred.any((match) => match.name == item.name))
+          .take(4 - preferred.length),
+    );
+  }
+  return preferred;
+}
+
 // ---------------------------------------------------------------------------
 // Product model + data source (real inventory)
 // ---------------------------------------------------------------------------
@@ -356,8 +415,6 @@ class Product {
     required this.category,
     required this.brand,
     required this.price,
-    required this.originalPrice,
-    required this.stock,
     required this.description,
     required this.petType,
     required this.weight,
@@ -373,8 +430,6 @@ class Product {
   final String category;
   final String brand;
   final int price;
-  final int originalPrice;
-  final int stock;
   final String description;
   final String petType;
   final String weight;
@@ -393,20 +448,6 @@ class Product {
     if ((imageAsset ?? '').isNotEmpty) return [imageAsset!];
     return const [];
   }
-
-  int get discountPercent {
-    if (originalPrice <= 0 || originalPrice <= price) return 0;
-    return (((originalPrice - price) / originalPrice) * 100).round();
-  }
-}
-
-/// Deterministic display "original price" so a product's discount badge is
-/// stable per product (derived from its real selling price, not random).
-int _originalPriceFor(String key, int sellingPrice) {
-  if (sellingPrice <= 0) return 0;
-  // 5%..25% markup based on a stable hash of the product identity.
-  final pct = 5 + (key.hashCode.abs() % 21);
-  return (sellingPrice * (100 + pct) / 100).round();
 }
 
 Color _categoryColor(String category) {
@@ -491,8 +532,6 @@ List<Product> get products => ClinicApi.instance.token == null
                   ? 'Clinic Shop'
                   : item.supplier,
               price: item.sellingPrice,
-              originalPrice: _originalPriceFor(item.id, item.sellingPrice),
-              stock: item.quantity,
               description: item.description.isNotEmpty
                   ? item.description
                   : '${item.name}. Category: ${item.category}.',
@@ -521,10 +560,9 @@ const _demoProducts = <Product>[
   Product(
     name: 'Dog Food 01',
     category: 'Food',
+    subcategory: 'Dog Food',
     brand: 'Pedigree',
     price: 4000,
-    originalPrice: 4600,
-    stock: 24,
     description: 'Balanced nutrition dry food for adult dogs.',
     petType: 'Dog',
     weight: '1 kg',
@@ -534,10 +572,9 @@ const _demoProducts = <Product>[
   Product(
     name: 'Cat Food 01',
     category: 'Food',
+    subcategory: 'Cat Food',
     brand: 'Meow Mix',
     price: 4000,
-    originalPrice: 5000,
-    stock: 14,
     description: 'Original choice cat food with balanced nutrition.',
     petType: 'Cat',
     weight: '800 g',
@@ -547,10 +584,9 @@ const _demoProducts = <Product>[
   Product(
     name: 'Dog Food 02',
     category: 'Food',
+    subcategory: 'Dog Food',
     brand: 'Pedigree',
     price: 6000,
-    originalPrice: 6600,
-    stock: 16,
     description: 'Adult dog food with chicken and vegetable flavor.',
     petType: 'Dog',
     weight: '10 kg',
@@ -560,10 +596,9 @@ const _demoProducts = <Product>[
   Product(
     name: 'Dog Toy',
     category: 'Accessories',
+    subcategory: 'Accessories',
     brand: 'Nway',
     price: 5000,
-    originalPrice: 5800,
-    stock: 20,
     description: 'Soft chew toy for play and exercise.',
     petType: 'Dog',
     weight: 'M',
@@ -573,6 +608,14 @@ const _demoProducts = <Product>[
 ];
 
 const categories = ['All Product', 'Food', 'Medicine', 'Accessories'];
+const productPetTypes = ['All Pets', 'Dog', 'Cat'];
+const productSubcategories = [
+  'All',
+  'Dog Food',
+  'Cat Food',
+  'Medicine',
+  'Accessories',
+];
 
 // ---------------------------------------------------------------------------
 // List page widgets
@@ -691,6 +734,95 @@ class _CategoryIconStrip extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ProductFilters extends StatelessWidget {
+  const _ProductFilters({
+    required this.petType,
+    required this.subcategory,
+    required this.onPetTypeChanged,
+    required this.onSubcategoryChanged,
+  });
+
+  final String petType;
+  final String subcategory;
+  final ValueChanged<String> onPetTypeChanged;
+  final ValueChanged<String> onSubcategoryChanged;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _FilterRow(
+        key: const ValueKey('pet-type-filters'),
+        label: 'Pet',
+        values: productPetTypes,
+        selected: petType,
+        onChanged: onPetTypeChanged,
+      ),
+      _FilterRow(
+        key: const ValueKey('product-subcategory-filters'),
+        label: 'Type',
+        values: productSubcategories,
+        selected: subcategory,
+        onChanged: onSubcategoryChanged,
+      ),
+      const SizedBox(height: 6),
+    ],
+  );
+}
+
+class _FilterRow extends StatelessWidget {
+  const _FilterRow({
+    required this.label,
+    required this.values,
+    required this.selected,
+    required this.onChanged,
+    super.key,
+  });
+
+  final String label;
+  final List<String> values;
+  final String selected;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 42,
+    child: ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      scrollDirection: Axis.horizontal,
+      itemCount: values.length + 1,
+      separatorBuilder: (_, _) => const SizedBox(width: 8),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Center(
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                color: ProductStyles.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          );
+        }
+        final value = values[index - 1];
+        return ChoiceChip(
+          key: ValueKey('$label-filter-$value'),
+          label: Text(value),
+          selected: selected == value,
+          showCheckmark: false,
+          selectedColor: ProductStyles.mint,
+          side: const BorderSide(color: Color(0xFFDDE9E4)),
+          labelStyle: TextStyle(
+            color: Colors.black87,
+            fontWeight: selected == value ? FontWeight.w800 : FontWeight.w600,
+          ),
+          onSelected: (_) => onChanged(value),
+        );
+      },
+    ),
+  );
 }
 
 class _SortBar extends StatelessWidget {
@@ -813,37 +945,26 @@ class _ProductCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          formatMmk(product.price),
-                          style: const TextStyle(
-                            color: ProductStyles.red,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (product.discountPercent > 0) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          '-${product.discountPercent}%',
-                          style: const TextStyle(
-                            color: ProductStyles.red,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ],
+                  const SizedBox(height: 4),
+                  Text(
+                    product.brand,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: ProductStyles.caption,
                   ),
                   const SizedBox(height: 6),
-                  _StockPill(stock: product.stock),
+                  Text(
+                    formatMmk(product.price),
+                    style: const TextStyle(
+                      color: ProductStyles.red,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  _PetTypePill(petType: product.petType),
                 ],
               ),
             ),
@@ -864,49 +985,249 @@ class _ProductGallery extends StatefulWidget {
 
 class _ProductGalleryState extends State<_ProductGallery> {
   var _index = 0;
+  late final PageController _controller = PageController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final images = widget.product.galleryImages;
-    if (images.length <= 1) {
-      return ProductArt(product: widget.product, large: true);
-    }
+    final images = widget.product.galleryImages.isEmpty
+        ? <String?>[null]
+        : widget.product.galleryImages.cast<String?>();
     return SizedBox(
-      height: 320,
-      child: Stack(
+      height: 405,
+      child: Column(
         children: [
-          PageView.builder(
-            key: const ValueKey('product-image-gallery'),
-            itemCount: images.length,
-            onPageChanged: (value) => setState(() => _index = value),
-            itemBuilder: (_, index) => ProductArt(
-              product: widget.product,
-              large: true,
-              imageSource: images[index],
+          SizedBox(
+            height: 320,
+            child: Stack(
+              children: [
+                PageView.builder(
+                  key: const ValueKey('product-image-gallery'),
+                  controller: _controller,
+                  itemCount: images.length,
+                  onPageChanged: (value) => setState(() => _index = value),
+                  itemBuilder: (_, index) => Semantics(
+                    button: true,
+                    label:
+                        'Open ${widget.product.name} photo ${index + 1} full screen',
+                    child: GestureDetector(
+                      key: ValueKey('open-product-photo-$index'),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => _FullScreenProductGallery(
+                            product: widget.product,
+                            initialIndex: index,
+                          ),
+                        ),
+                      ),
+                      child: ProductArt(
+                        product: widget.product,
+                        large: true,
+                        imageSource: images[index],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 14,
+                  bottom: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      '${_index + 1}/${images.length}',
+                      key: const ValueKey('product-image-count'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          Positioned(
-            right: 14,
-            bottom: 12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(14),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              images.length,
+              (index) => AnimatedContainer(
+                key: ValueKey('product-image-dot-$index'),
+                duration: const Duration(milliseconds: 180),
+                width: index == _index ? 18 : 7,
+                height: 7,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: index == _index
+                      ? const Color(0xFF147D5B)
+                      : const Color(0xFFC9D8D2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
-              child: Text(
-                '${_index + 1}/${images.length}',
-                key: const ValueKey('product-image-count'),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 54,
+            child: ListView.separated(
+              key: const ValueKey('product-image-thumbnails'),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              scrollDirection: Axis.horizontal,
+              shrinkWrap: true,
+              itemCount: images.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) => InkWell(
+                key: ValueKey('product-image-thumbnail-$index'),
+                onTap: () => _controller.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeInOutCubic,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 54,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: index == _index
+                          ? const Color(0xFF147D5B)
+                          : const Color(0xFFDDE9E4),
+                      width: index == _index ? 2 : 1,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _ProductThumbnail(
+                    product: widget.product,
+                    imageSource: images[index],
+                  ),
                 ),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _FullScreenProductGallery extends StatefulWidget {
+  const _FullScreenProductGallery({
+    required this.product,
+    required this.initialIndex,
+  });
+
+  final Product product;
+  final int initialIndex;
+
+  @override
+  State<_FullScreenProductGallery> createState() =>
+      _FullScreenProductGalleryState();
+}
+
+class _FullScreenProductGalleryState extends State<_FullScreenProductGallery> {
+  late var _index = widget.initialIndex;
+  late final PageController _controller = PageController(
+    initialPage: widget.initialIndex,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final images = widget.product.galleryImages.isEmpty
+        ? <String?>[null]
+        : widget.product.galleryImages.cast<String?>();
+    return Scaffold(
+      key: const ValueKey('full-screen-product-gallery'),
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text('${_index + 1} of ${images.length}'),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: PageView.builder(
+              controller: _controller,
+              itemCount: images.length,
+              onPageChanged: (value) => setState(() => _index = value),
+              itemBuilder: (_, index) => InteractiveViewer(
+                key: ValueKey('zoomable-product-photo-$index'),
+                minScale: 1,
+                maxScale: 4,
+                child: Center(
+                  child: ProductArt(
+                    product: widget.product,
+                    large: true,
+                    imageSource: images[index],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  images.length,
+                  (index) => Container(
+                    width: index == _index ? 20 : 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: index == _index ? Colors.white : Colors.white38,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductThumbnail extends StatelessWidget {
+  const _ProductThumbnail({required this.product, required this.imageSource});
+
+  final Product product;
+  final String? imageSource;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = imageSource == null ? null : _decodeDataUri(imageSource!);
+    if (bytes != null) return Image.memory(bytes, fit: BoxFit.cover);
+    if (imageSource != null && imageSource!.startsWith('assets/')) {
+      return Image.asset(imageSource!, fit: BoxFit.cover);
+    }
+    return ColoredBox(
+      color: product.color,
+      child: Icon(product.icon, color: Colors.white, size: 24),
     );
   }
 }
@@ -1000,34 +1321,203 @@ Uint8List? _decodeDataUri(String value) {
   }
 }
 
-class _StockPill extends StatelessWidget {
-  const _StockPill({required this.stock});
-  final int stock;
+class _PetTypePill extends StatelessWidget {
+  const _PetTypePill({required this.petType});
+  final String petType;
 
   @override
-  Widget build(BuildContext context) {
-    final inStock = stock > 0;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: inStock ? const Color(0xFFE8FFF5) : const Color(0xFFFFE9E5),
-        borderRadius: BorderRadius.circular(12),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+    decoration: BoxDecoration(
+      color: const Color(0xFFE8FFF5),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Text(
+      petType,
+      style: const TextStyle(
+        color: Color(0xFF16785B),
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
       ),
-      child: Text(
-        inStock ? 'In stock: $stock' : 'Out of stock',
-        style: TextStyle(
-          color: inStock ? const Color(0xFF16785B) : const Color(0xFFCE3D2E),
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Detail page widgets
 // ---------------------------------------------------------------------------
+
+class _ProductFacts extends StatelessWidget {
+  const _ProductFacts({required this.product});
+
+  final Product product;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey('product-detail-facts'),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF5FBF8),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFDDE9E4)),
+    ),
+    child: Column(
+      children: [
+        _ProductFact(label: 'Brand', value: product.brand),
+        _ProductFact(label: 'Pet type', value: product.petType),
+        _ProductFact(label: 'Category', value: product.category),
+        _ProductFact(
+          label: 'Subcategory',
+          value: product.subcategory.isEmpty
+              ? product.category
+              : product.subcategory,
+          isLast: true,
+        ),
+      ],
+    ),
+  );
+}
+
+class _ProductFact extends StatelessWidget {
+  const _ProductFact({
+    required this.label,
+    required this.value,
+    this.isLast = false,
+  });
+
+  final String label;
+  final String value;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: 98, child: Text(label, style: ProductStyles.caption)),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _RecommendationSection extends StatelessWidget {
+  const _RecommendationSection({
+    required this.title,
+    required this.products,
+    super.key,
+  });
+
+  final String title;
+  final List<Product> products;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(title, style: ProductStyles.sectionTitle),
+      const SizedBox(height: 12),
+      if (products.isEmpty)
+        const Text(
+          'More clinic products will appear here soon.',
+          style: ProductStyles.caption,
+        )
+      else
+        SizedBox(
+          height: 238,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: products.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final product = products[index];
+              return _MiniProductCard(
+                product: product,
+                onTap: () => Navigator.of(
+                  context,
+                ).pushNamed(ProductDetailsPage.routeName, arguments: product),
+              );
+            },
+          ),
+        ),
+    ],
+  );
+}
+
+class _MiniProductCard extends StatelessWidget {
+  const _MiniProductCard({required this.product, required this.onTap});
+
+  final Product product;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 152,
+    child: Card(
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: Color(0xFFDDE9E4)),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 112,
+              width: double.infinity,
+              child: ProductArt(product: product),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(9),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    product.brand,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: ProductStyles.caption,
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    formatMmk(product.price),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: ProductStyles.red,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _PetTypePill(petType: product.petType),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
 class _CircleButton extends StatelessWidget {
   const _CircleButton({required this.icon, required this.onTap});

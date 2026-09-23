@@ -149,6 +149,8 @@ class StaffDashboardPage extends StatelessWidget {
                           ),
                           _QuickAction(
                             icon: Icons.format_list_numbered_rounded,
+                            imageAsset:
+                                'assets/photos/icon/staff_management_queue.png',
                             label: 'Queue',
                             onTap: () => _push(
                               context,

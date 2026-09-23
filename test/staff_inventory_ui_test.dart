@@ -130,9 +130,7 @@ void main() {
     expect(find.text('Package back'), findsOneWidget);
     expect(find.text('Product detail'), findsOneWidget);
 
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(TextFormField, 'Stock'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Stock'), findsNothing);
     await tester.drag(find.byType(ListView), const Offset(0, -260));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(TextFormField, 'Price'), findsOneWidget);

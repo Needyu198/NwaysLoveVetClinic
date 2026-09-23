@@ -14,9 +14,6 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
   final _formKey = GlobalKey<FormState>();
   late final String _productId = widget.existing?.id ?? _newProductId();
   late final _name = TextEditingController(text: widget.existing?.name ?? '');
-  late final _quantity = TextEditingController(
-    text: widget.existing != null ? '${widget.existing!.quantity}' : '5',
-  );
   late final _selling = TextEditingController(
     text: widget.existing != null ? '${widget.existing!.sellingPrice}' : '',
   );
@@ -38,7 +35,6 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
   @override
   void dispose() {
     _name.dispose();
-    _quantity.dispose();
     _selling.dispose();
     _description.dispose();
     _subcategory.dispose();
@@ -139,7 +135,6 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
       return;
     }
 
-    final quantity = int.parse(_quantity.text.trim());
     store.addItem(
       InventoryItem(
         id: _productId,
@@ -148,8 +143,10 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
         subcategory: _subcategory.text.trim(),
         petType: _petType,
         brand: _brand.text.trim(),
-        quantity: quantity,
-        reorderLevel: (quantity * 0.2).ceil().clamp(1, 100),
+        // New products start at zero. Quantity is managed by the audited
+        // Stock In/Stock Out workflow after the product has been created.
+        quantity: 0,
+        reorderLevel: 1,
         unit: 'pcs',
         purchasePrice: 0,
         sellingPrice: int.parse(_selling.text.trim()),
@@ -224,17 +221,6 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                 const _AddSectionLabel('Product images'),
                 const SizedBox(height: 10),
                 _ProductImageSlots(images: _images, onTap: _pickPhoto),
-                const SizedBox(height: 18),
-                const _AddSectionLabel('Stock'),
-                const SizedBox(height: 10),
-                _AddField(
-                  controller: _quantity,
-                  label: _isEdit ? 'Stock (locked)' : 'Stock',
-                  icon: Icons.numbers_rounded,
-                  keyboardType: TextInputType.number,
-                  enabled: !_isEdit,
-                  validator: _isEdit ? null : _positiveIntValidator,
-                ),
                 const SizedBox(height: 8),
                 const _AddSectionLabel('Pricing'),
                 const SizedBox(height: 10),
@@ -292,7 +278,6 @@ class _AddField extends StatelessWidget {
     required this.icon,
     this.keyboardType,
     this.validator,
-    this.enabled = true,
     this.maxLines = 1,
   });
 
@@ -301,7 +286,6 @@ class _AddField extends StatelessWidget {
   final IconData icon;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
-  final bool enabled;
   final int maxLines;
 
   @override
@@ -311,7 +295,6 @@ class _AddField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
-      enabled: enabled,
       maxLines: maxLines,
       decoration: _input(label, icon),
     ),
