@@ -111,6 +111,20 @@ export async function createRecord(table, value, { ownerId } = {}) {
   }]);
 }
 
+// Queue lifecycle writes must go through the server-owned state machine. The
+// generic table sync route is intentionally read-only for queue entries.
+export async function checkInQueue(appointmentId, priority = 'normal') {
+  return request('POST', '/queue/check-in', { appointmentId, priority });
+}
+
+export async function transitionQueue(appointmentId, status, version, fields = {}) {
+  return request(
+    'POST',
+    `/queue/${encodeURIComponent(appointmentId)}/transition`,
+    { status, version, ...fields },
+  );
+}
+
 export async function changePassword(currentPassword, newPassword) {
   return request('POST', '/auth/change-password', {
     currentPassword,

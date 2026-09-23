@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test test/*.test.js",
-    "test:realtime": "node scripts/realtime_check.js",
+    "test:realtime": "node --test test/realtime.unit.test.js",
     "seed:pet-owner": "node scripts/seedPetOwner.js",
     "seed:accounts": "node scripts/seedAccounts.js",
     "seed:sample": "node scripts/seedSampleData.js",

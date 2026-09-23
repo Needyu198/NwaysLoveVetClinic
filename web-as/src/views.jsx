@@ -7,6 +7,7 @@ import {
   createRecord,
   changePassword,
   getAccount,
+  transitionQueue,
 } from './api.js';
 import InventoryForm from './InventoryForm.jsx';
 
@@ -254,37 +255,25 @@ export function WalkInView({ refreshKey }) {
 
 export function QueueView({ refreshKey }) {
   const { records, loading, error, reload } = useTable('queue_entries', refreshKey);
-  const appointments = useTable('appointments', refreshKey);
   async function advance(record) {
     const v = val(record);
     const next = {
-      waiting: 'called', almostTurn: 'called', called: 'inConsultation',
-      inConsultation: 'completed', completed: 'completed',
+      waiting: 'called', almostTurn: 'called', called: 'arrived',
+      arrived: 'inConsultation', inConsultation: 'completed',
     }[v.status] || 'called';
-    const appointmentStatus = {
-      called: 'Called', inConsultation: 'In Consultation', completed: 'Completed',
-    }[next];
-    const appointment = { ...v.appointment, status: appointmentStatus };
-    const patch = {
-      status: next,
-      appointment,
-      petsAhead: next === 'called' || next === 'inConsultation' || next === 'completed' ? 0 : v.petsAhead,
-      estimatedWaitMinutes: next === 'called' || next === 'inConsultation' || next === 'completed' ? 0 : v.estimatedWaitMinutes,
-      room: next === 'called' && !v.room ? 'Consultation Room 2' : v.room,
-    };
+    const fields = {};
+    if (next === 'called') fields.room = v.room || 'Consultation Room 2';
+    if (next === 'completed') {
+      const medicalRecordId = window.prompt(
+        'Finalized medical record ID required before completion:',
+        v.medicalRecordId || '',
+      );
+      if (!medicalRecordId) return;
+      fields.medicalRecordId = medicalRecordId.trim();
+    }
     try {
-      await updateRecord('queue_entries', record, patch);
-      const source = appointments.records.find(a => val(a).id === appointment.id);
-      if (source) await updateRecord('appointments', source, { status: appointmentStatus });
-      const pet = appointment.pet?.name || 'your pet';
-      const message = appointmentStatus === 'Called'
-        ? `It is ${pet}'s turn. Please proceed to the room.`
-        : appointmentStatus === 'In Consultation'
-          ? `${pet}'s consultation has started.`
-          : `${pet}'s visit is complete.`;
-      await notifyOwner(record, 'Appointment update', message);
+      await transitionQueue(v.appointmentId || v.appointment?.id, next, record.version, fields);
       reload();
-      appointments.reload();
     } catch (e) { alert(e.message); }
   }
   return (
@@ -296,7 +285,7 @@ export function QueueView({ refreshKey }) {
         </tr></thead><tbody>{records.map(r => { const v = val(r); const a = v.appointment || {}; return <tr key={r.id}>
           <td>{v.queueNumber}</td><td>{a.pet?.name || '—'}</td><td>{a.service?.name || '—'}</td>
           <td>{a.veterinarian || 'Unassigned'}</td><td>{v.status}</td><td>{v.estimatedWaitMinutes || 0} min</td>
-          <td>{v.status !== 'completed' && <button className="link-btn" onClick={() => advance(r)}>{v.status === 'called' ? 'Start consultation' : v.status === 'inConsultation' ? 'Complete' : 'Call patient'}</button>}</td>
+          <td>{!['completed', 'missed', 'cancelled'].includes(v.status) && <button className="link-btn" onClick={() => advance(r)}>{v.status === 'called' ? 'Mark arrived' : v.status === 'arrived' ? 'Start consultation' : v.status === 'inConsultation' ? 'Complete' : 'Call patient'}</button>}</td>
         </tr>; })}</tbody></table></div>
       </StateWrap>
     </div>

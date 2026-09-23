@@ -2,13 +2,13 @@
 //
 // After any successful /data/:table/sync commit, the API calls broadcastChange()
 // to notify connected clients that a table changed. Clients (Flutter and the
-// React staff app) listen for "data:changed" and refresh the affected table,
-// giving a live queue and live updates across all synced tables.
+// React staff app) listen for "data:changed" and the queue-specific
+// "queue:changed" domain event, giving every queue screen one coherent refresh.
 //
 // Auth: a client passes its session token in the Socket.io handshake auth. We
 // validate it against app_sessions (same scheme as the REST middleware) so only
-// authenticated sessions receive events. Clients join a room per role so we can
-// scope broadcasts if needed later.
+// authenticated sessions receive events. Owner-specific changes go only to the
+// affected account plus clinic roles; clinic-wide changes go to all clients.
 
 const crypto = require('node:crypto');
 const { Server } = require('socket.io');
@@ -71,11 +71,18 @@ function attachRealtime(httpServer, pool) {
  */
 function broadcastChange(table, meta = {}) {
   if (!io) return;
-  io.emit('data:changed', { table, at: Date.now(), ...meta });
+  const audience = meta.ownerId
+    ? io
+        .to(`account:${meta.ownerId}`)
+        .to('role:staff')
+        .to('role:doctor')
+        .to('role:systemAdmin')
+    : io;
+  audience.emit('data:changed', { table, at: Date.now(), ...meta });
   if (queueTables.includes(table)) {
     // Queue screens use different tables depending on the signed-in role.
     // One domain event lets every path refresh its permitted queue snapshot.
-    io.emit('queue:changed', {
+    audience.emit('queue:changed', {
       sourceTable: table,
       tables: queueTables,
       at: Date.now(),

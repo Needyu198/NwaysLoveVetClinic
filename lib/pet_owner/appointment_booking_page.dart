@@ -1432,7 +1432,10 @@ class _MyQueuePageState extends State<MyQueuePage> {
             ),
             Expanded(
               child: AnimatedBuilder(
-                animation: QueueStore.instance,
+                animation: Listenable.merge([
+                  QueueStore.instance,
+                  RealtimeClient.instance,
+                ]),
                 builder: (context, _) {
                   final entries = QueueStore.instance.active;
                   return RefreshIndicator(

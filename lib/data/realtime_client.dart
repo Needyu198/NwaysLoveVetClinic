@@ -12,12 +12,13 @@ import 'database_sync.dart';
 ///
 /// Degrades gracefully: if the socket cannot connect, the app keeps working via
 /// normal sync/refresh; realtime just won't be active.
-class RealtimeClient {
+class RealtimeClient extends ChangeNotifier {
   RealtimeClient._();
   static final RealtimeClient instance = RealtimeClient._();
 
   io.Socket? _socket;
   Timer? _queueRefreshDebounce;
+  final Set<String> _pendingQueueTables = {};
   Future<void> Function()? queueRefreshHook;
 
   static const queueTables = {
@@ -43,14 +44,25 @@ class RealtimeClient {
       ClinicApi.instance.baseUrl,
       io.OptionBuilder()
           .setTransports(['websocket'])
+          .enableReconnection()
           .disableAutoConnect()
           .setAuth({'token': token})
           .build(),
     );
 
-    socket.onConnect((_) => debugPrint('Realtime connected'));
-    socket.onDisconnect((_) => debugPrint('Realtime disconnected'));
-    socket.onConnectError((e) => debugPrint('Realtime connect error: $e'));
+    socket.onConnect((_) {
+      debugPrint('Realtime connected');
+      notifyListeners();
+      unawaited(queueRefreshHook?.call() ?? Future<void>.value());
+    });
+    socket.onDisconnect((_) {
+      debugPrint('Realtime disconnected');
+      notifyListeners();
+    });
+    socket.onConnectError((e) {
+      debugPrint('Realtime connect error: $e');
+      notifyListeners();
+    });
 
     socket.on('data:changed', (payload) {
       if (payload is Map && payload['table'] is String) {
@@ -69,28 +81,41 @@ class RealtimeClient {
                   ? (payload['tables'] as List).whereType<String>()
                   : queueTables)
               .toSet();
-      // A single queue action can persist appointments, queue entries and
-      // doctor state in rapid succession. Coalesce that burst so the refresh
-      // happens after the complete action instead of loading an intermediate
-      // snapshot and dropping the later event while busy.
-      _queueRefreshDebounce?.cancel();
-      _queueRefreshDebounce = Timer(
-        const Duration(milliseconds: 150),
-        () async {
-          await DatabaseSync.instance.refreshTables(tables);
-          await queueRefreshHook?.call();
-        },
-      );
+      _scheduleQueueRefresh(tables);
     });
 
     socket.connect();
     _socket = socket;
   }
 
+  void _scheduleQueueRefresh(
+    Iterable<String> tables, {
+    Duration delay = const Duration(milliseconds: 150),
+  }) {
+    _pendingQueueTables.addAll(tables);
+    _queueRefreshDebounce?.cancel();
+    _queueRefreshDebounce = Timer(delay, () async {
+      // Do not lose a socket event merely because a normal sync is in flight.
+      if (DatabaseSync.instance.busy) {
+        _scheduleQueueRefresh(
+          const [],
+          delay: const Duration(milliseconds: 300),
+        );
+        return;
+      }
+      final requested = Set<String>.from(_pendingQueueTables);
+      _pendingQueueTables.clear();
+      await DatabaseSync.instance.refreshTables(requested);
+      await queueRefreshHook?.call();
+    });
+  }
+
   void disconnect() {
     _queueRefreshDebounce?.cancel();
     _queueRefreshDebounce = null;
+    _pendingQueueTables.clear();
     _socket?.dispose();
     _socket = null;
+    notifyListeners();
   }
 }
