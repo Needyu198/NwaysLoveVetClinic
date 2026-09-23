@@ -34,13 +34,21 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
     _attachments = [...?draft?.attachmentAssets ?? post?.attachmentAssets];
     _category = draft?.category ?? post?.category ?? 'Pet Health';
     _audience = draft?.audience ?? post?.audience ?? 'All Pets';
+    _title.addListener(_refreshComposer);
+    _content.addListener(_refreshComposer);
   }
 
   @override
   void dispose() {
+    _title.removeListener(_refreshComposer);
+    _content.removeListener(_refreshComposer);
     _title.dispose();
     _content.dispose();
     super.dispose();
+  }
+
+  void _refreshComposer() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -56,229 +64,276 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(11),
-                        decoration: BoxDecoration(
-                          color: DoctorStyles.mint,
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                        child: Column(
-                          children: [
-                            _CoverPicker(
-                              asset: _coverAsset,
-                              onPressed: _chooseCover,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const _ComposerTip(),
+                    const SizedBox(height: 14),
+                    _ComposerSection(
+                      icon: Icons.image_outlined,
+                      title: 'Cover photo',
+                      subtitle:
+                          'Help pet owners understand your topic quickly.',
+                      child: _CoverPicker(
+                        asset: _coverAsset,
+                        onPressed: _chooseCover,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _ComposerSection(
+                      icon: Icons.tune_rounded,
+                      title: 'Post details',
+                      subtitle:
+                          'Choose a clear headline and who should see it.',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _ComposerFieldLabel(
+                            label: 'Headline',
+                            trailing: '${_title.text.characters.length}/100',
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            key: const ValueKey('doctor-post-title'),
+                            controller: _title,
+                            maxLength: 100,
+                            textCapitalization: TextCapitalization.sentences,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
                             ),
-                            const SizedBox(height: 16),
-                            TextField(
-                              key: const ValueKey('doctor-post-title'),
-                              controller: _title,
-                              textCapitalization: TextCapitalization.sentences,
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              decoration: _composerDecoration(
-                                'Write a headline....',
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    key: const ValueKey('doctor-post-category'),
-                                    isExpanded: true,
-                                    initialValue: _category,
-                                    decoration: _composerDecoration('Category'),
-                                    items:
-                                        const [
-                                              'Pet Health',
-                                              'Nutrition',
-                                              'Vaccination',
-                                              'Prevention',
-                                              'Clinic News',
-                                            ]
-                                            .map(
-                                              (value) => DropdownMenuItem(
-                                                value: value,
-                                                child: Text(
-                                                  value,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            )
-                                            .toList(),
-                                    onChanged: (value) => setState(
-                                      () => _category = value ?? _category,
-                                    ),
+                            decoration: _composerDecoration(
+                              'Write a clear, helpful headline',
+                            ).copyWith(counterText: ''),
+                          ),
+                          const SizedBox(height: 16),
+                          const _ComposerFieldLabel(label: 'Category'),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            key: const ValueKey('doctor-post-category'),
+                            isExpanded: true,
+                            initialValue: _category,
+                            decoration: _composerDecoration('Select category'),
+                            items:
+                                const [
+                                      'Pet Health',
+                                      'Nutrition',
+                                      'Vaccination',
+                                      'Prevention',
+                                      'Clinic News',
+                                    ]
+                                    .map(
+                                      (value) => DropdownMenuItem(
+                                        value: value,
+                                        child: Text(value),
+                                      ),
+                                    )
+                                    .toList(),
+                            onChanged: (value) =>
+                                setState(() => _category = value ?? _category),
+                          ),
+                          const SizedBox(height: 16),
+                          const _ComposerFieldLabel(label: 'Audience'),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            key: const ValueKey('doctor-post-audience'),
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final value in const [
+                                'All Pets',
+                                'Dogs',
+                                'Cats',
+                              ])
+                                ChoiceChip(
+                                  label: Text(value),
+                                  selected: _audience == value,
+                                  onSelected: (_) =>
+                                      setState(() => _audience = value),
+                                  selectedColor: DoctorStyles.mint,
+                                  backgroundColor: DoctorStyles.page,
+                                  side: BorderSide(
+                                    color: _audience == value
+                                        ? DoctorStyles.green
+                                        : DoctorStyles.border,
                                   ),
+                                  labelStyle: TextStyle(
+                                    color: const Color(0xFF24332E),
+                                    fontWeight: _audience == value
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
+                                  ),
+                                  showCheckmark: true,
+                                  checkmarkColor: DoctorStyles.green,
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    key: const ValueKey('doctor-post-audience'),
-                                    isExpanded: true,
-                                    initialValue: _audience,
-                                    decoration: _composerDecoration('Audience'),
-                                    items: const ['All Pets', 'Dogs', 'Cats']
-                                        .map(
-                                          (value) => DropdownMenuItem(
-                                            value: value,
-                                            child: Text(
-                                              value,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        )
-                                        .toList(),
-                                    onChanged: (value) => setState(
-                                      () => _audience = value ?? _audience,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Container(
-                              height: 448,
-                              padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(28),
-                              ),
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      key: const ValueKey(
-                                        'doctor-post-content',
-                                      ),
-                                      controller: _content,
-                                      expands: true,
-                                      maxLines: null,
-                                      minLines: null,
-                                      textAlignVertical: TextAlignVertical.top,
-                                      textCapitalization:
-                                          TextCapitalization.sentences,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        height: 1.35,
-                                      ),
-                                      decoration: const InputDecoration(
-                                        hintText: 'Write a post....',
-                                        hintStyle: TextStyle(
-                                          color: Color(0xFFB8B8B8),
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                        border: InputBorder.none,
-                                      ),
-                                    ),
-                                  ),
-                                  InkWell(
-                                    key: const ValueKey('attach-post-images'),
-                                    onTap: _chooseAttachments,
-                                    borderRadius: BorderRadius.circular(18),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 12,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.add_photo_alternate_outlined,
-                                            color: Color(0xFF525C59),
-                                            size: 22,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              _attachments.isEmpty
-                                                  ? 'Add photos.....'
-                                                  : '${_attachments.length} photo(s) added • tap to add more',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: Color(0xFF777F7D),
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (_attachments.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              _AttachmentStrip(
-                                attachments: _attachments,
-                                onRemove: _removeAttachment,
-                              ),
                             ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _ComposerSection(
+                      icon: Icons.edit_note_rounded,
+                      title: 'Write your post',
+                      subtitle:
+                          'Keep advice simple, practical, and easy to scan.',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _ComposerFieldLabel(
+                            label: 'Post content',
+                            trailing: '${_content.text.characters.length}/3000',
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            key: const ValueKey('doctor-post-content'),
+                            controller: _content,
+                            minLines: 9,
+                            maxLines: 14,
+                            maxLength: 3000,
+                            textCapitalization: TextCapitalization.sentences,
+                            style: const TextStyle(fontSize: 16, height: 1.45),
+                            decoration:
+                                _composerDecoration(
+                                  'Share useful advice with pet owners…',
+                                ).copyWith(
+                                  counterText: '',
+                                  contentPadding: const EdgeInsets.all(16),
+                                ),
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            key: const ValueKey('attach-post-images'),
+                            onPressed: _chooseAttachments,
+                            icon: const Icon(
+                              Icons.add_photo_alternate_outlined,
+                            ),
+                            label: Text(
+                              _attachments.isEmpty
+                                  ? 'Add supporting photos'
+                                  : 'Add more photos (${_attachments.length})',
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: DoctorStyles.green,
+                              minimumSize: const Size.fromHeight(48),
+                              side: const BorderSide(
+                                color: DoctorStyles.border,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                          if (_attachments.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            _AttachmentStrip(
+                              attachments: _attachments,
+                              onRemove: _removeAttachment,
+                            ),
                           ],
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      Row(
+                    ),
+                    const SizedBox(height: 14),
+                    _ComposerSection(
+                      icon: Icons.fact_check_outlined,
+                      title: 'Before publishing',
+                      subtitle:
+                          'Save your progress or preview the owner experience.',
+                      child: Row(
                         children: [
                           Expanded(
-                            child: _PostActionButton(
+                            child: OutlinedButton.icon(
                               key: const ValueKey('save-doctor-post-draft'),
-                              label: 'Save to Draft',
                               onPressed: _saveDraft,
+                              icon: const Icon(Icons.save_outlined),
+                              label: const Text('Save draft'),
+                              style: _secondaryActionStyle(),
                             ),
                           ),
-                          const SizedBox(width: 34),
+                          const SizedBox(width: 10),
                           Expanded(
-                            child: _PostActionButton(
+                            child: OutlinedButton.icon(
                               key: const ValueKey('view-doctor-post-draft'),
-                              label: 'View Draft',
                               onPressed: _viewDraft,
+                              icon: const Icon(Icons.visibility_outlined),
+                              label: const Text('Preview'),
+                              style: _secondaryActionStyle(),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _PostActionButton(
-                              key: const ValueKey('publish-doctor-post'),
-                              label: _saving
-                                  ? 'Publishing…'
-                                  : widget.editingPost == null
-                                  ? 'Post Now'
-                                  : 'Save Post',
-                              large: true,
-                              onPressed: _saving ? null : _publish,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _PostActionButton(
-                              key: const ValueKey('schedule-doctor-post'),
-                              label: 'Schedule',
-                              large: true,
-                              onPressed: _saving ? null : _schedule,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: DoctorStyles.border)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const ValueKey('schedule-doctor-post'),
+                  onPressed: _saving ? null : _schedule,
+                  icon: const Icon(Icons.schedule_rounded),
+                  label: const Text('Schedule'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: DoctorStyles.green,
+                    minimumSize: const Size.fromHeight(52),
+                    side: const BorderSide(color: DoctorStyles.green),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  key: const ValueKey('publish-doctor-post'),
+                  onPressed: _saving ? null : _publish,
+                  icon: _saving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded),
+                  label: Text(
+                    _saving
+                        ? 'Publishing…'
+                        : widget.editingPost == null
+                        ? 'Publish now'
+                        : 'Save changes',
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: DoctorStyles.green,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(52),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -291,12 +346,29 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
       fontWeight: FontWeight.w700,
     ),
     filled: true,
-    fillColor: Colors.white,
+    fillColor: DoctorStyles.page,
     contentPadding: const EdgeInsets.symmetric(horizontal: 17, vertical: 15),
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(28),
-      borderSide: BorderSide.none,
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: DoctorStyles.border),
     ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: DoctorStyles.border),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: DoctorStyles.green, width: 1.8),
+    ),
+  );
+
+  ButtonStyle _secondaryActionStyle() => OutlinedButton.styleFrom(
+    foregroundColor: DoctorStyles.green,
+    minimumSize: const Size.fromHeight(48),
+    padding: const EdgeInsets.symmetric(horizontal: 10),
+    side: const BorderSide(color: DoctorStyles.border),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    textStyle: const TextStyle(fontWeight: FontWeight.w700),
   );
 
   Future<void> _chooseCover() async {
@@ -940,6 +1012,146 @@ class _PublishedManagerCard extends StatelessWidget {
   );
 }
 
+class _ComposerTip extends StatelessWidget {
+  const _ComposerTip();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: DoctorStyles.mint,
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.lightbulb_outline_rounded, color: DoctorStyles.green),
+        SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Use a clear title, short paragraphs, and practical advice pet owners can follow.',
+            style: TextStyle(
+              color: Color(0xFF40504A),
+              fontSize: 14,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ComposerSection extends StatelessWidget {
+  const _ComposerSection({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: DoctorStyles.border),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x0D1F4B3C),
+          blurRadius: 16,
+          offset: Offset(0, 5),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: DoctorStyles.mint,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: DoctorStyles.green, size: 22),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Color(0xFF1F2C28),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Color(0xFF71807B),
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        child,
+      ],
+    ),
+  );
+}
+
+class _ComposerFieldLabel extends StatelessWidget {
+  const _ComposerFieldLabel({required this.label, this.trailing});
+
+  final String label;
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF33413C),
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      if (trailing != null)
+        Text(
+          trailing!,
+          style: const TextStyle(
+            color: Color(0xFF87938F),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+    ],
+  );
+}
+
 class _CoverPicker extends StatelessWidget {
   const _CoverPicker({required this.asset, required this.onPressed});
 
@@ -948,33 +1160,88 @@ class _CoverPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: const Color(0xFFB8C8C4),
-    borderRadius: BorderRadius.circular(27),
+    color: DoctorStyles.page,
+    borderRadius: BorderRadius.circular(18),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
       key: const ValueKey('doctor-post-cover'),
       onTap: onPressed,
-      child: SizedBox(
-        height: 202,
+      child: Container(
+        height: 182,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: DoctorStyles.border),
+        ),
         child: asset.isEmpty
             ? const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.upload_file_outlined, color: Color(0xFF525C59)),
-                    SizedBox(height: 9),
-                    Text(
-                      'Upload a cover image',
-                      style: TextStyle(
-                        color: Color(0xFF777F7D),
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
+                    CircleAvatar(
+                      radius: 25,
+                      backgroundColor: DoctorStyles.mint,
+                      child: Icon(
+                        Icons.add_photo_alternate_outlined,
+                        color: DoctorStyles.green,
+                        size: 27,
                       ),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      'Add cover photo',
+                      style: TextStyle(
+                        color: Color(0xFF33413C),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Recommended 16:9 • JPG or PNG',
+                      style: TextStyle(color: Color(0xFF7A8782), fontSize: 12),
                     ),
                   ],
                 ),
               )
-            : DoctorPostImage(asset: asset, cover: true),
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  DoctorPostImage(asset: asset, cover: true),
+                  Positioned(
+                    right: 10,
+                    bottom: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xD9000000),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.edit_outlined,
+                            color: Colors.white,
+                            size: 15,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'Change cover',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     ),
   );
@@ -1029,37 +1296,6 @@ class _AttachmentStrip extends StatelessWidget {
       ),
     );
   }
-}
-
-class _PostActionButton extends StatelessWidget {
-  const _PostActionButton({
-    required this.label,
-    required this.onPressed,
-    this.large = false,
-    super.key,
-  });
-
-  final String label;
-  final VoidCallback? onPressed;
-  final bool large;
-
-  @override
-  Widget build(BuildContext context) => FilledButton(
-    onPressed: onPressed,
-    style: FilledButton.styleFrom(
-      backgroundColor: DoctorStyles.mint,
-      foregroundColor: Colors.black,
-      elevation: 0,
-      minimumSize: Size.fromHeight(large ? 48 : 46),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      shape: const StadiumBorder(),
-      textStyle: TextStyle(
-        fontSize: large ? 25 : 18,
-        fontWeight: large ? FontWeight.w500 : FontWeight.w600,
-      ),
-    ),
-    child: FittedBox(child: Text(label)),
-  );
 }
 
 class DoctorPostDetailPage extends StatefulWidget {

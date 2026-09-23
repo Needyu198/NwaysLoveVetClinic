@@ -10,6 +10,43 @@ const _pixel =
 void main() {
   tearDown(DoctorPostStore.instance.reset);
 
+  testWidgets(
+    'create post composer has guided sections and reachable actions',
+    (tester) async {
+      tester.view.physicalSize = const Size(440, 956);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(const MaterialApp(home: DoctorCreatePostPage()));
+
+      expect(find.text('Cover photo'), findsOneWidget);
+      expect(find.text('Post details'), findsOneWidget);
+      expect(find.text('Write your post'), findsOneWidget);
+      expect(find.text('0/100'), findsOneWidget);
+      expect(find.byKey(const ValueKey('publish-doctor-post')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('schedule-doctor-post')),
+        findsOneWidget,
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('doctor-post-title')),
+        'Healthy pets',
+      );
+      await tester.pump();
+      expect(find.text('12/100'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Cats'));
+      await tester.pump();
+      final catsChip = tester.widget<ChoiceChip>(
+        find.widgetWithText(ChoiceChip, 'Cats'),
+      );
+      expect(catsChip.selected, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test(
     'doctor post lifecycle supports multiple drafts and archive restore',
     () {

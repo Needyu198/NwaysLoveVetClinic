@@ -363,6 +363,9 @@ void main() {
       find.byKey(const ValueKey('doctor-post-content')),
       'Daily play, fresh water, and regular checkups make a lasting difference.',
     );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('attach-post-images')),
+    );
     await tester.tap(find.byKey(const ValueKey('attach-post-images')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add clinic gallery'));
