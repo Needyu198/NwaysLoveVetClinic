@@ -62,6 +62,7 @@ class _PetProductsPageState extends State<PetProductsPage> {
           lowered.isEmpty ||
           product.name.toLowerCase().contains(lowered) ||
           product.brand.toLowerCase().contains(lowered) ||
+          product.subcategory.toLowerCase().contains(lowered) ||
           product.petType.toLowerCase().contains(lowered);
       return categoryMatch && queryMatch;
     }).toList();
@@ -96,13 +97,6 @@ class _PetProductsPageState extends State<PetProductsPage> {
                   onLogoTap: () => Navigator.of(
                     context,
                   ).pushReplacementNamed(PetOwnerHomePage.routeName),
-                  actions: [
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.shopping_cart_outlined),
-                      tooltip: 'Cart',
-                    ),
-                  ],
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
@@ -110,9 +104,31 @@ class _PetProductsPageState extends State<PetProductsPage> {
                     onChanged: (value) => setState(() => _query = value),
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Product Options',
+                      key: const ValueKey('product-options-title'),
+                      style: ProductStyles.sectionTitle,
+                    ),
+                  ),
+                ),
                 _CategoryIconStrip(
                   selected: _category,
                   onChanged: (value) => setState(() => _category = value),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Recommended Products',
+                      key: ValueKey('recommended-products-title'),
+                      style: ProductStyles.sectionTitle,
+                    ),
+                  ),
                 ),
                 _SortBar(
                   sort: _sort,
@@ -153,19 +169,31 @@ class _PetProductsPageState extends State<PetProductsPage> {
             child: PetOwnerNavBar(
               selectedItem: PetOwnerNavItem.shop,
               onPetsTap: () {
-                Navigator.of(
+                navigatePetOwnerTab(
                   context,
-                ).pushReplacementNamed(PetOwnerHomePage.routeName);
+                  from: PetOwnerNavItem.shop,
+                  to: PetOwnerNavItem.pets,
+                  routeName: PetOwnerHomePage.routeName,
+                  builder: (_) => const PetOwnerHomePage(),
+                );
               },
               onAppointmentsTap: () {
-                Navigator.of(
+                navigatePetOwnerTab(
                   context,
-                ).pushReplacementNamed(PetOwnerClinicPage.routeName);
+                  from: PetOwnerNavItem.shop,
+                  to: PetOwnerNavItem.appointments,
+                  routeName: PetOwnerClinicPage.routeName,
+                  builder: (_) => const PetOwnerClinicPage(),
+                );
               },
               onProfileTap: () {
-                Navigator.of(
+                navigatePetOwnerTab(
                   context,
-                ).pushReplacementNamed(PetOwnerProfilePage.routeName);
+                  from: PetOwnerNavItem.shop,
+                  to: PetOwnerNavItem.profile,
+                  routeName: PetOwnerProfilePage.routeName,
+                  builder: (_) => const PetOwnerProfilePage(),
+                );
               },
             ),
           ),
@@ -231,11 +259,6 @@ class ProductDetailsPage extends StatelessWidget {
       );
     }
     final product = args is Product ? args : products.first;
-    final related = products
-        .where((p) => p.name != product.name)
-        .take(4)
-        .toList();
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -248,55 +271,16 @@ class ProductDetailsPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Hero image + top controls + image count indicator.
+                    // Product photo gallery with a single, familiar back action.
                     Stack(
                       children: [
-                        ProductArt(product: product, large: true),
+                        _ProductGallery(product: product),
                         Positioned(
                           left: 14,
                           top: 12,
                           child: _CircleButton(
                             icon: Icons.arrow_back_ios_new_rounded,
                             onTap: () => Navigator.of(context).pop(),
-                          ),
-                        ),
-                        Positioned(
-                          right: 14,
-                          top: 12,
-                          child: Row(
-                            children: [
-                              _CircleButton(
-                                icon: Icons.share_outlined,
-                                onTap: () {},
-                              ),
-                              const SizedBox(width: 8),
-                              _CircleButton(
-                                icon: Icons.close_rounded,
-                                onTap: () => Navigator.of(context).pop(),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Positioned(
-                          right: 14,
-                          bottom: 12,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.55),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: const Text(
-                              '1/1',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                              ),
-                            ),
                           ),
                         ),
                       ],
@@ -309,37 +293,13 @@ class ProductDetailsPage extends StatelessWidget {
                         horizontal: 18,
                         vertical: 12,
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              product.name,
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              product.weight,
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        product.name,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                     Padding(
@@ -347,65 +307,19 @@ class ProductDetailsPage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Let long MMK amounts and discounts move onto a
-                          // second line on narrow phones.
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.end,
-                            children: [
-                              Text(
-                                formatMmk(product.price),
-                                style: const TextStyle(
-                                  color: ProductStyles.red,
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              if (product.discountPercent > 0) ...[
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 4),
-                                  child: Text(
-                                    formatMmk(product.originalPrice),
-                                    style: const TextStyle(
-                                      color: ProductStyles.muted,
-                                      fontSize: 14,
-                                      decoration: TextDecoration.lineThrough,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                _DiscountBadge(
-                                  percent: product.discountPercent,
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 6),
                           Text(
-                            '${product.brand} • ${product.petType}',
-                            style: ProductStyles.caption,
+                            formatMmk(product.price),
+                            key: const ValueKey('product-detail-price'),
+                            style: const TextStyle(
+                              color: ProductStyles.red,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                           const SizedBox(height: 14),
-                          _StockPill(stock: product.stock),
-                          const Divider(height: 30),
-                          // Variations placeholder (no variation data yet).
-                          _DetailRow(
-                            leading: 'Variations',
-                            trailing: product.weight,
-                          ),
-                          const Divider(height: 1),
-                          // Seller row (no seller data — clinic shop).
-                          _SellerRow(shopName: product.brand),
-                          const Divider(height: 30),
-                          const _IconLineRow(
-                            icon: Icons.verified_user_outlined,
-                            label: 'Secure payment',
-                          ),
-                          const SizedBox(height: 10),
-                          const _IconLineRow(
-                            icon: Icons.chat_bubble_outline_rounded,
-                            label: 'Chat with the clinic',
+                          KeyedSubtree(
+                            key: const ValueKey('product-detail-stock'),
+                            child: _StockPill(stock: product.stock),
                           ),
                           const Divider(height: 30),
                           const Text(
@@ -413,16 +327,10 @@ class ProductDetailsPage extends StatelessWidget {
                             style: ProductStyles.sectionTitle,
                           ),
                           const SizedBox(height: 10),
-                          _Description(text: product.description),
-                          const Divider(height: 34),
-                          if (related.isNotEmpty) ...[
-                            const Text(
-                              'More for you',
-                              style: ProductStyles.sectionTitle,
-                            ),
-                            const SizedBox(height: 12),
-                            _RelatedRail(products: related),
-                          ],
+                          KeyedSubtree(
+                            key: const ValueKey('product-detail-description'),
+                            child: _Description(text: product.description),
+                          ),
                           const SizedBox(height: 24),
                         ],
                       ),
@@ -431,8 +339,6 @@ class ProductDetailsPage extends StatelessWidget {
                 ),
               ),
             ),
-            // Sticky bottom action bar.
-            _BuyBar(product: product),
           ],
         ),
       ),
@@ -459,6 +365,8 @@ class Product {
     required this.icon,
     this.imageAsset,
     this.photoUrl = '',
+    this.imageUrls = const [],
+    this.subcategory = '',
   });
 
   final String name;
@@ -476,6 +384,15 @@ class Product {
 
   /// Inline product image (base64 data URI) when available.
   final String photoUrl;
+  final List<String> imageUrls;
+  final String subcategory;
+
+  List<String> get galleryImages {
+    if (imageUrls.isNotEmpty) return imageUrls;
+    if (photoUrl.isNotEmpty) return [photoUrl];
+    if ((imageAsset ?? '').isNotEmpty) return [imageAsset!];
+    return const [];
+  }
 
   int get discountPercent {
     if (originalPrice <= 0 || originalPrice <= price) return 0;
@@ -567,14 +484,19 @@ List<Product> get products => ClinicApi.instance.token == null
             (item) => Product(
               name: item.name,
               category: _normalizedProductCategory(item.category),
-              brand: item.supplier.isEmpty ? 'Clinic Shop' : item.supplier,
+              subcategory: item.subcategory,
+              brand: item.brand.isNotEmpty
+                  ? item.brand
+                  : item.supplier.isEmpty
+                  ? 'Clinic Shop'
+                  : item.supplier,
               price: item.sellingPrice,
               originalPrice: _originalPriceFor(item.id, item.sellingPrice),
               stock: item.quantity,
               description: item.description.isNotEmpty
                   ? item.description
                   : '${item.name}. Category: ${item.category}.',
-              petType: 'Pets',
+              petType: item.petType,
               weight: item.unit,
               color: _categoryColor(item.category),
               icon: _categoryIcon(item.category),
@@ -590,6 +512,7 @@ List<Product> get products => ClinicApi.instance.token == null
                       item.imageAsset!.startsWith('data:'))
                   ? item.imageAsset!
                   : '',
+              imageUrls: item.productImages,
             ),
           )
           .toList();
@@ -792,27 +715,33 @@ class _SortBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          InkWell(
-            onTap: onSortTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8FFF5),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    sort,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
+          Tooltip(
+            message: 'Filter and sort',
+            child: InkWell(
+              onTap: onSortTap,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8FFF5),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      sort,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.swap_vert_rounded, size: 18),
-                ],
+                    const SizedBox(width: 4),
+                    const Icon(Icons.swap_vert_rounded, size: 18),
+                  ],
+                ),
               ),
             ),
           ),
@@ -868,30 +797,7 @@ class _ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AspectRatio(
-              aspectRatio: 1,
-              child: Stack(
-                children: [
-                  Positioned.fill(child: ProductArt(product: product)),
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(5),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.favorite_border_rounded,
-                        size: 16,
-                        color: Color(0xFF98A2B3),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            AspectRatio(aspectRatio: 1, child: ProductArt(product: product)),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Column(
@@ -948,17 +854,81 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
+class _ProductGallery extends StatefulWidget {
+  const _ProductGallery({required this.product});
+  final Product product;
+
+  @override
+  State<_ProductGallery> createState() => _ProductGalleryState();
+}
+
+class _ProductGalleryState extends State<_ProductGallery> {
+  var _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final images = widget.product.galleryImages;
+    if (images.length <= 1) {
+      return ProductArt(product: widget.product, large: true);
+    }
+    return SizedBox(
+      height: 320,
+      child: Stack(
+        children: [
+          PageView.builder(
+            key: const ValueKey('product-image-gallery'),
+            itemCount: images.length,
+            onPageChanged: (value) => setState(() => _index = value),
+            itemBuilder: (_, index) => ProductArt(
+              product: widget.product,
+              large: true,
+              imageSource: images[index],
+            ),
+          ),
+          Positioned(
+            right: 14,
+            bottom: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                '${_index + 1}/${images.length}',
+                key: const ValueKey('product-image-count'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class ProductArt extends StatelessWidget {
-  const ProductArt({required this.product, this.large = false, super.key});
+  const ProductArt({
+    required this.product,
+    this.large = false,
+    this.imageSource,
+    super.key,
+  });
   final Product product;
   final bool large;
+  final String? imageSource;
 
   @override
   Widget build(BuildContext context) {
     // Prefer a real image (base64 data URI or bundled asset) when available.
-    final bytes = product.photoUrl.isNotEmpty
-        ? _decodeDataUri(product.photoUrl)
-        : null;
+    final source =
+        imageSource ??
+        (product.photoUrl.isNotEmpty ? product.photoUrl : product.imageAsset);
+    final bytes = source == null ? null : _decodeDataUri(source);
     if (bytes != null) {
       return Container(
         color: Colors.white,
@@ -967,13 +937,13 @@ class ProductArt extends StatelessWidget {
         child: Image.memory(bytes, fit: BoxFit.contain, gaplessPlayback: true),
       );
     }
-    if (product.imageAsset != null && product.imageAsset!.isNotEmpty) {
+    if (source != null && source.startsWith('assets/')) {
       return Container(
         color: Colors.white,
         height: large ? 320 : null,
         width: large ? double.infinity : null,
         child: Image.asset(
-          product.imageAsset!,
+          source,
           fit: BoxFit.contain,
           errorBuilder: (_, _, _) => _artFallback(),
         ),
@@ -1055,29 +1025,6 @@ class _StockPill extends StatelessWidget {
   }
 }
 
-class _DiscountBadge extends StatelessWidget {
-  const _DiscountBadge({required this.percent});
-  final int percent;
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFEBEC),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        '-$percent%',
-        style: const TextStyle(
-          color: ProductStyles.red,
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Detail page widgets
 // ---------------------------------------------------------------------------
@@ -1100,79 +1047,6 @@ class _CircleButton extends StatelessWidget {
           child: Icon(icon, size: 18, color: Colors.black87),
         ),
       ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.leading, required this.trailing});
-  final String leading;
-  final String trailing;
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Text(leading, style: ProductStyles.body),
-          const Spacer(),
-          Text(trailing, style: ProductStyles.caption),
-          const SizedBox(width: 4),
-          const Icon(Icons.chevron_right_rounded, color: Color(0xFF98A2B3)),
-        ],
-      ),
-    );
-  }
-}
-
-class _SellerRow extends StatelessWidget {
-  const _SellerRow({required this.shopName});
-  final String shopName;
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 18,
-            backgroundColor: Color(0xFFEAF8F0),
-            child: Icon(Icons.store_rounded, color: Color(0xFF16785B)),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  shopName,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const Text('Sold by the clinic', style: ProductStyles.caption),
-              ],
-            ),
-          ),
-          TextButton(onPressed: () {}, child: const Text('View shop')),
-        ],
-      ),
-    );
-  }
-}
-
-class _IconLineRow extends StatelessWidget {
-  const _IconLineRow({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: const Color(0xFF16785B)),
-        const SizedBox(width: 10),
-        Text(label, style: ProductStyles.body),
-      ],
     );
   }
 }
@@ -1205,112 +1079,6 @@ class _DescriptionState extends State<_Description> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _RelatedRail extends StatelessWidget {
-  const _RelatedRail({required this.products});
-  final List<Product> products;
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      // A related card is 150 px wide, so its square artwork alone is 148 px
-      // after the border. Leave enough room for the name, price, and stock
-      // label below it; 200 px forced that content to overflow by ~60 px.
-      height: 280,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: products.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final product = products[index];
-          return SizedBox(
-            width: 150,
-            child: _ProductCard(
-              product: product,
-              onTap: () => Navigator.of(context).pushReplacementNamed(
-                ProductDetailsPage.routeName,
-                arguments: product,
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _BuyBar extends StatelessWidget {
-  const _BuyBar({required this.product});
-  final Product product;
-
-  void _notify(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final available = product.stock > 0;
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFEDEFF2))),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 48,
-                child: OutlinedButton(
-                  onPressed: available
-                      ? () => _notify(context, 'Added ${product.name} to cart.')
-                      : null,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.black,
-                    side: const BorderSide(color: Color(0xFFCED2D8)),
-                    shape: const StadiumBorder(),
-                  ),
-                  child: const Text(
-                    'Add to cart',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: SizedBox(
-                height: 48,
-                child: FilledButton(
-                  onPressed: available
-                      ? () => _notify(
-                          context,
-                          'Order placed for ${product.name}.',
-                        )
-                      : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: ProductStyles.green,
-                    shape: const StadiumBorder(),
-                  ),
-                  child: Text(
-                    available ? 'Buy Now' : 'Out of stock',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

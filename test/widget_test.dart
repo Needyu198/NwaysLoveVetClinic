@@ -1482,26 +1482,30 @@ void main() {
       await tester.enterText(field, value);
     }
 
-    await fill('Item name', 'Cat Litter 5kg');
-    await fill('Item ID / SKU', 'ACC-9001');
-    await fill('Initial quantity', '20');
-    await fill('Unit', 'bags');
-    await fill('Low-stock threshold', '5');
-    await fill('Purchase price', '2000');
-    await fill('Selling price', '3000');
+    expect(find.byKey(const ValueKey('generated-product-id')), findsOneWidget);
+    await fill('Item Name', 'Cat Litter 5kg');
+    await fill('Subcategory', 'Cat Litter');
+    await fill('Brand', 'Clean Paws');
+    await fill('Stock', '20');
+    await fill('Price', '3000');
 
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('save-inventory-item')),
       250,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.drag(find.byType(ListView), const Offset(0, -180));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('save-inventory-item')));
     await tester.pumpAndSettle();
 
-    expect(
-      StaffOperationsStore.instance.inventory.any((i) => i.id == 'ACC-9001'),
-      isTrue,
+    final saved = StaffOperationsStore.instance.inventory.firstWhere(
+      (item) => item.name == 'Cat Litter 5kg',
     );
+    expect(saved.id, startsWith('PRD-'));
+    expect(saved.subcategory, 'Cat Litter');
+    expect(saved.petType, 'Dog');
+    expect(saved.brand, 'Clean Paws');
   });
 
   testWidgets('doctor inventory is view and restock only', (
@@ -2301,13 +2305,28 @@ void main() {
 
     await tester.tap(find.byTooltip('Products'));
     await tester.pumpAndSettle();
+    expect(find.byTooltip('Cart'), findsNothing);
+    expect(find.text('Product Options'), findsOneWidget);
+    expect(find.text('Recommended Products'), findsOneWidget);
     await tester.ensureVisible(find.text('Dog Food 01'));
     await tester.tap(find.text('Dog Food 01'));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const ValueKey('product-detail-price')), findsOneWidget);
+    expect(find.byKey(const ValueKey('product-detail-stock')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('product-detail-description')),
+      findsOneWidget,
+    );
     expect(find.text('Add to Cart'), findsNothing);
+    expect(find.text('Add to cart'), findsNothing);
     expect(find.text('Buy Now'), findsNothing);
     expect(find.text('Quantity'), findsNothing);
+    expect(find.text('Secure payment'), findsNothing);
+    expect(find.text('Chat with the clinic'), findsNothing);
+    expect(find.text('Variations'), findsNothing);
+    expect(find.text('View shop'), findsNothing);
+    expect(find.text('More for you'), findsNothing);
   });
 
   testWidgets('books an appointment and shows it in My Appointments', (

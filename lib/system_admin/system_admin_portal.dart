@@ -33,13 +33,32 @@ class SystemAdminDashboardPage extends StatefulWidget {
 
 class _SystemAdminDashboardPageState extends State<SystemAdminDashboardPage> {
   var _index = 0;
+  late final PageController _pageController = PageController();
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _selectTab(int index) {
+    if (index == _index) return;
+    setState(() => _index = index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeInOutCubic,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: IndexedStack(
-        index: _index,
+      body: PageView(
+        key: const ValueKey('system-admin-directional-pages'),
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
         children: [
           const _AdminDashboardTab(),
           const _AdminManagementTab(),
@@ -48,7 +67,7 @@ class _SystemAdminDashboardPageState extends State<SystemAdminDashboardPage> {
       ),
       bottomNavigationBar: SystemAdminNavigationBar(
         selectedIndex: _index,
-        onSelected: (index) => setState(() => _index = index),
+        onSelected: _selectTab,
       ),
     );
   }

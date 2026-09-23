@@ -101,6 +101,14 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: StaffAddInventoryPage()));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const ValueKey('generated-product-id')), findsOneWidget);
+    expect(find.text('Automatic'), findsOneWidget);
+    expect(find.text('Item Name'), findsOneWidget);
+    expect(find.text('Subcategory'), findsOneWidget);
+    expect(find.text('Pet Type'), findsOneWidget);
+    expect(find.text('Brand'), findsOneWidget);
+    expect(find.text('Description'), findsOneWidget);
+
     await tester.tap(find.text('Food'));
     await tester.pumpAndSettle();
 
@@ -111,5 +119,22 @@ void main() {
     expect(find.text('Toys'), findsNothing);
     expect(find.text('Vaccines'), findsNothing);
     expect(find.text('Medical Supplies'), findsNothing);
+    await tester.tap(find.text('Medicine'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -520));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('product-image-slot-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('product-image-slot-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('product-image-slot-2')), findsOneWidget);
+    expect(find.text('Main image'), findsOneWidget);
+    expect(find.text('Package back'), findsOneWidget);
+    expect(find.text('Product detail'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextFormField, 'Stock'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -260));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextFormField, 'Price'), findsOneWidget);
   });
 }

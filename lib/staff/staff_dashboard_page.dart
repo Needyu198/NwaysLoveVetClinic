@@ -148,9 +148,7 @@ class StaffDashboardPage extends StatelessWidget {
                                 _push(context, const StaffWalkInPage()),
                           ),
                           _QuickAction(
-                            icon: Icons.groups_rounded,
-                            imageAsset:
-                                'assets/photos/icon/staff_dashboard_queue.png',
+                            icon: Icons.format_list_numbered_rounded,
                             label: 'Queue',
                             onTap: () => _push(
                               context,
@@ -558,17 +556,17 @@ class _QuickAction extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.grey),
             ),
-            child: imageAsset == null
-                ? Icon(icon, color: const Color(0xFF00EF92), size: 34)
-                : Center(
-                    child: SizedBox.square(
-                      key: ValueKey(
-                        'staff-${label.toLowerCase().replaceAll(' ', '-').replaceAll('&', 'and')}-dashboard-icon',
-                      ),
-                      dimension: 42,
-                      child: Image.asset(imageAsset!, fit: BoxFit.contain),
-                    ),
-                  ),
+            child: Center(
+              child: SizedBox.square(
+                key: ValueKey(
+                  'staff-${label.toLowerCase().replaceAll(' ', '-').replaceAll('&', 'and')}-dashboard-icon',
+                ),
+                dimension: 42,
+                child: imageAsset == null
+                    ? Icon(icon, color: _green, size: 36)
+                    : Image.asset(imageAsset!, fit: BoxFit.contain),
+              ),
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -629,13 +627,11 @@ class _AvailabilityRow extends StatelessWidget {
     return Row(
       key: ValueKey('doctor-availability-${doctor.name}'),
       children: [
-        CircleAvatar(
-          radius: 18,
-          backgroundColor: const Color(0xFFE6FAF2),
-          child: Text(
-            initial?.toUpperCase() ?? 'D',
-            style: const TextStyle(color: _green, fontWeight: FontWeight.w900),
-          ),
+        _PersonPhoto(
+          key: ValueKey('doctor-photo-${doctor.id}-${doctor.name}'),
+          source: doctor.photoUrl,
+          fallbackText: initial?.toUpperCase() ?? 'D',
+          size: 42,
         ),
         const SizedBox(width: 10),
         Expanded(

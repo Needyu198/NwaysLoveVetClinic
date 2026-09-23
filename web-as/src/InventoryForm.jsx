@@ -1,18 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { saveInventoryItem } from './api.js';
 
-// Matches the Flutter "Add New Item" form: photo, item name + category,
-// description, stock (quantity), pricing (selling price). Writes a
-// database-compatible inventory record.
-const CATEGORIES = [
-  'Pet Food',
-  'Medicine',
-  'Vaccines',
-  'Medical Supplies',
-  'Cleaning Supplies',
-  'Accessories',
-  'Other',
-];
+// Matches the Flutter product form and writes the same shared inventory record.
+const CATEGORIES = ['Food', 'Medicine', 'Accessories'];
+const PET_TYPES = ['Dog', 'Cat', 'All Pets'];
+const IMAGE_LABELS = ['Main image', 'Package back', 'Product detail'];
 
 function readValue(record) {
   return record?.data?.value || {};
@@ -23,21 +15,33 @@ export default function InventoryForm({ existing, onClose, onSaved }) {
   const current = readValue(existing);
 
   const [name, setName] = useState(current.name || '');
-  const [category, setCategory] = useState(current.category || CATEGORIES[0]);
+  const [category, setCategory] = useState(
+    CATEGORIES.includes(current.category) ? current.category : CATEGORIES[0],
+  );
+  const [subcategory, setSubcategory] = useState(current.subcategory || '');
+  const [petType, setPetType] = useState(current.petType || PET_TYPES[0]);
+  const [brand, setBrand] = useState(current.brand || '');
   const [description, setDescription] = useState(current.description || '');
   const [quantity, setQuantity] = useState(
-    current.quantity != null ? String(current.quantity) : '',
+    current.quantity != null ? String(current.quantity) : '5',
   );
   const [sellingPrice, setSellingPrice] = useState(
     current.sellingPrice != null ? String(current.sellingPrice) : '',
   );
-  // Photo stored as a base64 data URI (same as the Flutter app).
-  const [imageData, setImageData] = useState(current.imageAsset || null);
+  // Photos are base64 data URIs in the same ordered slots as the Flutter app.
+  const [images, setImages] = useState(() => {
+    const saved = Array.isArray(current.productImages)
+      ? current.productImages.slice(0, 3)
+      : [];
+    while (saved.length < 3) saved.push(null);
+    if (!saved[0] && current.imageAsset) saved[0] = current.imageAsset;
+    return saved;
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const fileRef = useRef(null);
+  const fileRefs = useRef([]);
 
-  function pickPhoto(e) {
+  function pickPhoto(index, e) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
@@ -45,7 +49,13 @@ export default function InventoryForm({ existing, onClose, onSaved }) {
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => setImageData(reader.result);
+    reader.onload = () => {
+      setImages(previous =>
+        previous.map((value, imageIndex) =>
+          imageIndex === index ? reader.result : value,
+        ),
+      );
+    };
     reader.readAsDataURL(file);
   }
 
@@ -55,6 +65,8 @@ export default function InventoryForm({ existing, onClose, onSaved }) {
     const qty = parseInt(quantity, 10);
     const price = parseInt(sellingPrice, 10);
     if (!name.trim()) return setError('Item name is required.');
+    if (!subcategory.trim()) return setError('Subcategory is required.');
+    if (!brand.trim()) return setError('Brand is required.');
     if (!isEdit && (Number.isNaN(qty) || qty < 0)) {
       return setError('Enter a valid quantity.');
     }
@@ -64,12 +76,17 @@ export default function InventoryForm({ existing, onClose, onSaved }) {
 
     setBusy(true);
     try {
-      const id = isEdit ? current.id : `item-${Date.now()}`;
+      const id = isEdit
+        ? current.id
+        : `PRD-${Date.now().toString(36).toUpperCase()}`;
       const item = {
         ...current,
         id,
         name: name.trim(),
         category,
+        subcategory: subcategory.trim(),
+        petType,
+        brand: brand.trim(),
         description: description.trim(),
         // Quantity is locked when editing (matches Flutter).
         quantity: isEdit ? current.quantity : qty,
@@ -82,7 +99,8 @@ export default function InventoryForm({ existing, onClose, onSaved }) {
         expiresOn:
           current.expiresOn ||
           new Date(Date.now() + 365 * 864e5).toISOString(),
-        imageAsset: imageData,
+        imageAsset: images[0] || null,
+        productImages: images.filter(Boolean),
       };
       await saveInventoryItem(item, existing);
       onSaved?.();
@@ -108,36 +126,12 @@ export default function InventoryForm({ existing, onClose, onSaved }) {
           </button>
         </div>
 
-        <div
-          className="photo-picker"
-          onClick={() => fileRef.current?.click()}
-        >
-          {imageData ? (
-            <img src={imageData} alt="item" />
-          ) : (
-            <span>+ Add item photo</span>
-          )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={pickPhoto}
-          />
-        </div>
-        {imageData && (
-          <div style={{ textAlign: 'center', marginTop: 6 }}>
-            <button
-              type="button"
-              className="link-btn danger"
-              onClick={() => setImageData(null)}
-            >
-              Remove photo
-            </button>
-          </div>
-        )}
-
         <h3 className="section">Item information</h3>
+        <label>Product ID</label>
+        <input
+          value={current.id || 'Generated automatically when saved'}
+          disabled
+        />
         <label>Item name</label>
         <input value={name} onChange={e => setName(e.target.value)} />
         <label>Category</label>
@@ -148,12 +142,76 @@ export default function InventoryForm({ existing, onClose, onSaved }) {
             </option>
           ))}
         </select>
+        <label>Subcategory</label>
+        <input
+          value={subcategory}
+          onChange={e => setSubcategory(e.target.value)}
+        />
+        <label>Pet type</label>
+        <select value={petType} onChange={e => setPetType(e.target.value)}>
+          {PET_TYPES.map(type => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
+        </select>
+        <label>Brand</label>
+        <input value={brand} onChange={e => setBrand(e.target.value)} />
         <label>Description</label>
         <textarea
           rows={3}
           value={description}
           onChange={e => setDescription(e.target.value)}
         />
+
+        <h3 className="section">Product images</h3>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gap: 8,
+          }}
+        >
+          {IMAGE_LABELS.map((label, index) => (
+            <div key={label} style={{ textAlign: 'center' }}>
+              <div
+                className="photo-picker"
+                onClick={() => fileRefs.current[index]?.click()}
+              >
+                {images[index] ? (
+                  <img src={images[index]} alt={label} />
+                ) : (
+                  <span>+ Add photo</span>
+                )}
+                <input
+                  ref={element => {
+                    fileRefs.current[index] = element;
+                  }}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={event => pickPhoto(index, event)}
+                />
+              </div>
+              <small>{label}</small>
+              {images[index] && (
+                <button
+                  type="button"
+                  className="link-btn danger"
+                  onClick={() =>
+                    setImages(previous =>
+                      previous.map((value, imageIndex) =>
+                        imageIndex === index ? null : value,
+                      ),
+                    )
+                  }
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
 
         <h3 className="section">Stock</h3>
         <label>{isEdit ? 'Quantity (locked)' : 'Initial quantity'}</label>

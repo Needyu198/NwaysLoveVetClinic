@@ -128,19 +128,31 @@ class PetOwnerClinicPage extends StatelessWidget {
             child: PetOwnerNavBar(
               selectedItem: PetOwnerNavItem.appointments,
               onPetsTap: () {
-                Navigator.of(
+                navigatePetOwnerTab(
                   context,
-                ).pushReplacementNamed(PetOwnerHomePage.routeName);
+                  from: PetOwnerNavItem.appointments,
+                  to: PetOwnerNavItem.pets,
+                  routeName: PetOwnerHomePage.routeName,
+                  builder: (_) => const PetOwnerHomePage(),
+                );
               },
               onShopTap: () {
-                Navigator.of(
+                navigatePetOwnerTab(
                   context,
-                ).pushReplacementNamed(PetProductsPage.routeName);
+                  from: PetOwnerNavItem.appointments,
+                  to: PetOwnerNavItem.shop,
+                  routeName: PetProductsPage.routeName,
+                  builder: (_) => const PetProductsPage(),
+                );
               },
               onProfileTap: () {
-                Navigator.of(
+                navigatePetOwnerTab(
                   context,
-                ).pushReplacementNamed(PetOwnerProfilePage.routeName);
+                  from: PetOwnerNavItem.appointments,
+                  to: PetOwnerNavItem.profile,
+                  routeName: PetOwnerProfilePage.routeName,
+                  builder: (_) => const PetOwnerProfilePage(),
+                );
               },
             ),
           ),

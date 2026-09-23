@@ -301,11 +301,26 @@ class _QueueCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      item.doctor,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: _muted, fontSize: 13),
+                    Row(
+                      children: [
+                        _PersonPhoto(
+                          key: ValueKey('queue-doctor-photo-${item.id}'),
+                          source: _doctorForName(item.doctor)?.photoUrl,
+                          fallbackText: item.doctor == 'Unassigned'
+                              ? '?'
+                              : _initialFor(item.doctor),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Text(
+                            item.doctor,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: _muted, fontSize: 13),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

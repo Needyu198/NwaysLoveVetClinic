@@ -40,13 +40,31 @@ class PetOwnerHomePage extends StatelessWidget {
             alignment: Alignment.bottomCenter,
             child: PetOwnerNavBar(
               onAppointmentsTap: () {
-                Navigator.of(context).pushNamed(PetOwnerClinicPage.routeName);
+                navigatePetOwnerTab(
+                  context,
+                  from: PetOwnerNavItem.pets,
+                  to: PetOwnerNavItem.appointments,
+                  routeName: PetOwnerClinicPage.routeName,
+                  builder: (_) => const PetOwnerClinicPage(),
+                );
               },
               onProfileTap: () {
-                Navigator.of(context).pushNamed(PetOwnerProfilePage.routeName);
+                navigatePetOwnerTab(
+                  context,
+                  from: PetOwnerNavItem.pets,
+                  to: PetOwnerNavItem.profile,
+                  routeName: PetOwnerProfilePage.routeName,
+                  builder: (_) => const PetOwnerProfilePage(),
+                );
               },
               onShopTap: () {
-                Navigator.of(context).pushNamed(PetProductsPage.routeName);
+                navigatePetOwnerTab(
+                  context,
+                  from: PetOwnerNavItem.pets,
+                  to: PetOwnerNavItem.shop,
+                  routeName: PetProductsPage.routeName,
+                  builder: (_) => const PetProductsPage(),
+                );
               },
             ),
           ),

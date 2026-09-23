@@ -47,37 +47,54 @@ class DoctorPortalPage extends StatefulWidget {
 class _DoctorPortalPageState extends State<DoctorPortalPage> {
   var _index = 0;
   var _appointmentFilter = 'All';
+  late final PageController _pageController = PageController();
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _selectTab(int index) {
+    if (index == _index) return;
+    setState(() => _index = index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeInOutCubic,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DoctorStyles.page,
-      body: IndexedStack(
-        index: _index,
+      body: PageView(
+        key: const ValueKey('doctor-directional-pages'),
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
         children: [
           DoctorDashboardPage(
             onOpenAppointments: _openAppointments,
-            onOpenProfile: () => setState(() => _index = 2),
+            onOpenProfile: () => _selectTab(2),
           ),
           DoctorAppointmentsPage(
             key: ValueKey('doctor-appointments-$_appointmentFilter'),
             initialFilter: _appointmentFilter,
-            onBack: () => setState(() => _index = 0),
+            onBack: () => _selectTab(0),
           ),
-          DoctorProfilePage(onLogoTap: () => setState(() => _index = 0)),
+          DoctorProfilePage(onLogoTap: () => _selectTab(0)),
         ],
       ),
       bottomNavigationBar: DoctorNavigationBar(
         selectedIndex: _index,
-        onSelected: (index) => setState(() => _index = index),
+        onSelected: _selectTab,
       ),
     );
   }
 
   void _openAppointments(String filter) {
-    setState(() {
-      _appointmentFilter = filter;
-      _index = 1;
-    });
+    setState(() => _appointmentFilter = filter);
+    _selectTab(1);
   }
 }

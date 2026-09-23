@@ -90,6 +90,8 @@ void main() {
         'role': 'doctor',
         'specialty': 'Surgery',
         'available': true,
+        'photoUrl':
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
       },
       'unavailable': {
         'name': 'Dr. Database Away',
@@ -103,6 +105,16 @@ void main() {
         home: Scaffold(body: StaffDashboardPage(onOpenProfile: () {})),
       ),
     );
+    final queueIcon = find.byKey(const ValueKey('staff-queue-dashboard-icon'));
+    expect(queueIcon, findsOneWidget);
+    expect(
+      tester
+          .widget<Icon>(
+            find.descendant(of: queueIcon, matching: find.byType(Icon)),
+          )
+          .icon,
+      Icons.format_list_numbered_rounded,
+    );
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('doctor-availability-Dr. Database Available')),
       500,
@@ -112,6 +124,14 @@ void main() {
     expect(find.text('Dr. Database Available'), findsOneWidget);
     expect(find.text('Dr. Database Away'), findsOneWidget);
     expect(find.text('Surgery'), findsOneWidget);
+    final doctorPhoto = find.byKey(
+      const ValueKey('doctor-photo-available-Dr. Database Available'),
+    );
+    expect(doctorPhoto, findsOneWidget);
+    expect(
+      find.descendant(of: doctorPhoto, matching: find.byType(Image)),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('doctor-availability-Dr. Aye Chan')),
       findsNothing,

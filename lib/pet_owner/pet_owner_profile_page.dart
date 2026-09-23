@@ -188,15 +188,27 @@ class _PetOwnerProfilePageState extends State<PetOwnerProfilePage> {
             alignment: Alignment.bottomCenter,
             child: PetOwnerNavBar(
               selectedItem: PetOwnerNavItem.profile,
-              onPetsTap: () => Navigator.of(
+              onPetsTap: () => navigatePetOwnerTab(
                 context,
-              ).pushReplacementNamed(PetOwnerHomePage.routeName),
-              onShopTap: () => Navigator.of(
+                from: PetOwnerNavItem.profile,
+                to: PetOwnerNavItem.pets,
+                routeName: PetOwnerHomePage.routeName,
+                builder: (_) => const PetOwnerHomePage(),
+              ),
+              onShopTap: () => navigatePetOwnerTab(
                 context,
-              ).pushReplacementNamed(PetProductsPage.routeName),
-              onAppointmentsTap: () => Navigator.of(
+                from: PetOwnerNavItem.profile,
+                to: PetOwnerNavItem.shop,
+                routeName: PetProductsPage.routeName,
+                builder: (_) => const PetProductsPage(),
+              ),
+              onAppointmentsTap: () => navigatePetOwnerTab(
                 context,
-              ).pushReplacementNamed(PetOwnerClinicPage.routeName),
+                from: PetOwnerNavItem.profile,
+                to: PetOwnerNavItem.appointments,
+                routeName: PetOwnerClinicPage.routeName,
+                builder: (_) => const PetOwnerClinicPage(),
+              ),
             ),
           ),
         ],

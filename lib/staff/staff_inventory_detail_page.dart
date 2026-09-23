@@ -77,9 +77,24 @@ class StaffInventoryDetailPage extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (item.productImages.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  _StaffProductPhotoStrip(item: item),
+                ],
                 const SizedBox(height: 14),
                 _InfoCard(
                   rows: [
+                    ('Product ID', item.id),
+                    (
+                      'Category',
+                      item.subcategory.isEmpty
+                          ? item.category
+                          : '${item.category} • ${item.subcategory}',
+                    ),
+                    ('Pet type', item.petType),
+                    if (item.brand.isNotEmpty) ('Brand', item.brand),
+                    if (item.description.isNotEmpty)
+                      ('Description', item.description),
                     ('In stock', '${item.quantity} ${item.unit}'),
                     ('Low-stock level', '${item.reorderLevel} ${item.unit}'),
                     ('Selling price', '${_money(item.sellingPrice)} MMK'),
@@ -190,6 +205,55 @@ class StaffInventoryDetailPage extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _StaffProductPhotoStrip extends StatelessWidget {
+  const _StaffProductPhotoStrip({required this.item});
+
+  final InventoryItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final photos = item.productImages.take(3).toList();
+    const labels = ['Main image', 'Package back', 'Product detail'];
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: _cardDecoration(),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var index = 0; index < photos.length; index++) ...[
+            if (index > 0) const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 1,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: _inventoryImage(
+                        photos[index],
+                        fit: BoxFit.contain,
+                        fallback: const Icon(
+                          Icons.image_not_supported_outlined,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    labels[index],
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 11, color: _muted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _StockStatusBadge extends StatelessWidget {

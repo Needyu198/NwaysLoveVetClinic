@@ -39,39 +39,33 @@ class PetOwnerNavBar extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(
-                  child: _NavTabButton(
-                    assetPath: pawIconAsset,
-                    label: 'My Pets',
-                    selected: selectedItem == PetOwnerNavItem.pets,
-                    onTap: onPetsTap,
-                    iconSize: 34,
-                  ),
+                _NavTabButton(
+                  assetPath: pawIconAsset,
+                  label: 'My Pets',
+                  selected: selectedItem == PetOwnerNavItem.pets,
+                  onTap: onPetsTap,
+                  iconSize: 34,
                 ),
-                _NavIconButton(
+                _NavTabButton(
                   assetPath: medicalIconAsset,
                   label: 'Clinic',
-                  size: 44,
+                  iconSize: 34,
                   selected: selectedItem == PetOwnerNavItem.appointments,
                   onTap: onAppointmentsTap,
                 ),
-                Expanded(
-                  child: _NavTabButton(
-                    assetPath: basketIconAsset,
-                    label: 'Products',
-                    selected: selectedItem == PetOwnerNavItem.shop,
-                    onTap: onShopTap,
-                    iconSize: 32,
-                  ),
+                _NavTabButton(
+                  assetPath: basketIconAsset,
+                  label: 'Products',
+                  selected: selectedItem == PetOwnerNavItem.shop,
+                  onTap: onShopTap,
+                  iconSize: 32,
                 ),
-                Expanded(
-                  child: _NavTabButton(
-                    assetPath: profileIconAsset,
-                    label: 'Profile',
-                    selected: selectedItem == PetOwnerNavItem.profile,
-                    onTap: onProfileTap,
-                    iconSize: 34,
-                  ),
+                _NavTabButton(
+                  assetPath: profileIconAsset,
+                  label: 'Profile',
+                  selected: selectedItem == PetOwnerNavItem.profile,
+                  onTap: onProfileTap,
+                  iconSize: 34,
                 ),
               ],
             ),
@@ -83,6 +77,37 @@ class PetOwnerNavBar extends StatelessWidget {
 }
 
 enum PetOwnerNavItem { pets, appointments, shop, profile }
+
+/// Replaces one pet-owner root tab with another using navigation direction.
+/// Tabs to the left enter from the left; tabs to the right enter from the right.
+void navigatePetOwnerTab(
+  BuildContext context, {
+  required PetOwnerNavItem from,
+  required PetOwnerNavItem to,
+  required String routeName,
+  required WidgetBuilder builder,
+}) {
+  if (from == to) return;
+  final enteringFromLeft = to.index < from.index;
+  Navigator.of(context).pushReplacement(
+    PageRouteBuilder<void>(
+      settings: RouteSettings(name: routeName),
+      transitionDuration: const Duration(milliseconds: 420),
+      reverseTransitionDuration: const Duration(milliseconds: 420),
+      pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final position =
+            Tween<Offset>(
+              begin: Offset(enteringFromLeft ? -1 : 1, 0),
+              end: Offset.zero,
+            ).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic),
+            );
+        return SlideTransition(position: position, child: child);
+      },
+    ),
+  );
+}
 
 class _NavTabButton extends StatelessWidget {
   const _NavTabButton({
@@ -102,134 +127,61 @@ class _NavTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!selected) {
-      return IconButton(
-        onPressed: onTap,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-        icon: Image.asset(
-          assetPath,
-          width: iconSize,
-          height: iconSize,
-          fit: BoxFit.contain,
-        ),
-        tooltip: label,
-      );
-    }
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(28),
-      child: Container(
-        height: 56,
-        decoration: const ShapeDecoration(
-          color: Colors.white,
-          shape: StadiumBorder(),
-        ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image(
-                  image: AssetImage(assetPath),
-                  width: iconSize,
-                  height: iconSize,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavIconButton extends StatelessWidget {
-  const _NavIconButton({
-    required this.assetPath,
-    required this.label,
-    required this.size,
-    required this.selected,
-    this.onTap,
-  });
-
-  final String assetPath;
-  final String label;
-  final double size;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    if (selected) {
       return Expanded(
-        flex: 2,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(28),
-          child: Container(
-            height: 56,
-            decoration: const ShapeDecoration(
-              color: Colors.white,
-              shape: StadiumBorder(),
-            ),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Image(
-                      image: AssetImage(assetPath),
-                      width: size,
-                      height: size,
-                      fit: BoxFit.contain,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+        child: IconButton(
+          onPressed: onTap,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          icon: Image.asset(
+            assetPath,
+            width: iconSize,
+            height: iconSize,
+            fit: BoxFit.contain,
           ),
+          tooltip: label,
         ),
       );
     }
 
     return Expanded(
-      child: IconButton(
-        onPressed: onTap,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-        icon: Image.asset(
-          assetPath,
-          width: size,
-          height: size,
-          fit: BoxFit.contain,
+      flex: 2,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          height: 56,
+          decoration: const ShapeDecoration(
+            color: Colors.white,
+            shape: StadiumBorder(),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image(
+                    image: AssetImage(assetPath),
+                    width: iconSize,
+                    height: iconSize,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-        tooltip: label,
       ),
     );
   }

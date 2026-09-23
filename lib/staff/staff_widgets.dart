@@ -1,5 +1,91 @@
 part of 'staff_portal.dart';
 
+ClinicPerson? _doctorForName(String name) {
+  final target = name.trim().toLowerCase();
+  for (final doctor in ClinicDirectory.instance.doctorProfiles) {
+    if (doctor.name.trim().toLowerCase() == target) return doctor;
+  }
+  return null;
+}
+
+String _initialFor(String name) {
+  final cleaned = name.replaceFirst(RegExp(r'^Dr\.\s*'), '').trim();
+  return cleaned.isEmpty ? 'D' : cleaned.characters.first.toUpperCase();
+}
+
+/// Consistent avatar for staff and doctors. Public directory/profile photos
+/// may be data URIs, web URLs, bundled assets, or local device files.
+class _PersonPhoto extends StatelessWidget {
+  const _PersonPhoto({
+    required this.source,
+    required this.fallbackText,
+    required this.size,
+    super.key,
+  });
+
+  final String? source;
+  final String fallbackText;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: size,
+    child: ClipOval(child: _image() ?? _fallback()),
+  );
+
+  Widget? _image() {
+    final value = source;
+    if (value == null || value.trim().isEmpty) return null;
+    if (value.startsWith('data:image/')) {
+      try {
+        return Image.memory(
+          base64Decode(value.substring(value.indexOf(',') + 1)),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => _fallback(),
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return Image.network(
+        value,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _fallback(),
+        loadingBuilder: (_, child, progress) =>
+            progress == null ? child : _fallback(),
+      );
+    }
+    if (value.startsWith('assets/')) {
+      return Image.asset(
+        value,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _fallback(),
+      );
+    }
+    return Image.file(
+      File(value),
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => _fallback(),
+    );
+  }
+
+  Widget _fallback() => ColoredBox(
+    color: const Color(0xFFE6FAF2),
+    child: Center(
+      child: Text(
+        fallbackText,
+        style: TextStyle(
+          color: _green,
+          fontSize: size * 0.4,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    ),
+  );
+}
+
 class _StaffScaffold extends StatelessWidget {
   const _StaffScaffold({
     required this.title,

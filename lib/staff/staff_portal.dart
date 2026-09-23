@@ -49,17 +49,36 @@ class StaffPortalPage extends StatefulWidget {
 
 class _StaffPortalPageState extends State<StaffPortalPage> {
   var _index = 0;
+  late final PageController _pageController = PageController();
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _selectTab(int index) {
+    if (index == _index) return;
+    setState(() => _index = index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeInOutCubic,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: IndexedStack(
-        index: _index,
+      body: PageView(
+        key: const ValueKey('staff-directional-pages'),
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
         children: [
-          StaffDashboardPage(onOpenProfile: () => setState(() => _index = 2)),
-          StaffManagementPage(onLogoTap: () => setState(() => _index = 0)),
-          StaffProfilePage(onLogoTap: () => setState(() => _index = 0)),
+          StaffDashboardPage(onOpenProfile: () => _selectTab(2)),
+          StaffManagementPage(onLogoTap: () => _selectTab(0)),
+          StaffProfilePage(onLogoTap: () => _selectTab(0)),
         ],
       ),
       extendBody: true,
@@ -99,7 +118,7 @@ class _StaffPortalPageState extends State<StaffPortalPage> {
                               ][i],
                             ),
                             borderRadius: BorderRadius.circular(48),
-                            onTap: () => setState(() => _index = i),
+                            onTap: () => _selectTab(i),
                             child: SizedBox(
                               height: 58,
                               child: Row(

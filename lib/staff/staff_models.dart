@@ -712,6 +712,10 @@ class InventoryItem {
     'supplier': supplier,
     'batchNumber': batchNumber,
     'imageAsset': imageAsset,
+    'productImages': productImages,
+    'subcategory': subcategory,
+    'petType': petType,
+    'brand': brand,
     'description': description,
     'restockRequested': restockRequested,
     'restockQuantity': restockQuantity,
@@ -737,6 +741,15 @@ class InventoryItem {
       imageAsset: data['imageAsset'] == null
           ? null
           : data['imageAsset'] as String,
+      productImages:
+          (data['productImages'] as List?)
+              ?.whereType<String>()
+              .where((value) => value.isNotEmpty)
+              .toList() ??
+          const [],
+      subcategory: data['subcategory'] as String? ?? '',
+      petType: data['petType'] as String? ?? 'All Pets',
+      brand: data['brand'] as String? ?? data['supplier'] as String? ?? '',
       // Backward-compatible: older records have no description.
       description: data['description'] as String? ?? '',
     );
@@ -767,6 +780,10 @@ class InventoryItem {
     this.supplier = '',
     this.batchNumber = '',
     this.imageAsset,
+    this.productImages = const [],
+    this.subcategory = '',
+    this.petType = 'All Pets',
+    this.brand = '',
     this.description = '',
   });
 
@@ -782,6 +799,10 @@ class InventoryItem {
   String supplier;
   String batchNumber;
   String? imageAsset;
+  List<String> productImages;
+  String subcategory;
+  String petType;
+  String brand;
   String description;
 
   bool restockRequested = false;

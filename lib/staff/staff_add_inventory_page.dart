@@ -12,9 +12,10 @@ class StaffAddInventoryPage extends StatefulWidget {
 
 class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
   final _formKey = GlobalKey<FormState>();
+  late final String _productId = widget.existing?.id ?? _newProductId();
   late final _name = TextEditingController(text: widget.existing?.name ?? '');
   late final _quantity = TextEditingController(
-    text: widget.existing != null ? '${widget.existing!.quantity}' : '',
+    text: widget.existing != null ? '${widget.existing!.quantity}' : '5',
   );
   late final _selling = TextEditingController(
     text: widget.existing != null ? '${widget.existing!.sellingPrice}' : '',
@@ -22,12 +23,15 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
   late final _description = TextEditingController(
     text: widget.existing?.description ?? '',
   );
+  late final _subcategory = TextEditingController(
+    text: widget.existing?.subcategory ?? '',
+  );
+  late final _brand = TextEditingController(text: widget.existing?.brand ?? '');
   late String _category = widget.existing == null
       ? StaffOperationsStore.inventoryCategories.first
       : _normalizeInventoryCategory(widget.existing!.category);
-  // Item photo stored as a base64 data URI (or a bundled asset path for demo
-  // items) so it persists to the database and shows in the shop.
-  late String? _imageData = widget.existing?.imageAsset;
+  late String _petType = widget.existing?.petType ?? 'Dog';
+  late final List<String?> _images = _initialImages();
 
   bool get _isEdit => widget.existing != null;
 
@@ -37,10 +41,22 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
     _quantity.dispose();
     _selling.dispose();
     _description.dispose();
+    _subcategory.dispose();
+    _brand.dispose();
     super.dispose();
   }
 
-  Future<void> _pickPhoto() async {
+  List<String?> _initialImages() {
+    final saved = widget.existing?.productImages ?? const <String>[];
+    final values = List<String?>.filled(3, null);
+    for (var index = 0; index < saved.length && index < 3; index++) {
+      values[index] = saved[index];
+    }
+    values[0] ??= widget.existing?.imageAsset;
+    return values;
+  }
+
+  Future<void> _pickPhoto(int index) async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -57,7 +73,7 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
               title: const Text('Take a photo'),
               onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
             ),
-            if (_imageData != null)
+            if (_images[index] != null)
               ListTile(
                 leading: const Icon(
                   Icons.delete_outline_rounded,
@@ -68,7 +84,7 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                   style: TextStyle(color: Color(0xFFB3261E)),
                 ),
                 onTap: () {
-                  setState(() => _imageData = null);
+                  setState(() => _images[index] = null);
                   Navigator.of(sheetContext).pop();
                 },
               ),
@@ -94,7 +110,8 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
       }
       if (mounted) {
         setState(
-          () => _imageData = 'data:image/jpeg;base64,${base64Encode(bytes)}',
+          () =>
+              _images[index] = 'data:image/jpeg;base64,${base64Encode(bytes)}',
         );
       }
     } on Exception {
@@ -109,33 +126,36 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
       final item = widget.existing!
         ..name = _name.text.trim()
         ..category = _category
+        ..subcategory = _subcategory.text.trim()
+        ..petType = _petType
+        ..brand = _brand.text.trim()
         ..sellingPrice = int.parse(_selling.text.trim())
         ..description = _description.text.trim()
-        ..imageAsset = _imageData;
+        ..productImages = _images.whereType<String>().toList()
+        ..imageAsset = _images.first;
       store.notifyChanged();
       Navigator.pop(context);
       _notice(context, '${item.name} updated.');
       return;
     }
 
-    // Generate a unique id and default the fields the form no longer collects.
-    var id = 'item-${DateTime.now().millisecondsSinceEpoch}';
-    while (store.isDuplicateSku(id)) {
-      id = 'item-${DateTime.now().microsecondsSinceEpoch}';
-    }
     final quantity = int.parse(_quantity.text.trim());
     store.addItem(
       InventoryItem(
-        id: id,
+        id: _productId,
         name: _name.text.trim(),
         category: _category,
+        subcategory: _subcategory.text.trim(),
+        petType: _petType,
+        brand: _brand.text.trim(),
         quantity: quantity,
         reorderLevel: (quantity * 0.2).ceil().clamp(1, 100),
         unit: 'pcs',
         purchasePrice: 0,
         sellingPrice: int.parse(_selling.text.trim()),
         expiresOn: DateTime.now().add(const Duration(days: 365)),
-        imageAsset: _imageData,
+        imageAsset: _images.first,
+        productImages: _images.whereType<String>().toList(),
         description: _description.text.trim(),
       ),
     );
@@ -161,13 +181,12 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
               children: [
-                _InventoryPhotoPicker(imageData: _imageData, onTap: _pickPhoto),
-                const SizedBox(height: 18),
                 const _AddSectionLabel('Item information'),
                 const SizedBox(height: 10),
+                _GeneratedProductId(value: _productId),
                 _AddField(
                   controller: _name,
-                  label: 'Item name',
+                  label: 'Item Name',
                   icon: Icons.label_outline_rounded,
                   validator: _required,
                 ),
@@ -178,17 +197,39 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                   onChanged: (v) => setState(() => _category = v),
                 ),
                 _AddField(
+                  controller: _subcategory,
+                  label: 'Subcategory',
+                  icon: Icons.account_tree_outlined,
+                  validator: _required,
+                ),
+                _AddDropdown(
+                  label: 'Pet Type',
+                  value: _petType,
+                  items: const ['Dog', 'Cat', 'All Pets'],
+                  onChanged: (value) => setState(() => _petType = value),
+                ),
+                _AddField(
+                  controller: _brand,
+                  label: 'Brand',
+                  icon: Icons.business_outlined,
+                  validator: _required,
+                ),
+                _AddField(
                   controller: _description,
                   label: 'Description',
                   icon: Icons.notes_rounded,
                   maxLines: 4,
                 ),
                 const SizedBox(height: 8),
+                const _AddSectionLabel('Product images'),
+                const SizedBox(height: 10),
+                _ProductImageSlots(images: _images, onTap: _pickPhoto),
+                const SizedBox(height: 18),
                 const _AddSectionLabel('Stock'),
                 const SizedBox(height: 10),
                 _AddField(
                   controller: _quantity,
-                  label: _isEdit ? 'Quantity (locked)' : 'Initial quantity',
+                  label: _isEdit ? 'Stock (locked)' : 'Stock',
                   icon: Icons.numbers_rounded,
                   keyboardType: TextInputType.number,
                   enabled: !_isEdit,
@@ -199,7 +240,7 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                 const SizedBox(height: 10),
                 _AddField(
                   controller: _selling,
-                  label: 'Selling price',
+                  label: 'Price',
                   icon: Icons.sell_outlined,
                   keyboardType: TextInputType.number,
                   validator: _positiveIntValidator,
@@ -225,6 +266,9 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
     ),
   );
 }
+
+String _newProductId() =>
+    'PRD-${DateTime.now().microsecondsSinceEpoch.toRadixString(36).toUpperCase()}';
 
 class _AddSectionLabel extends StatelessWidget {
   const _AddSectionLabel(this.text);
@@ -274,92 +318,112 @@ class _AddField extends StatelessWidget {
   );
 }
 
-class _InventoryPhotoPicker extends StatelessWidget {
-  const _InventoryPhotoPicker({required this.imageData, required this.onTap});
-
-  /// A base64 data URI, a bundled asset path, or null when no photo is set.
-  final String? imageData;
-  final VoidCallback onTap;
+class _GeneratedProductId extends StatelessWidget {
+  const _GeneratedProductId({required this.value});
+  final String value;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: InkWell(
-        key: const ValueKey('inventory-photo-picker'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          width: 148,
-          height: 148,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _border, width: 1.4),
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey('generated-product-id'),
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFEAF8F2),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: _border),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.qr_code_2_rounded, color: _green),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Product ID', style: TextStyle(color: _muted)),
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
+            ],
           ),
-          clipBehavior: Clip.antiAlias,
-          child: imageData == null
-              ? const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add_a_photo_outlined, size: 40, color: _green),
-                    SizedBox(height: 8),
-                    Text(
-                      'Add item photo',
-                      style: TextStyle(
-                        color: _muted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                )
-              : Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _buildImage(imageData!),
-                    Positioned(
-                      right: 6,
-                      bottom: 6,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: _green,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.edit_rounded,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
         ),
-      ),
-    );
-  }
+        const Text(
+          'Automatic',
+          style: TextStyle(color: _green, fontWeight: FontWeight.w800),
+        ),
+      ],
+    ),
+  );
+}
 
-  Widget _buildImage(String data) {
-    if (data.startsWith('data:')) {
-      final comma = data.indexOf(',');
-      if (comma >= 0) {
-        try {
-          return Image.memory(
-            base64Decode(data.substring(comma + 1)),
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-          );
-        } catch (_) {
-          /* fall through */
-        }
+class _ProductImageSlots extends StatelessWidget {
+  const _ProductImageSlots({required this.images, required this.onTap});
+  final List<String?> images;
+  final ValueChanged<int> onTap;
+
+  static const _labels = ['Main image', 'Package back', 'Product detail'];
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (var index = 0; index < images.length; index++) ...[
+        if (index > 0) const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            children: [
+              InkWell(
+                key: ValueKey('product-image-slot-$index'),
+                onTap: () => onTap(index),
+                borderRadius: BorderRadius.circular(16),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _border),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: images[index] == null
+                        ? const Icon(
+                            Icons.add_a_photo_outlined,
+                            color: _green,
+                            size: 30,
+                          )
+                        : _buildProductImage(images[index]!),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                _labels[index],
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 11, color: _muted),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ],
+  );
+}
+
+Widget _buildProductImage(String data) {
+  if (data.startsWith('data:')) {
+    final comma = data.indexOf(',');
+    if (comma >= 0) {
+      try {
+        return Image.memory(
+          base64Decode(data.substring(comma + 1)),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        );
+      } catch (_) {
+        // Fall through to the legacy file renderer.
       }
     }
-    if (data.startsWith('assets/')) {
-      return Image.asset(data, fit: BoxFit.cover);
-    }
-    // Legacy local file path (older records).
-    return Image.file(File(data), fit: BoxFit.cover);
   }
+  if (data.startsWith('assets/')) return Image.asset(data, fit: BoxFit.cover);
+  return Image.file(File(data), fit: BoxFit.cover);
 }
 
 class _AddDropdown extends StatelessWidget {

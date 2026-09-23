@@ -1,20 +1,46 @@
 part of 'staff_portal.dart';
 
-class StaffProfilePage extends StatelessWidget {
+class StaffProfilePage extends StatefulWidget {
   const StaffProfilePage({this.onLogoTap, super.key});
 
   final VoidCallback? onLogoTap;
 
   @override
+  State<StaffProfilePage> createState() => _StaffProfilePageState();
+}
+
+class _StaffProfilePageState extends State<StaffProfilePage> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openEditor() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const StaffEditProfilePage()),
+    );
+    if (!mounted || !_scrollController.hasClients) return;
+    await _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) => _StaffScaffold(
     title: 'Staff Profile',
-    onLogoTap: onLogoTap,
+    onLogoTap: widget.onLogoTap,
     child: AnimatedBuilder(
       animation: StaffProfileStore.instance,
       builder: (context, _) {
         final profile = StaffProfileStore.instance;
         return ListView(
           key: const ValueKey('staff-profile'),
+          controller: _scrollController,
           padding: const EdgeInsets.all(18),
           children: [
             Center(child: _StaffAvatar(photoPath: profile.photoPath)),
@@ -31,6 +57,12 @@ class StaffProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Center(child: _ShiftBadge(onShift: profile.onShift)),
+            TextButton.icon(
+              key: const ValueKey('staff-update-photo'),
+              onPressed: _openEditor,
+              icon: const Icon(Icons.camera_alt_outlined, size: 18),
+              label: const Text('Update photo'),
+            ),
             const SizedBox(height: 20),
             _InfoCard(
               rows: [
@@ -42,11 +74,53 @@ class StaffProfilePage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
+            const _ProfileSectionTitle('Work status'),
+            const SizedBox(height: 8),
+            Material(
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: _border),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: SwitchListTile(
+                key: const ValueKey('staff-shift-status'),
+                value: profile.onShift,
+                activeThumbColor: _green,
+                secondary: Icon(
+                  profile.onShift
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.pause_circle_outline_rounded,
+                  color: profile.onShift ? _green : _muted,
+                ),
+                title: const Text(
+                  'Available for shift',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text(
+                  profile.onShift
+                      ? 'Clinic teams can see that you are available.'
+                      : 'You are shown as off duty.',
+                ),
+                onChanged: profile.setOnShift,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const _ProfileSectionTitle('Account'),
+            const SizedBox(height: 8),
             _ProfileTile(
               icon: Icons.edit_outlined,
               title: 'Edit Profile',
-              onTap: () => _push(context, const StaffEditProfilePage()),
+              onTap: _openEditor,
             ),
+            _ProfileTile(
+              icon: Icons.lock_outline_rounded,
+              title: 'Change Password',
+              onTap: () => _push(context, const StaffChangePasswordPage()),
+            ),
+            const SizedBox(height: 8),
+            const _ProfileSectionTitle('Preferences & support'),
+            const SizedBox(height: 8),
             _ProfileTile(
               icon: Icons.notifications_outlined,
               title: 'Notification Settings',
@@ -81,24 +155,27 @@ class _StaffAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final path = photoPath;
-    return Container(
-      width: 96,
-      height: 96,
-      clipBehavior: Clip.antiAlias,
-      decoration: const BoxDecoration(color: _mint, shape: BoxShape.circle),
-      child: path == null
-          ? const Icon(Icons.person_rounded, size: 52, color: _ink)
-          : (path.startsWith('assets/')
-                ? Image.asset(path, fit: BoxFit.cover)
-                : Image.file(
-                    File(path),
-                    fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) =>
-                        const Icon(Icons.person_rounded, size: 52, color: _ink),
-                  )),
+    return _PersonPhoto(
+      source: photoPath,
+      fallbackText: _initialFor(StaffProfileStore.instance.name),
+      size: 96,
     );
   }
+}
+
+class _ProfileSectionTitle extends StatelessWidget {
+  const _ProfileSectionTitle(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: const TextStyle(
+      color: _ink,
+      fontSize: 15,
+      fontWeight: FontWeight.w900,
+    ),
+  );
 }
 
 class _ShiftBadge extends StatelessWidget {
@@ -515,6 +592,156 @@ class _EditAvatar extends StatelessWidget {
               Icons.camera_alt_rounded,
               size: 16,
               color: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Account security
+// ---------------------------------------------------------------------------
+
+class StaffChangePasswordPage extends StatefulWidget {
+  const StaffChangePasswordPage({super.key});
+
+  @override
+  State<StaffChangePasswordPage> createState() =>
+      _StaffChangePasswordPageState();
+}
+
+class _StaffChangePasswordPageState extends State<StaffChangePasswordPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _current = TextEditingController();
+  final _next = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _saving = false;
+  bool _showPasswords = false;
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _next.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate() || _saving) return;
+    setState(() => _saving = true);
+    try {
+      await ClinicApi.instance.changePassword(
+        currentPassword: _current.text,
+        newPassword: _next.text,
+      );
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Password changed successfully.')),
+      );
+    } on ClinicApiException catch (error) {
+      if (mounted) _notice(context, error.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: _page,
+    body: Column(
+      children: [
+        const _StaffMintHeader(
+          title: 'Change Password',
+          subtitle: 'Protect your clinic account',
+          icon: Icons.lock_outline_rounded,
+        ),
+        Expanded(
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(18),
+              children: [
+                const _Callout(
+                  icon: Icons.security_rounded,
+                  text:
+                      'Use at least 8 characters and avoid passwords shared with other services.',
+                ),
+                const SizedBox(height: 18),
+                TextFormField(
+                  key: const ValueKey('staff-current-password'),
+                  controller: _current,
+                  obscureText: !_showPasswords,
+                  autofillHints: const [AutofillHints.password],
+                  decoration: _input(
+                    'Current password',
+                    Icons.lock_outline_rounded,
+                  ),
+                  validator: (value) => (value ?? '').isEmpty
+                      ? 'Enter your current password'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const ValueKey('staff-new-password'),
+                  controller: _next,
+                  obscureText: !_showPasswords,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: _input('New password', Icons.password_rounded),
+                  validator: (value) {
+                    final password = value ?? '';
+                    if (password.length < 8) {
+                      return 'Use at least 8 characters';
+                    }
+                    if (password == _current.text) {
+                      return 'Choose a different password';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const ValueKey('staff-confirm-password'),
+                  controller: _confirm,
+                  obscureText: !_showPasswords,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: _input(
+                    'Confirm new password',
+                    Icons.verified_user_outlined,
+                  ),
+                  validator: (value) =>
+                      value != _next.text ? 'Passwords do not match' : null,
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _showPasswords,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text('Show passwords'),
+                  onChanged: (value) =>
+                      setState(() => _showPasswords = value ?? false),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  key: const ValueKey('staff-save-password'),
+                  onPressed: _saving ? null : _save,
+                  icon: _saving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_rounded),
+                  label: Text(_saving ? 'Updating…' : 'Update Password'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _green,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(54),
+                    shape: const StadiumBorder(),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
