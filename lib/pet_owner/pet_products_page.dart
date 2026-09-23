@@ -34,8 +34,6 @@ class PetProductsPage extends StatefulWidget {
 
 class _PetProductsPageState extends State<PetProductsPage> {
   String _category = 'All Product';
-  String _petType = 'All Pets';
-  String _subcategory = 'All';
   String _query = '';
   String _sort = 'Popular';
 
@@ -60,22 +58,13 @@ class _PetProductsPageState extends State<PetProductsPage> {
     final filtered = products.where((product) {
       final categoryMatch =
           _category == 'All Product' || product.category == _category;
-      final petTypeMatch =
-          _petType == 'All Pets' ||
-          product.petType == _petType ||
-          product.petType == 'All Pets';
-      final effectiveSubcategory = product.subcategory.isEmpty
-          ? product.category
-          : product.subcategory;
-      final subcategoryMatch =
-          _subcategory == 'All' || effectiveSubcategory == _subcategory;
       final queryMatch =
           lowered.isEmpty ||
           product.name.toLowerCase().contains(lowered) ||
           product.brand.toLowerCase().contains(lowered) ||
           product.subcategory.toLowerCase().contains(lowered) ||
           product.petType.toLowerCase().contains(lowered);
-      return categoryMatch && petTypeMatch && subcategoryMatch && queryMatch;
+      return categoryMatch && queryMatch;
     }).toList();
 
     switch (_sort) {
@@ -102,7 +91,8 @@ class _PetProductsPageState extends State<PetProductsPage> {
             child: Column(
               children: [
                 PetOwnerPageHeader(
-                  title: 'Pet Products',
+                  key: const ValueKey('pet-products-header'),
+                  title: 'Products',
                   logoKey: const ValueKey('pet-products-logo'),
                   onLogoTap: () => Navigator.of(
                     context,
@@ -129,24 +119,6 @@ class _PetProductsPageState extends State<PetProductsPage> {
                   selected: _category,
                   onChanged: (value) => setState(() => _category = value),
                 ),
-                _ProductFilters(
-                  petType: _petType,
-                  subcategory: _subcategory,
-                  onPetTypeChanged: (value) => setState(() => _petType = value),
-                  onSubcategoryChanged: (value) =>
-                      setState(() => _subcategory = value),
-                ),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Recommended Products',
-                      key: ValueKey('recommended-products-title'),
-                      style: ProductStyles.sectionTitle,
-                    ),
-                  ),
-                ),
                 _SortBar(
                   sort: _sort,
                   count: visible.length,
@@ -161,7 +133,7 @@ class _PetProductsPageState extends State<PetProductsPage> {
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 2,
-                                childAspectRatio: 0.62,
+                                childAspectRatio: 0.60,
                                 mainAxisSpacing: 12,
                                 crossAxisSpacing: 12,
                               ),
@@ -672,7 +644,7 @@ class _CategoryIconStrip extends StatelessWidget {
           final category = categories[index];
           final isSelected = selected == category;
           final isAll = category == 'All Product';
-          final imageAsset = _categoryIconAsset(category);
+          final imageAsset = isAll ? null : _categoryIconAsset(category);
           return GestureDetector(
             onTap: () => onChanged(category),
             child: SizedBox(
@@ -697,6 +669,9 @@ class _CategoryIconStrip extends StatelessWidget {
                     ),
                     child: imageAsset == null
                         ? Icon(
+                            key: isAll
+                                ? const ValueKey('product-category-all-icon')
+                                : null,
                             isAll
                                 ? Icons.grid_view_rounded
                                 : _categoryIcon(category),
@@ -734,95 +709,6 @@ class _CategoryIconStrip extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ProductFilters extends StatelessWidget {
-  const _ProductFilters({
-    required this.petType,
-    required this.subcategory,
-    required this.onPetTypeChanged,
-    required this.onSubcategoryChanged,
-  });
-
-  final String petType;
-  final String subcategory;
-  final ValueChanged<String> onPetTypeChanged;
-  final ValueChanged<String> onSubcategoryChanged;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _FilterRow(
-        key: const ValueKey('pet-type-filters'),
-        label: 'Pet',
-        values: productPetTypes,
-        selected: petType,
-        onChanged: onPetTypeChanged,
-      ),
-      _FilterRow(
-        key: const ValueKey('product-subcategory-filters'),
-        label: 'Type',
-        values: productSubcategories,
-        selected: subcategory,
-        onChanged: onSubcategoryChanged,
-      ),
-      const SizedBox(height: 6),
-    ],
-  );
-}
-
-class _FilterRow extends StatelessWidget {
-  const _FilterRow({
-    required this.label,
-    required this.values,
-    required this.selected,
-    required this.onChanged,
-    super.key,
-  });
-
-  final String label;
-  final List<String> values;
-  final String selected;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 42,
-    child: ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      scrollDirection: Axis.horizontal,
-      itemCount: values.length + 1,
-      separatorBuilder: (_, _) => const SizedBox(width: 8),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return Center(
-            child: Text(
-              '$label:',
-              style: const TextStyle(
-                color: ProductStyles.muted,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          );
-        }
-        final value = values[index - 1];
-        return ChoiceChip(
-          key: ValueKey('$label-filter-$value'),
-          label: Text(value),
-          selected: selected == value,
-          showCheckmark: false,
-          selectedColor: ProductStyles.mint,
-          side: const BorderSide(color: Color(0xFFDDE9E4)),
-          labelStyle: TextStyle(
-            color: Colors.black87,
-            fontWeight: selected == value ? FontWeight.w800 : FontWeight.w600,
-          ),
-          onSelected: (_) => onChanged(value),
-        );
-      },
-    ),
-  );
 }
 
 class _SortBar extends StatelessWidget {

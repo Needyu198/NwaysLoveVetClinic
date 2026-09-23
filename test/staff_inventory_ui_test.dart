@@ -37,6 +37,8 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: StaffInventoryPage()));
     await tester.pumpAndSettle();
 
+    expect(find.byIcon(Icons.shopping_cart_outlined), findsNothing);
+
     expect(
       find.byKey(const ValueKey('staff-inventory-category-filters')),
       findsOneWidget,
@@ -87,6 +89,23 @@ void main() {
     expect(
       find.descendant(of: detailImage, matching: find.byType(Image)),
       findsOneWidget,
+    );
+    expect(find.byIcon(Icons.inventory_2_outlined), findsNothing);
+    expect(find.byKey(const ValueKey('stock-in-$itemId')), findsOneWidget);
+    expect(find.byKey(const ValueKey('stock-out-$itemId')), findsOneWidget);
+    expect(find.byKey(const ValueKey('edit-$itemId')), findsOneWidget);
+    expect(find.byKey(const ValueKey('delete-$itemId')), findsOneWidget);
+    expect(find.text('Restock'), findsNothing);
+    expect(find.text('Archive item'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('delete-$itemId')));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete item?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('confirm-delete-$itemId')));
+    await tester.pumpAndSettle();
+    expect(
+      StaffOperationsStore.instance.inventory.any((item) => item.id == itemId),
+      isFalse,
     );
   });
 

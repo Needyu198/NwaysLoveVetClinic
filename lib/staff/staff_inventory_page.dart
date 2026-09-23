@@ -317,8 +317,6 @@ class _InventoryHeader extends StatelessWidget {
               onPressed: () => Navigator.maybePop(context),
               icon: const Icon(Icons.chevron_left_rounded, size: 28),
             ),
-            const Icon(Icons.shopping_cart_outlined, size: 26, color: _ink),
-            const SizedBox(width: 10),
             const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

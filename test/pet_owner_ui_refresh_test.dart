@@ -28,7 +28,13 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: PetProductsPage()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Pet Products'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('pet-products-header')),
+        matching: find.text('Products'),
+      ),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('pet-products-logo')), findsOneWidget);
     expect(find.byKey(const ValueKey('pet-products-search')), findsOneWidget);
   });

@@ -275,6 +275,11 @@ class StaffOperationsStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  void deleteItem(InventoryItem item) {
+    inventory.remove(item);
+    notifyListeners();
+  }
+
   void requestRestock(InventoryItem item, int quantity, String note) {
     item.restockRequested = true;
     item.restockQuantity = quantity;

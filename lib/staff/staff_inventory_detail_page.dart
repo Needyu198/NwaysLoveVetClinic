@@ -15,11 +15,7 @@ class StaffInventoryDetailPage extends StatelessWidget {
     backgroundColor: _page,
     body: Column(
       children: [
-        _StaffMintHeader(
-          title: 'Item Details',
-          subtitle: item.name,
-          icon: Icons.inventory_2_outlined,
-        ),
+        _StaffMintHeader(title: 'Item Details', subtitle: item.name),
         Expanded(
           child: AnimatedBuilder(
             animation: StaffOperationsStore.instance,
@@ -112,23 +108,22 @@ class StaffInventoryDetailPage extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: FilledButton.icon(
+                        child: _InventoryDetailAction(
                           key: ValueKey('stock-in-${item.id}'),
                           onPressed: () => _stockIn(context, item),
-                          icon: const Icon(Icons.south_west_rounded),
-                          label: const Text('Stock In'),
+                          icon: Icons.south_west_rounded,
+                          label: 'Stock In',
+                          color: _green,
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: FilledButton.icon(
+                        child: _InventoryDetailAction(
                           key: ValueKey('stock-out-${item.id}'),
                           onPressed: () => _stockOut(context, item),
-                          icon: const Icon(Icons.north_east_rounded),
-                          label: const Text('Stock Out'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF9A5B00),
-                          ),
+                          icon: Icons.north_east_rounded,
+                          label: 'Stock Out',
+                          color: const Color(0xFF9A5B00),
                         ),
                       ),
                     ],
@@ -137,38 +132,25 @@ class StaffInventoryDetailPage extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: _InventoryDetailAction(
+                          key: ValueKey('edit-${item.id}'),
                           onPressed: () => _editItem(context, item),
-                          child: const Text('Edit'),
+                          icon: Icons.edit_outlined,
+                          label: 'Edit',
+                          color: const Color(0xFF2358A5),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => _requestRestock(context, item),
-                          child: Text(
-                            item.restockRequested
-                                ? 'Update request'
-                                : 'Restock',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        child: _InventoryDetailAction(
+                          key: ValueKey('delete-${item.id}'),
+                          onPressed: () => _deleteItem(context, item),
+                          icon: Icons.delete_outline_rounded,
+                          label: 'Delete',
+                          color: _red,
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton.icon(
-                      key: ValueKey('archive-${item.id}'),
-                      onPressed: () => _archiveItem(context, item),
-                      icon: const Icon(Icons.archive_outlined, color: _red),
-                      label: const Text(
-                        'Archive item',
-                        style: TextStyle(color: _red),
-                      ),
-                    ),
                   ),
                 ] else ...[
                   const SizedBox(height: 18),
@@ -203,6 +185,42 @@ class StaffInventoryDetailPage extends StatelessWidget {
           ),
         ),
       ],
+    ),
+  );
+}
+
+class _InventoryDetailAction extends StatelessWidget {
+  const _InventoryDetailAction({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+    required this.color,
+    super.key,
+  });
+
+  final VoidCallback onPressed;
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 52,
+    child: FilledButton.icon(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      icon: Icon(icon, size: 20),
+      label: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
     ),
   );
 }
@@ -498,28 +516,13 @@ String? _positiveIntValidator(String? value) {
   return null;
 }
 
-Future<void> _archiveItem(BuildContext context, InventoryItem item) async {
-  final reason = TextEditingController();
+Future<void> _deleteItem(BuildContext context, InventoryItem item) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Archive item?'),
-      content: SizedBox(
-        width: 320,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Archived items keep their history but leave the active list.',
-              style: TextStyle(color: _muted),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reason,
-              decoration: _input('Reason', Icons.notes_rounded),
-            ),
-          ],
-        ),
+      title: const Text('Delete item?'),
+      content: Text(
+        '${item.name} and its stock history will be permanently deleted.',
       ),
       actions: [
         TextButton(
@@ -527,22 +530,19 @@ Future<void> _archiveItem(BuildContext context, InventoryItem item) async {
           child: const Text('Cancel'),
         ),
         FilledButton(
+          key: ValueKey('confirm-delete-${item.id}'),
           style: FilledButton.styleFrom(backgroundColor: _red),
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('Archive'),
+          child: const Text('Delete'),
         ),
       ],
     ),
   );
   if (confirmed == true) {
-    StaffOperationsStore.instance.archiveItem(
-      item,
-      reason.text.trim().isEmpty ? 'No reason given' : reason.text.trim(),
-    );
+    StaffOperationsStore.instance.deleteItem(item);
     if (context.mounted) {
       Navigator.pop(context);
-      _notice(context, '${item.name} archived.');
+      _notice(context, '${item.name} deleted.');
     }
   }
-  reason.dispose();
 }

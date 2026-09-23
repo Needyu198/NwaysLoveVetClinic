@@ -2307,7 +2307,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('Cart'), findsNothing);
     expect(find.text('Product Options'), findsOneWidget);
-    expect(find.text('Recommended Products'), findsOneWidget);
+    expect(find.text('Recommended Products'), findsNothing);
     await tester.ensureVisible(find.text('Dog Food 01'));
     await tester.tap(find.text('Dog Food 01'));
     await tester.pumpAndSettle();

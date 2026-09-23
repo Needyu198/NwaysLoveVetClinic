@@ -71,14 +71,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Product Options'), findsOneWidget);
-    expect(find.text('Recommended Products'), findsOneWidget);
-    expect(find.byKey(const ValueKey('pet-type-filters')), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('product-subcategory-filters')),
+      find.byKey(const ValueKey('product-category-all-icon')),
       findsOneWidget,
     );
-    expect(find.text('Dog Food'), findsOneWidget);
-    expect(find.text('Cat Food'), findsOneWidget);
+    expect(find.text('Recommended Products'), findsNothing);
+    expect(find.byKey(const ValueKey('pet-type-filters')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('product-subcategory-filters')),
+      findsNothing,
+    );
     await tester.enterText(
       find.byKey(const ValueKey('pet-products-search')),
       'Shared Royal Canin Product',
@@ -87,9 +89,7 @@ void main() {
     expect(find.text('Shared Royal Canin Product'), findsWidgets);
   });
 
-  testWidgets('pet and subcategory filters narrow the product catalog', (
-    tester,
-  ) async {
+  testWidgets('pet and subcategory filter bars are not shown', (tester) async {
     final previousToken = ClinicApi.instance.token;
     ClinicApi.instance.token = null;
     addTearDown(() => ClinicApi.instance.token = previousToken);
@@ -97,15 +97,13 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: PetProductsPage()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('Pet-filter-Dog')));
-    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('pet-type-filters')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('product-subcategory-filters')),
+      findsNothing,
+    );
     expect(find.text('Dog Food 01'), findsOneWidget);
-    expect(find.text('Cat Food 01'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('Type-filter-Dog Food')));
-    await tester.pumpAndSettle();
-    expect(find.text('Dog Food 01'), findsOneWidget);
-    expect(find.text('Dog Toy'), findsNothing);
+    expect(find.text('Cat Food 01'), findsOneWidget);
   });
 
   testWidgets('pet owner can swipe through all three product photos', (
