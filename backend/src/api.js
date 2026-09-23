@@ -472,10 +472,17 @@ function installApi(app, pool) {
     try {
       await client.query('BEGIN');
       const saved = [];
+      const postNotifications = [];
       for (const item of [...changes, ...deletions.map(x => ({ ...x, deleting: true }))]) {
         if (typeof item.id !== 'string' || !item.id || item.id.length > 250 || !Number.isInteger(item.version) || item.version < 0) throw fail(400, 'Invalid record.');
         const existing = (await client.query(`SELECT * FROM ${req.params.table} WHERE id=$1 FOR UPDATE`, [item.id])).rows[0];
         if (existing && ownOnly(p, req.session) && existing.owner_id !== req.session.account_id) throw fail(403, 'Access denied.');
+        // Doctors own the health posts they create. Staff and system admins
+        // retain clinic-wide moderation access, but one doctor cannot change
+        // or delete another doctor's content through the generic sync API.
+        if (req.params.table === 'health_posts' && existing && req.session.role === 'doctor' && existing.owner_id !== req.session.account_id) {
+          throw fail(403, 'Only the author can change this post.');
+        }
         if ((existing?.version || 0) !== item.version) throw fail(409, 'This record changed on another device. Reload before saving.');
         if (p.appendOnly && (existing || item.deleting)) throw fail(403, 'Audit entries cannot be changed or deleted.');
         if (item.deleting) {
@@ -510,6 +517,15 @@ function installApi(app, pool) {
           saved.push((await client.query(`UPDATE ${req.params.table} SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1 RETURNING id,owner_id,data,version`, [item.id, item.data])).rows[0]);
         } else {
           saved.push((await client.query(`INSERT INTO ${req.params.table}(id,owner_id,data) VALUES($1,$2,$3) RETURNING id,owner_id,data,version`, [item.id, ownerId, item.data])).rows[0]);
+          if (req.params.table === 'health_posts' && item.data.value.status !== 'scheduled' && item.data.value.status !== 'archived') {
+            const owners = (await client.query("SELECT id FROM app_accounts WHERE role='petOwner' AND active=TRUE")).rows;
+            const title = `New ${item.data.value.category || 'pet health'} post`;
+            const message = `${item.data.value.authorName || 'A clinic veterinarian'} published “${item.data.value.title || 'a new post'}”.`;
+            for (const owner of owners) {
+              await saveOwnerNotification(client, owner.id, title, message);
+              postNotifications.push({ ownerId: owner.id, title, message });
+            }
+          }
         }
       }
       await client.query('COMMIT');
@@ -517,11 +533,19 @@ function installApi(app, pool) {
       // (drives the real-time queue). Only emit when something actually changed.
       if (changes.length || deletions.length) {
         broadcastChange(req.params.table);
+        if (postNotifications.length) broadcastChange('owner_notifications');
         // clinic_directory is a computed view over accounts + doctor profiles.
         // Refresh staff/owner doctor pickers as soon as availability changes.
         if (req.params.table === 'doctor_profiles' || req.params.table === 'staff_profiles' || req.params.table === 'user_directory') {
           broadcastChange('clinic_directory');
         }
+      }
+      for (const notice of postNotifications) {
+        await sendToAccount(pool, notice.ownerId, {
+          title: notice.title,
+          body: notice.message,
+          data: { type: 'health_post' },
+        });
       }
       res.json({ records: saved });
     } catch (e) { await client.query('ROLLBACK'); if (e.code === '23505') throw fail(409, 'Record already exists. Reload before saving.'); throw e; }

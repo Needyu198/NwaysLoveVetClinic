@@ -78,7 +78,8 @@ class NwayLoveVetClinicApp extends StatelessWidget {
           surface: Color(0xFFF6F8F7),
           onSurface: Color(0xFF000000),
         ),
-        fontFamily: 'Roboto',
+        // Internal Apple system-family name for SF Pro Rounded.
+        fontFamily: '.SF NS Rounded',
         useMaterial3: true,
       ),
       initialRoute: LoginPage.routeName,

@@ -129,6 +129,16 @@ class DoctorDashboardPage extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  _DashboardMenuButton(
+                    key: const ValueKey('doctor-manage-posts'),
+                    label: 'Manage my posts',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DoctorPostsManagerPage(),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   const Text('New Feeds', style: DoctorStyles.heroSection),
                   const SizedBox(height: 16),

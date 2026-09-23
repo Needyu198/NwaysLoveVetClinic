@@ -20,7 +20,7 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
     await database.query(`SET search_path TO ${schema}`);
     await ensureDatabaseSchema(database, schema); // migration is repeatable
     const password = await bcrypt.hash('integration-only-password', 4);
-    for (const [id,role] of [['ownerA','petOwner'],['ownerB','petOwner'],['staff','staff'],['doctor','doctor'],['admin','systemAdmin']]) {
+    for (const [id,role] of [['ownerA','petOwner'],['ownerB','petOwner'],['staff','staff'],['doctor','doctor'],['doctorB','doctor'],['admin','systemAdmin']]) {
       await database.query('INSERT INTO app_accounts(id,username,password_hash,role) VALUES($1,$2,$3,$4)',[id,id.toLowerCase(),password,role]);
     }
     const app = express();
@@ -33,7 +33,7 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
       return {status:response.status,...await response.json()};
     }
     const tokens = {};
-    for (const id of ['ownerA','ownerB','staff','doctor','admin']) {
+    for (const id of ['ownerA','ownerB','staff','doctor','doctorB','admin']) {
       const result = await request('/auth/login',null,{username:id,password:'integration-only-password'});
       assert.equal(result.status,200);tokens[id]=result.token;
     }
@@ -65,6 +65,23 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
     assert.equal((await request('/data/pets',tokens.ownerA)).records[0].data.value.name,'Updated');
     assert.equal((await request('/data/pets/sync',tokens.ownerA,{deletions:[{id:'pet-1',version:2}]})).status,200);
     assert.equal((await request('/data/pets',tokens.ownerA)).records.length,0);
+    // Health posts are clinic-visible but doctor-owned for mutation. Publishing
+    // also creates an in-app notification for every active pet owner.
+    const healthPost = {
+      id:'doctor-health-post',version:0,
+      data:{key:'doctor:health-post',value:{
+        id:'doctor-health-post',title:'Dental care',content:'Brush regularly.',
+        coverAsset:'',attachmentAssets:[],createdAt:new Date().toISOString(),
+        updatedAt:new Date().toISOString(),authorId:'doctor',authorName:'Dr. Test',
+        category:'Prevention',audience:'All Pets',status:'published',
+      }},
+    };
+    result = await request('/data/health_posts/sync',tokens.doctor,{changes:[healthPost]});
+    assert.equal(result.status,200);
+    assert.equal((await request('/data/health_posts',tokens.ownerA)).records.some(r=>r.id===healthPost.id),true);
+    assert.equal((await request('/data/owner_notifications',tokens.ownerA)).records.some(r=>r.data.value.message.includes('Dental care')),true);
+    assert.equal((await request('/data/health_posts/sync',tokens.doctorB,{changes:[{...healthPost,version:1}]})).status,403);
+    assert.equal((await request('/data/health_posts/sync',tokens.doctorB,{deletions:[{id:healthPost.id,version:1}]})).status,403);
     // Queue tickets are clinic-owned, receive atomic daily numbers, expose a
     // derived owner position, and enforce versioned lifecycle transitions.
     const appointmentValue = {

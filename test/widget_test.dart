@@ -1033,7 +1033,7 @@ void main() {
     expect(find.text('Appointments'), findsOneWidget);
     expect(find.text('Queue'), findsOneWidget);
     expect(find.text('Messages'), findsNothing);
-    expect(find.text('Health Posts'), findsNothing);
+    expect(find.text('Health Posts'), findsOneWidget);
     expect(find.text('Inventory'), findsOneWidget);
     expect(find.text('Medical Records'), findsOneWidget);
     expect(find.text('Emergency Cases'), findsOneWidget);

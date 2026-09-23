@@ -24,11 +24,13 @@ class StaffHealthPostsPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (post.coverAsset.isNotEmpty)
-                    Image.asset(
-                      post.coverAsset,
+                    SizedBox(
                       width: double.infinity,
                       height: 125,
-                      fit: BoxFit.cover,
+                      child: DoctorPostImage(
+                        asset: post.coverAsset,
+                        cover: true,
+                      ),
                     ),
                   Padding(
                     padding: const EdgeInsets.all(15),
@@ -51,7 +53,7 @@ class StaffHealthPostsPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Published by veterinarian • ${_shortDate(post.createdAt)}',
+                          '${post.authorName} • ${post.category} • ${_shortDate(post.createdAt)}',
                           style: const TextStyle(
                             fontSize: 11,
                             color: _green,

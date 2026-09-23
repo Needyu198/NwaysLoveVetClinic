@@ -77,6 +77,13 @@ class StaffManagementPage extends StatelessWidget {
                 color: const Color(0xFFFFE8C7),
                 onTap: () => _push(context, const StaffHomeVisitsPage()),
               ),
+              _ManagementCard(
+                title: 'Health Posts',
+                subtitle: 'Review published clinic content',
+                icon: Icons.campaign_rounded,
+                color: const Color(0xFFD8F3ED),
+                onTap: () => _push(context, const StaffHealthPostsPage()),
+              ),
             ],
           ),
         ),

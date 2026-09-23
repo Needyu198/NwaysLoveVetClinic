@@ -113,17 +113,38 @@ class DoctorPost {
     'coverAsset': coverAsset,
     'attachmentAssets': attachmentAssets.map((v) => v).toList(),
     'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'authorId': authorId,
+    'authorName': authorName,
+    'authorSpecialty': authorSpecialty,
+    'authorPhoto': authorPhoto,
+    'category': category,
+    'audience': audience,
+    'status': status,
+    if (scheduledFor != null) 'scheduledFor': scheduledFor!.toIso8601String(),
   };
   static DoctorPost fromDb(Map<String, dynamic> data) {
+    final createdAt =
+        DateTime.tryParse(data['createdAt'] as String? ?? '') ?? DateTime.now();
     final value = DoctorPost(
-      id: data['id'] as String,
-      title: data['title'] as String,
-      content: data['content'] as String,
-      coverAsset: data['coverAsset'] as String,
-      attachmentAssets: (data['attachmentAssets'] as List)
-          .map((v) => v as String)
+      id: data['id'] as String? ?? '',
+      title: data['title'] as String? ?? 'Untitled post',
+      content: data['content'] as String? ?? '',
+      coverAsset: data['coverAsset'] as String? ?? '',
+      attachmentAssets: (data['attachmentAssets'] as List? ?? const [])
+          .whereType<String>()
           .toList(),
-      createdAt: DateTime.parse(data['createdAt'] as String),
+      createdAt: createdAt,
+      updatedAt:
+          DateTime.tryParse(data['updatedAt'] as String? ?? '') ?? createdAt,
+      authorId: data['authorId'] as String? ?? '',
+      authorName: data['authorName'] as String? ?? 'Clinic Veterinarian',
+      authorSpecialty: data['authorSpecialty'] as String? ?? '',
+      authorPhoto: data['authorPhoto'] as String?,
+      category: data['category'] as String? ?? 'Pet Health',
+      audience: data['audience'] as String? ?? 'All Pets',
+      status: data['status'] as String? ?? 'published',
+      scheduledFor: DateTime.tryParse(data['scheduledFor'] as String? ?? ''),
     );
     return value;
   }
@@ -135,7 +156,16 @@ class DoctorPost {
     required this.coverAsset,
     required this.attachmentAssets,
     required this.createdAt,
-  });
+    DateTime? updatedAt,
+    this.authorId = '',
+    this.authorName = 'Clinic Veterinarian',
+    this.authorSpecialty = '',
+    this.authorPhoto,
+    this.category = 'Pet Health',
+    this.audience = 'All Pets',
+    this.status = 'published',
+    this.scheduledFor,
+  }) : updatedAt = updatedAt ?? createdAt;
 
   final String id;
   final String title;
@@ -143,38 +173,97 @@ class DoctorPost {
   final String coverAsset;
   final List<String> attachmentAssets;
   final DateTime createdAt;
+  final DateTime updatedAt;
+  final String authorId;
+  final String authorName;
+  final String authorSpecialty;
+  final String? authorPhoto;
+  final String category;
+  final String audience;
+  final String status;
+  final DateTime? scheduledFor;
+
+  bool get isPublished =>
+      (status == 'published' || status == 'scheduled') &&
+      (scheduledFor == null || !scheduledFor!.isAfter(DateTime.now()));
+
+  DoctorPost copyWith({
+    String? title,
+    String? content,
+    String? coverAsset,
+    List<String>? attachmentAssets,
+    String? category,
+    String? audience,
+    String? status,
+    DateTime? scheduledFor,
+    bool clearSchedule = false,
+  }) => DoctorPost(
+    id: id,
+    title: title ?? this.title,
+    content: content ?? this.content,
+    coverAsset: coverAsset ?? this.coverAsset,
+    attachmentAssets: attachmentAssets ?? this.attachmentAssets,
+    createdAt: createdAt,
+    updatedAt: DateTime.now(),
+    authorId: authorId,
+    authorName: authorName,
+    authorSpecialty: authorSpecialty,
+    authorPhoto: authorPhoto,
+    category: category ?? this.category,
+    audience: audience ?? this.audience,
+    status: status ?? this.status,
+    scheduledFor: clearSchedule ? null : scheduledFor ?? this.scheduledFor,
+  );
 }
 
 class DoctorPostDraft {
   Map<String, dynamic> toDb() => {
+    'id': id,
     'title': title,
     'content': content,
     'coverAsset': coverAsset,
     'attachmentAssets': attachmentAssets.map((v) => v).toList(),
+    'category': category,
+    'audience': audience,
+    'updatedAt': updatedAt.toIso8601String(),
   };
   static DoctorPostDraft fromDb(Map<String, dynamic> data) {
     final value = DoctorPostDraft(
-      title: data['title'] as String,
-      content: data['content'] as String,
-      coverAsset: data['coverAsset'] as String,
-      attachmentAssets: (data['attachmentAssets'] as List)
-          .map((v) => v as String)
+      id: data['id'] as String? ?? 'draft',
+      title: data['title'] as String? ?? '',
+      content: data['content'] as String? ?? '',
+      coverAsset: data['coverAsset'] as String? ?? '',
+      attachmentAssets: (data['attachmentAssets'] as List? ?? const [])
+          .whereType<String>()
           .toList(),
+      category: data['category'] as String? ?? 'Pet Health',
+      audience: data['audience'] as String? ?? 'All Pets',
+      updatedAt:
+          DateTime.tryParse(data['updatedAt'] as String? ?? '') ??
+          DateTime.now(),
     );
     return value;
   }
 
-  const DoctorPostDraft({
+  DoctorPostDraft({
+    this.id = 'draft',
     required this.title,
     required this.content,
     required this.coverAsset,
     required this.attachmentAssets,
-  });
+    this.category = 'Pet Health',
+    this.audience = 'All Pets',
+    DateTime? updatedAt,
+  }) : updatedAt = updatedAt ?? DateTime.now();
 
+  final String id;
   final String title;
   final String content;
   final String coverAsset;
   final List<String> attachmentAssets;
+  final String category;
+  final String audience;
+  final DateTime updatedAt;
 
   DoctorPost asPost() => DoctorPost(
     id: 'draft',
@@ -183,6 +272,10 @@ class DoctorPostDraft {
     coverAsset: coverAsset,
     attachmentAssets: attachmentAssets,
     createdAt: DateTime.now(),
+    updatedAt: updatedAt,
+    category: category,
+    audience: audience,
+    status: 'draft',
   );
 }
 
@@ -191,11 +284,21 @@ class DoctorPostStore extends ChangeNotifier {
     DatabaseSync.instance.bind(
       'health_post_drafts',
       this,
-      () => _draft == null ? {} : {'draft': _draft!.toDb()},
+      () => {
+        for (final draft in _drafts)
+          databaseRecordKey(draft, draft.id): draft.toDb(),
+      },
       (rows) {
-        _draft = rows.isEmpty
-            ? null
-            : DoctorPostDraft.fromDb(rows.values.first);
+        _drafts
+          ..clear()
+          ..addAll(
+            rows.entries.map(
+              (entry) => databaseRestoreKey(
+                DoctorPostDraft.fromDb(entry.value),
+                entry.key,
+              ),
+            ),
+          );
       },
     );
     DatabaseSync.instance.bind(
@@ -212,7 +315,8 @@ class DoctorPostStore extends ChangeNotifier {
             rows.entries.map(
               (e) => databaseRestoreKey(DoctorPost.fromDb(e.value), e.key),
             ),
-          );
+          )
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       },
     );
   }
@@ -245,13 +349,29 @@ class DoctorPostStore extends ChangeNotifier {
       createdAt: DateTime(2026, 6, 12),
     ),
   ];
-  DoctorPostDraft? _draft;
+  final List<DoctorPostDraft> _drafts = [];
 
-  List<DoctorPost> get posts => List.unmodifiable(_posts);
-  DoctorPostDraft? get draft => _draft;
+  List<DoctorPost> get posts =>
+      List.unmodifiable(_posts.where((post) => post.isPublished));
+  List<DoctorPost> get allPosts => List.unmodifiable(_posts);
+  List<DoctorPostDraft> get drafts => List.unmodifiable(
+    [..._drafts]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)),
+  );
+  DoctorPostDraft? get draft => drafts.firstOrNull;
 
   void saveDraft(DoctorPostDraft draft) {
-    _draft = draft;
+    final index = _drafts.indexWhere((item) => item.id == draft.id);
+    if (index < 0) {
+      _drafts.add(draft);
+    } else {
+      final key = databaseKeyOf(_drafts[index]);
+      _drafts[index] = key == null ? draft : databaseRestoreKey(draft, key);
+    }
+    notifyListeners();
+  }
+
+  void deleteDraft(String id) {
+    _drafts.removeWhere((draft) => draft.id == id);
     notifyListeners();
   }
 
@@ -260,25 +380,86 @@ class DoctorPostStore extends ChangeNotifier {
     required String content,
     required String coverAsset,
     required List<String> attachmentAssets,
+    required String category,
+    required String audience,
+    String? draftId,
+    DoctorPost? replacing,
+    DateTime? scheduledFor,
   }) {
-    final post = DoctorPost(
-      id: 'POST-${DateTime.now().microsecondsSinceEpoch}',
+    final now = DateTime.now();
+    final profile = DoctorProfileStore.instance.data;
+    var post = DoctorPost(
+      id: replacing?.id ?? 'POST-${now.microsecondsSinceEpoch}',
       title: title,
       content: content,
       coverAsset: coverAsset,
       attachmentAssets: List.unmodifiable(attachmentAssets),
-      createdAt: DateTime.now(),
+      createdAt: replacing?.createdAt ?? now,
+      updatedAt: now,
+      authorId: replacing?.authorId.isNotEmpty == true
+          ? replacing!.authorId
+          : ClinicApi.instance.accountId,
+      authorName: replacing?.authorName.isNotEmpty == true
+          ? replacing!.authorName
+          : (profile.name.isEmpty ? 'Clinic Veterinarian' : profile.name),
+      authorSpecialty: replacing?.authorSpecialty.isNotEmpty == true
+          ? replacing!.authorSpecialty
+          : profile.specialty,
+      authorPhoto: replacing?.authorPhoto ?? profile.photoUrl,
+      category: category,
+      audience: audience,
+      status: scheduledFor != null && scheduledFor.isAfter(now)
+          ? 'scheduled'
+          : 'published',
+      scheduledFor: scheduledFor,
     );
-    _posts.insert(0, post);
-    _draft = null;
+    if (replacing == null) {
+      _posts.insert(0, post);
+    } else {
+      final index = _posts.indexOf(replacing);
+      final key = databaseKeyOf(replacing);
+      if (key != null) post = databaseRestoreKey(post, key);
+      if (index >= 0) _posts[index] = post;
+    }
+    if (draftId != null) _drafts.removeWhere((draft) => draft.id == draftId);
     notifyListeners();
     return post;
+  }
+
+  void archive(DoctorPost post) =>
+      _replace(post, post.copyWith(status: 'archived'));
+
+  void restore(DoctorPost post) =>
+      _replace(post, post.copyWith(status: 'published'));
+
+  void deletePost(DoctorPost post) {
+    _posts.remove(post);
+    notifyListeners();
+  }
+
+  void restorePostSnapshot(DoctorPost post) {
+    final index = _posts.indexWhere((item) => item.id == post.id);
+    if (index < 0) {
+      _posts.insert(0, post);
+    } else {
+      final key = databaseKeyOf(_posts[index]);
+      _posts[index] = key == null ? post : databaseRestoreKey(post, key);
+    }
+    notifyListeners();
+  }
+
+  void _replace(DoctorPost old, DoctorPost next) {
+    final index = _posts.indexOf(old);
+    if (index < 0) return;
+    final key = databaseKeyOf(old);
+    _posts[index] = key == null ? next : databaseRestoreKey(next, key);
+    notifyListeners();
   }
 
   @visibleForTesting
   void reset() {
     if (_posts.length > 1) _posts.removeRange(0, _posts.length - 1);
-    _draft = null;
+    _drafts.clear();
     notifyListeners();
   }
 }

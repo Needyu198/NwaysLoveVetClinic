@@ -1,7 +1,10 @@
 part of 'doctor_portal.dart';
 
 class DoctorCreatePostPage extends StatefulWidget {
-  const DoctorCreatePostPage({super.key});
+  const DoctorCreatePostPage({this.draft, this.editingPost, super.key});
+
+  final DoctorPostDraft? draft;
+  final DoctorPost? editingPost;
 
   @override
   State<DoctorCreatePostPage> createState() => _DoctorCreatePostPageState();
@@ -12,15 +15,25 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
   late final TextEditingController _content;
   var _coverAsset = '';
   var _attachments = <String>[];
+  late final String _draftId;
+  late String _category;
+  late String _audience;
+  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    final draft = DoctorPostStore.instance.draft;
-    _title = TextEditingController(text: draft?.title ?? '');
-    _content = TextEditingController(text: draft?.content ?? '');
-    _coverAsset = draft?.coverAsset ?? '';
-    _attachments = [...?draft?.attachmentAssets];
+    final draft = widget.draft;
+    final post = widget.editingPost;
+    _draftId = draft?.id ?? 'DRAFT-${DateTime.now().microsecondsSinceEpoch}';
+    _title = TextEditingController(text: draft?.title ?? post?.title ?? '');
+    _content = TextEditingController(
+      text: draft?.content ?? post?.content ?? '',
+    );
+    _coverAsset = draft?.coverAsset ?? post?.coverAsset ?? '';
+    _attachments = [...?draft?.attachmentAssets ?? post?.attachmentAssets];
+    _category = draft?.category ?? post?.category ?? 'Pet Health';
+    _audience = draft?.audience ?? post?.audience ?? 'All Pets';
   }
 
   @override
@@ -38,142 +51,231 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
         bottom: false,
         child: Column(
           children: [
-            const _DoctorPageHeader(title: 'Create Post'),
+            _DoctorPageHeader(
+              title: widget.editingPost == null ? 'Create Post' : 'Edit Post',
+            ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(11),
-                    decoration: BoxDecoration(
-                      color: DoctorStyles.mint,
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    child: Column(
-                      children: [
-                        _CoverPicker(
-                          asset: _coverAsset,
-                          onPressed: _chooseCover,
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(11),
+                        decoration: BoxDecoration(
+                          color: DoctorStyles.mint,
+                          borderRadius: BorderRadius.circular(28),
                         ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          key: const ValueKey('doctor-post-title'),
-                          controller: _title,
-                          textCapitalization: TextCapitalization.sentences,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          decoration: _composerDecoration(
-                            'Write a headline....',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          height: 448,
-                          padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                          child: Column(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  key: const ValueKey('doctor-post-content'),
-                                  controller: _content,
-                                  expands: true,
-                                  maxLines: null,
-                                  minLines: null,
-                                  textAlignVertical: TextAlignVertical.top,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    height: 1.35,
-                                  ),
-                                  decoration: const InputDecoration(
-                                    hintText: 'Write a post....',
-                                    hintStyle: TextStyle(
-                                      color: Color(0xFFB8B8B8),
-                                      fontWeight: FontWeight.w700,
+                        child: Column(
+                          children: [
+                            _CoverPicker(
+                              asset: _coverAsset,
+                              onPressed: _chooseCover,
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              key: const ValueKey('doctor-post-title'),
+                              controller: _title,
+                              textCapitalization: TextCapitalization.sentences,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              decoration: _composerDecoration(
+                                'Write a headline....',
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    key: const ValueKey('doctor-post-category'),
+                                    isExpanded: true,
+                                    initialValue: _category,
+                                    decoration: _composerDecoration('Category'),
+                                    items:
+                                        const [
+                                              'Pet Health',
+                                              'Nutrition',
+                                              'Vaccination',
+                                              'Prevention',
+                                              'Clinic News',
+                                            ]
+                                            .map(
+                                              (value) => DropdownMenuItem(
+                                                value: value,
+                                                child: Text(
+                                                  value,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                    onChanged: (value) => setState(
+                                      () => _category = value ?? _category,
                                     ),
-                                    border: InputBorder.none,
                                   ),
                                 ),
-                              ),
-                              InkWell(
-                                key: const ValueKey('attach-post-images'),
-                                onTap: _chooseAttachments,
-                                borderRadius: BorderRadius.circular(18),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 12,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    key: const ValueKey('doctor-post-audience'),
+                                    isExpanded: true,
+                                    initialValue: _audience,
+                                    decoration: _composerDecoration('Audience'),
+                                    items: const ['All Pets', 'Dogs', 'Cats']
+                                        .map(
+                                          (value) => DropdownMenuItem(
+                                            value: value,
+                                            child: Text(
+                                              value,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: (value) => setState(
+                                      () => _audience = value ?? _audience,
+                                    ),
                                   ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.add_photo_alternate_outlined,
-                                        color: Color(0xFF525C59),
-                                        size: 22,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              height: 448,
+                              padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      key: const ValueKey(
+                                        'doctor-post-content',
                                       ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        _attachments.isEmpty
-                                            ? 'Add photos.....'
-                                            : '${_attachments.length} photo(s) added • tap to add more',
-                                        style: const TextStyle(
-                                          color: Color(0xFF777F7D),
-                                          fontSize: 16,
+                                      controller: _content,
+                                      expands: true,
+                                      maxLines: null,
+                                      minLines: null,
+                                      textAlignVertical: TextAlignVertical.top,
+                                      textCapitalization:
+                                          TextCapitalization.sentences,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        height: 1.35,
+                                      ),
+                                      decoration: const InputDecoration(
+                                        hintText: 'Write a post....',
+                                        hintStyle: TextStyle(
+                                          color: Color(0xFFB8B8B8),
                                           fontWeight: FontWeight.w700,
                                         ),
+                                        border: InputBorder.none,
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ),
+                                  InkWell(
+                                    key: const ValueKey('attach-post-images'),
+                                    onTap: _chooseAttachments,
+                                    borderRadius: BorderRadius.circular(18),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 12,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.add_photo_alternate_outlined,
+                                            color: Color(0xFF525C59),
+                                            size: 22,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              _attachments.isEmpty
+                                                  ? 'Add photos.....'
+                                                  : '${_attachments.length} photo(s) added • tap to add more',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: Color(0xFF777F7D),
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_attachments.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              _AttachmentStrip(
+                                attachments: _attachments,
+                                onRemove: _removeAttachment,
                               ),
                             ],
-                          ),
-                        ),
-                        if (_attachments.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          _AttachmentStrip(
-                            attachments: _attachments,
-                            onRemove: _removeAttachment,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _PostActionButton(
-                          key: const ValueKey('save-doctor-post-draft'),
-                          label: 'Save to Draft',
-                          onPressed: _saveDraft,
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 34),
-                      Expanded(
-                        child: _PostActionButton(
-                          key: const ValueKey('view-doctor-post-draft'),
-                          label: 'View Draft',
-                          onPressed: _viewDraft,
-                        ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _PostActionButton(
+                              key: const ValueKey('save-doctor-post-draft'),
+                              label: 'Save to Draft',
+                              onPressed: _saveDraft,
+                            ),
+                          ),
+                          const SizedBox(width: 34),
+                          Expanded(
+                            child: _PostActionButton(
+                              key: const ValueKey('view-doctor-post-draft'),
+                              label: 'View Draft',
+                              onPressed: _viewDraft,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _PostActionButton(
+                              key: const ValueKey('publish-doctor-post'),
+                              label: _saving
+                                  ? 'Publishing…'
+                                  : widget.editingPost == null
+                                  ? 'Post Now'
+                                  : 'Save Post',
+                              large: true,
+                              onPressed: _saving ? null : _publish,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _PostActionButton(
+                              key: const ValueKey('schedule-doctor-post'),
+                              label: 'Schedule',
+                              large: true,
+                              onPressed: _saving ? null : _schedule,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  _PostActionButton(
-                    key: const ValueKey('publish-doctor-post'),
-                    label: 'Post',
-                    large: true,
-                    onPressed: _publish,
-                  ),
-                ],
+                ),
               ),
             ),
           ],
@@ -221,6 +323,20 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
               title: const Text('Take a photo'),
               onTap: () => Navigator.of(sheetContext).pop('camera'),
             ),
+            const Divider(),
+            for (final asset in [
+              DoctorPostStore.defaultCover,
+              ...DoctorPostStore.gallery,
+            ])
+              ListTile(
+                key: ValueKey('doctor-post-asset-$asset'),
+                leading: SizedBox.square(
+                  dimension: 42,
+                  child: DoctorPostImage(asset: asset),
+                ),
+                title: const Text('Use clinic image'),
+                onTap: () => Navigator.of(sheetContext).pop(asset),
+              ),
             if (_coverAsset.isNotEmpty)
               ListTile(
                 leading: const Icon(
@@ -242,6 +358,10 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
       setState(() => _coverAsset = '');
       return;
     }
+    if (action.startsWith('assets/')) {
+      setState(() => _coverAsset = action);
+      return;
+    }
     final dataUri = await _pickImageDataUri(
       action == 'camera' ? ImageSource.camera : ImageSource.gallery,
     );
@@ -249,6 +369,34 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
   }
 
   Future<void> _chooseAttachments() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Upload photos'),
+              onTap: () => Navigator.pop(sheetContext, 'upload'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.collections_outlined),
+              title: const Text('Add clinic gallery'),
+              onTap: () => Navigator.pop(sheetContext, 'clinic'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == 'clinic') {
+      setState(() {
+        _attachments = {..._attachments, ...DoctorPostStore.gallery}.toList();
+      });
+      return;
+    }
     try {
       final picked = await ImagePicker().pickMultiImage(
         maxWidth: 1280,
@@ -314,27 +462,37 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
   }
 
   DoctorPostDraft _currentDraft() => DoctorPostDraft(
+    id: _draftId,
     title: _title.text.trim(),
     content: _content.text.trim(),
     coverAsset: _coverAsset,
     attachmentAssets: List.unmodifiable(_attachments),
+    category: _category,
+    audience: _audience,
   );
 
-  void _saveDraft() {
+  Future<void> _saveDraft() async {
     DoctorPostStore.instance.saveDraft(_currentDraft());
+    if (DatabaseSync.instance.active) {
+      try {
+        await DatabaseSync.instance.flushOrThrow();
+      } on ClinicApiException catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error.message)));
+        }
+        return;
+      }
+    }
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Post saved to drafts.')));
   }
 
   void _viewDraft() {
-    final draft = DoctorPostStore.instance.draft;
-    if (draft == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Save this post before viewing it.')),
-      );
-      return;
-    }
+    final draft = _currentDraft();
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) =>
@@ -343,26 +501,443 @@ class _DoctorCreatePostPageState extends State<DoctorCreatePostPage> {
     );
   }
 
-  void _publish() {
+  Future<void> _schedule() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(now.year + 2),
+      initialDate: now.add(const Duration(days: 1)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
+    );
+    if (time == null || !mounted) return;
+    final scheduledFor = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    if (!scheduledFor.isAfter(now)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose a future date and time.')),
+      );
+      return;
+    }
+    await _publish(scheduledFor);
+  }
+
+  Future<void> _publish([DateTime? scheduledFor]) async {
     if (_title.text.trim().isEmpty || _content.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a headline and post content.')),
       );
       return;
     }
-    DoctorPostStore.instance.publish(
+    setState(() => _saving = true);
+    final draft = _currentDraft();
+    final post = DoctorPostStore.instance.publish(
       title: _title.text.trim(),
       content: _content.text.trim(),
       coverAsset: _coverAsset.isEmpty
           ? DoctorPostStore.defaultCover
           : _coverAsset,
       attachmentAssets: _attachments,
+      category: _category,
+      audience: _audience,
+      draftId: _draftId,
+      replacing: widget.editingPost,
+      scheduledFor: scheduledFor,
     );
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Post published.')));
+    if (DatabaseSync.instance.active) {
+      try {
+        await DatabaseSync.instance.flushOrThrow();
+      } on ClinicApiException catch (error) {
+        if (widget.editingPost == null) {
+          DoctorPostStore.instance.deletePost(post);
+          DoctorPostStore.instance.saveDraft(draft);
+        } else {
+          DoctorPostStore.instance._replace(post, widget.editingPost!);
+        }
+        if (mounted) {
+          setState(() => _saving = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not publish: ${error.message}')),
+          );
+        }
+        return;
+      }
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          scheduledFor == null ? 'Post published.' : 'Post scheduled.',
+        ),
+      ),
+    );
     Navigator.of(context).pop();
   }
+}
+
+class DoctorPostsManagerPage extends StatelessWidget {
+  const DoctorPostsManagerPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: DoctorStyles.page,
+    body: SafeArea(
+      bottom: false,
+      child: Column(
+        children: [
+          const _DoctorPageHeader(title: 'My Posts'),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: DoctorPostStore.instance,
+              builder: (context, _) {
+                final store = DoctorPostStore.instance;
+                final accountId = ClinicApi.instance.accountId;
+                final posts = store.allPosts.where(
+                  (post) =>
+                      accountId.isEmpty ||
+                      post.authorId.isEmpty ||
+                      post.authorId == accountId,
+                );
+                final published = posts
+                    .where((post) => post.status == 'published')
+                    .toList();
+                final scheduled = posts
+                    .where((post) => post.status == 'scheduled')
+                    .toList();
+                final archived = posts
+                    .where((post) => post.status == 'archived')
+                    .toList();
+                final drafts = store.drafts;
+                return ListView(
+                  key: const ValueKey('doctor-posts-manager'),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
+                  children: [
+                    FilledButton.icon(
+                      key: const ValueKey('doctor-new-post'),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const DoctorCreatePostPage(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Create New Post'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: DoctorStyles.mint,
+                        foregroundColor: Colors.black,
+                        minimumSize: const Size.fromHeight(50),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    _PostManagerSection(
+                      title: 'Drafts',
+                      empty: 'No saved drafts.',
+                      children: [
+                        for (final draft in drafts)
+                          _DraftManagerCard(
+                            draft: draft,
+                            onEdit: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    DoctorCreatePostPage(draft: draft),
+                              ),
+                            ),
+                            onDelete: () => _deleteDraft(context, draft),
+                          ),
+                      ],
+                    ),
+                    _PostManagerSection(
+                      title: 'Scheduled',
+                      empty: 'No scheduled posts.',
+                      children: [
+                        for (final post in scheduled)
+                          _PublishedManagerCard(
+                            post: post,
+                            onPreview: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    DoctorPostDetailPage(post: post),
+                              ),
+                            ),
+                            onEdit: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    DoctorCreatePostPage(editingPost: post),
+                              ),
+                            ),
+                            onArchive: () => _archivePost(context, post),
+                            onDelete: () => _deletePost(context, post),
+                          ),
+                      ],
+                    ),
+                    _PostManagerSection(
+                      title: 'Published',
+                      empty: 'No published posts.',
+                      children: [
+                        for (final post in published)
+                          _PublishedManagerCard(
+                            post: post,
+                            onPreview: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    DoctorPostDetailPage(post: post),
+                              ),
+                            ),
+                            onEdit: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    DoctorCreatePostPage(editingPost: post),
+                              ),
+                            ),
+                            onArchive: () => _archivePost(context, post),
+                            onDelete: () => _deletePost(context, post),
+                          ),
+                      ],
+                    ),
+                    _PostManagerSection(
+                      title: 'Archived',
+                      empty: 'No archived posts.',
+                      children: [
+                        for (final post in archived)
+                          _PublishedManagerCard(
+                            post: post,
+                            onPreview: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    DoctorPostDetailPage(post: post),
+                              ),
+                            ),
+                            onEdit: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    DoctorCreatePostPage(editingPost: post),
+                              ),
+                            ),
+                            onArchive: () => _restorePost(context, post),
+                            onDelete: () => _deletePost(context, post),
+                            archived: true,
+                          ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Future<void> _archivePost(BuildContext context, DoctorPost post) async {
+    DoctorPostStore.instance.archive(post);
+    try {
+      await _finishChange(context, 'Post archived.');
+    } on ClinicApiException catch (error) {
+      DoctorPostStore.instance.restorePostSnapshot(post);
+      if (context.mounted) _showSyncError(context, error);
+    }
+  }
+
+  Future<void> _restorePost(BuildContext context, DoctorPost post) async {
+    DoctorPostStore.instance.restore(post);
+    try {
+      await _finishChange(context, 'Post published again.');
+    } on ClinicApiException catch (error) {
+      DoctorPostStore.instance.restorePostSnapshot(post);
+      if (context.mounted) _showSyncError(context, error);
+    }
+  }
+
+  Future<void> _deletePost(BuildContext context, DoctorPost post) async {
+    if (!await _confirmDelete(context, post.title)) return;
+    if (!context.mounted) return;
+    DoctorPostStore.instance.deletePost(post);
+    try {
+      await _finishChange(context, 'Post deleted.');
+    } on ClinicApiException catch (error) {
+      DoctorPostStore.instance.restorePostSnapshot(post);
+      if (context.mounted) _showSyncError(context, error);
+    }
+  }
+
+  Future<void> _deleteDraft(BuildContext context, DoctorPostDraft draft) async {
+    if (!await _confirmDelete(
+      context,
+      draft.title.isEmpty ? 'Draft' : draft.title,
+    )) {
+      return;
+    }
+    if (!context.mounted) return;
+    DoctorPostStore.instance.deleteDraft(draft.id);
+    try {
+      await _finishChange(context, 'Draft deleted.');
+    } on ClinicApiException catch (error) {
+      DoctorPostStore.instance.saveDraft(draft);
+      if (context.mounted) _showSyncError(context, error);
+    }
+  }
+
+  Future<bool> _confirmDelete(BuildContext context, String title) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Delete permanently?'),
+          content: Text('“$title” will be permanently deleted.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFB3261E),
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+
+  Future<void> _finishChange(BuildContext context, String message) async {
+    if (DatabaseSync.instance.active) {
+      await DatabaseSync.instance.flushOrThrow();
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  void _showSyncError(BuildContext context, ClinicApiException error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Change was not saved: ${error.message}')),
+    );
+  }
+}
+
+class _PostManagerSection extends StatelessWidget {
+  const _PostManagerSection({
+    required this.title,
+    required this.empty,
+    required this.children,
+  });
+
+  final String title;
+  final String empty;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 22),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('$title (${children.length})', style: DoctorStyles.title),
+        const SizedBox(height: 10),
+        if (children.isEmpty)
+          Text(empty, style: DoctorStyles.muted)
+        else
+          ...children,
+      ],
+    ),
+  );
+}
+
+class _DraftManagerCard extends StatelessWidget {
+  const _DraftManagerCard({
+    required this.draft,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final DoctorPostDraft draft;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: const EdgeInsets.only(bottom: 10),
+    child: ListTile(
+      key: ValueKey('doctor-draft-${draft.id}'),
+      leading: const Icon(Icons.edit_note_rounded),
+      title: Text(draft.title.isEmpty ? 'Untitled draft' : draft.title),
+      subtitle: Text(
+        '${draft.category} • Updated ${_shortDate(draft.updatedAt)}',
+      ),
+      onTap: onEdit,
+      trailing: IconButton(
+        tooltip: 'Delete draft',
+        onPressed: onDelete,
+        icon: const Icon(Icons.delete_outline_rounded),
+      ),
+    ),
+  );
+}
+
+class _PublishedManagerCard extends StatelessWidget {
+  const _PublishedManagerCard({
+    required this.post,
+    required this.onPreview,
+    required this.onEdit,
+    required this.onArchive,
+    required this.onDelete,
+    this.archived = false,
+  });
+
+  final DoctorPost post;
+  final VoidCallback onPreview;
+  final VoidCallback onEdit;
+  final VoidCallback onArchive;
+  final VoidCallback onDelete;
+  final bool archived;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: const EdgeInsets.only(bottom: 10),
+    clipBehavior: Clip.antiAlias,
+    child: ListTile(
+      key: ValueKey('manage-doctor-post-${post.id}'),
+      leading: SizedBox.square(
+        dimension: 48,
+        child: DoctorPostImage(asset: post.coverAsset, cover: true),
+      ),
+      title: Text(post.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text('${post.category} • ${_shortDate(post.updatedAt)}'),
+      onTap: onPreview,
+      trailing: PopupMenuButton<String>(
+        onSelected: (value) {
+          switch (value) {
+            case 'edit':
+              onEdit();
+            case 'archive':
+              onArchive();
+            case 'delete':
+              onDelete();
+          }
+        },
+        itemBuilder: (_) => [
+          const PopupMenuItem(value: 'edit', child: Text('Edit')),
+          PopupMenuItem(
+            value: 'archive',
+            child: Text(archived ? 'Publish again' : 'Archive'),
+          ),
+          const PopupMenuItem(value: 'delete', child: Text('Delete')),
+        ],
+      ),
+    ),
+  );
 }
 
 class _CoverPicker extends StatelessWidget {
@@ -399,7 +974,7 @@ class _CoverPicker extends StatelessWidget {
                   ],
                 ),
               )
-            : _PostImage(asset: asset, cover: true),
+            : DoctorPostImage(asset: asset, cover: true),
       ),
     ),
   );
@@ -426,7 +1001,7 @@ class _AttachmentStrip extends StatelessWidget {
               child: SizedBox(
                 width: 92,
                 height: 92,
-                child: _PostImage(asset: attachments[index]),
+                child: DoctorPostImage(asset: attachments[index]),
               ),
             ),
             Positioned(
@@ -465,7 +1040,7 @@ class _PostActionButton extends StatelessWidget {
   });
 
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool large;
 
   @override
@@ -556,7 +1131,7 @@ class _DashboardFeedCard extends StatelessWidget {
               child: SizedBox(
                 height: 215,
                 width: double.infinity,
-                child: _PostImage(asset: post.coverAsset, cover: true),
+                child: DoctorPostImage(asset: post.coverAsset, cover: true),
               ),
             ),
             Padding(
@@ -616,10 +1191,40 @@ class DoctorPostCard extends StatelessWidget {
           child: SizedBox(
             height: 200,
             width: double.infinity,
-            child: _PostImage(asset: post.coverAsset, cover: true),
+            child: DoctorPostImage(asset: post.coverAsset, cover: true),
           ),
         ),
         const SizedBox(height: 16),
+        Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.white,
+              child: widgetForDoctorPostAuthor(post),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    post.authorName,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    [
+                      if (post.authorSpecialty.isNotEmpty) post.authorSpecialty,
+                      post.category,
+                      post.audience,
+                    ].join(' • '),
+                    style: DoctorStyles.small,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         Text(
           post.title,
           style: const TextStyle(
@@ -683,6 +1288,27 @@ class DoctorPostCard extends StatelessWidget {
         ],
       ],
     ),
+  );
+}
+
+Widget widgetForDoctorPostAuthor(DoctorPost post) {
+  final source = post.authorPhoto;
+  if (source != null && source.isNotEmpty) {
+    if (source.startsWith('data:')) {
+      final bytes = _decodePostDataUri(source);
+      if (bytes != null) {
+        return ClipOval(child: Image.memory(bytes, fit: BoxFit.cover));
+      }
+    }
+    if (source.startsWith('assets/')) {
+      return ClipOval(child: Image.asset(source, fit: BoxFit.cover));
+    }
+  }
+  return Text(
+    post.authorName.trim().isEmpty
+        ? 'V'
+        : post.authorName.trim().substring(0, 1).toUpperCase(),
+    style: const TextStyle(fontWeight: FontWeight.w900),
   );
 }
 
@@ -770,7 +1396,7 @@ class _GalleryTile extends StatelessWidget {
     child: SizedBox(
       width: double.infinity,
       height: height,
-      child: _PostImage(asset: asset),
+      child: DoctorPostImage(asset: asset),
     ),
   );
 }
@@ -787,8 +1413,8 @@ Uint8List? _decodePostDataUri(String value) {
   }
 }
 
-class _PostImage extends StatelessWidget {
-  const _PostImage({required this.asset, this.cover = false});
+class DoctorPostImage extends StatelessWidget {
+  const DoctorPostImage({required this.asset, this.cover = false, super.key});
 
   final String asset;
   final bool cover;
