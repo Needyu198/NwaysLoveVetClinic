@@ -42,6 +42,13 @@ For a public deployment that works from any internet connection:
 flutter run --dart-define=API_BASE_URL=https://api.your-domain.example
 ```
 
+Appointment reminders are sent to the pet owner's registered phone 30 minutes
+before the booking. Set `CLINIC_TIME_ZONE` (for example `Asia/Bangkok`) and
+`FIREBASE_SERVICE_ACCOUNT` on the deployed backend. The latter must contain the
+Firebase service-account JSON. The owner must sign in once on the phone and
+allow notifications so its device token is registered. The backend must remain
+running for the reminder scheduler to check upcoming appointments.
+
 Binding to `0.0.0.0` makes the API reachable through the Mac's LAN address, but
 it does not publish the Mac to the internet. To use the app from any network,
 deploy the backend and PostgreSQL using `deploy/README.md`, expose only the API

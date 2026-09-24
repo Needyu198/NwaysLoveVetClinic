@@ -6,6 +6,10 @@ const http = require("node:http");
 const { getDatabaseConfigError, pool } = require("./db");
 const { ensureDatabaseSchema } = require("./schema");
 const { attachRealtime } = require("./realtime");
+const {
+  startAppointmentReminderScheduler,
+  stopAppointmentReminderScheduler,
+} = require("./appointmentReminders");
 
 const app = express();
 const port = Number(process.env.PORT || 5050);
@@ -47,8 +51,10 @@ async function start() {
   const configError = getDatabaseConfigError();
   if (configError) throw new Error(configError);
   await ensureDatabaseSchema();
+  startAppointmentReminderScheduler();
   return server.listen(port, host, () => console.log(`Clinic API + realtime ready at http://${host}:${port}`));
 }
+server.on('close', stopAppointmentReminderScheduler);
 if (require.main === module) {
   start().catch(error => { console.error('API startup failed:', error); pool.end(); process.exitCode = 1; });
 }

@@ -55,6 +55,14 @@ async function ensureDatabaseSchema(database = pool, schema = dbSchema) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
     await client.query(`CREATE INDEX IF NOT EXISTS device_tokens_account_idx ON device_tokens(account_id)`);
+    await client.query(`CREATE TABLE IF NOT EXISTS appointment_reminders (
+      appointment_id TEXT NOT NULL,
+      owner_id TEXT NOT NULL,
+      scheduled_for TIMESTAMPTZ NOT NULL,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY(appointment_id, scheduled_for))`);
+    await client.query(`CREATE INDEX IF NOT EXISTS appointment_reminders_owner_idx
+      ON appointment_reminders(owner_id)`);
     await client.query(`CREATE TABLE IF NOT EXISTS queue_daily_counters (
       clinic_date DATE PRIMARY KEY,
       last_number INTEGER NOT NULL CHECK(last_number > 0))`);

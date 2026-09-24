@@ -58,6 +58,14 @@ async function sendToAccount(pool, accountId, message) {
       tokens,
       notification: { title: message.title, body: message.body },
       data: message.data || {},
+      android: {
+        priority: 'high',
+        notification: { sound: 'default' },
+      },
+      apns: {
+        headers: { 'apns-priority': '10' },
+        payload: { aps: { sound: 'default' } },
+      },
     });
     // Clean up tokens FCM reports as invalid/unregistered.
     const stale = [];

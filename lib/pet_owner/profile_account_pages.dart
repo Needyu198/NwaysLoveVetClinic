@@ -2,6 +2,7 @@ import '../data/database_sync.dart';
 import 'package:flutter/material.dart';
 
 import '../data/clinic_api.dart';
+import '../data/messaging_service.dart';
 import '../login/login_page.dart';
 import 'appointment_booking_page.dart';
 import 'home_visit_booking_page.dart';
@@ -1005,8 +1006,12 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                 const SizedBox(height: 16),
                 FilledButton(
                   key: const ValueKey('save-notification-settings'),
-                  onPressed: () {
+                  onPressed: () async {
                     NotificationSettingsStore.instance.save(settings);
+                    if (settings.enabled) {
+                      await MessagingService.instance.registerForPush();
+                    }
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Notification settings updated'),

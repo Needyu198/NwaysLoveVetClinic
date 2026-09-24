@@ -39,6 +39,15 @@ class MessagingService {
         return;
       }
 
+      if (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS) {
+        await messaging.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
+
       _wireListeners(messaging);
 
       // On Apple platforms the APNs token must exist before asking Firebase
