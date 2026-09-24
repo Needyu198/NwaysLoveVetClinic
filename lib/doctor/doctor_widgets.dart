@@ -235,16 +235,12 @@ class _UpNextCard extends StatelessWidget {
     ),
     child: Row(
       children: [
-        ClipOval(
-          child: SizedBox(
-            width: 58,
-            height: 58,
-            child: Image.asset(
-              'assets/photos/logoandphoto/nways_photo.png',
-              fit: BoxFit.cover,
-              alignment: Alignment.topRight,
-            ),
-          ),
+        ProfilePetAvatar(
+          petName: record.petName,
+          species: record.source?.pet.species,
+          ownerId: databaseOwnerOf(record.source),
+          radius: 29,
+          photoKey: ValueKey('doctor-up-next-pet-photo-${record.id}'),
         ),
         const SizedBox(width: 12),
         Expanded(

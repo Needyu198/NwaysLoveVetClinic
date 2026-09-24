@@ -18,6 +18,7 @@ class DoctorDashboardPage extends StatelessWidget {
         AppointmentStore.instance,
         EmergencyRequestStore.instance,
         DoctorPostStore.instance,
+        DoctorProfileStore.instance,
       ]),
       builder: (context, _) {
         final records = DoctorAppointmentStore.instance.appointments;
@@ -54,6 +55,7 @@ class DoctorDashboardPage extends StatelessWidget {
             SafeArea(
               bottom: false,
               child: _DoctorDashboardSummary(
+                doctorName: _dashboardDoctorName(),
                 emergencyCount: emergencyCases.length,
                 waitingCount: waiting,
                 completedCount: completed,
@@ -120,35 +122,85 @@ class DoctorDashboardPage extends StatelessWidget {
                   const SizedBox(height: 4),
                   const Text('Quick Menu', style: DoctorStyles.heroSection),
                   const SizedBox(height: 16),
-                  _DashboardMenuButton(
-                    key: const ValueKey('doctor-write-post'),
-                    label: 'Write a post',
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const DoctorCreatePostPage(),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: _DashboardMenuButton(
+                          key: const ValueKey('doctor-write-post'),
+                          icon: Icons.edit_note_rounded,
+                          label: 'Write a post',
+                          description: 'Share advice with pet owners',
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const DoctorCreatePostPage(),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _DashboardMenuButton(
-                    key: const ValueKey('doctor-manage-posts'),
-                    label: 'Manage my posts',
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const DoctorPostsManagerPage(),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _DashboardMenuButton(
+                          key: const ValueKey('doctor-manage-posts'),
+                          icon: Icons.dashboard_customize_rounded,
+                          label: 'Manage posts',
+                          description: 'Edit, schedule, or archive',
+                          filled: false,
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const DoctorPostsManagerPage(),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  const Text('New Feeds', style: DoctorStyles.heroSection),
-                  const SizedBox(height: 16),
-                  for (final post in DoctorPostStore.instance.posts.take(
-                    3,
-                  )) ...[
-                    _DashboardFeedCard(post: post),
-                    const SizedBox(height: 18),
-                  ],
-                  const SizedBox.shrink(child: Text('Doctor Dashboard')),
+                  const SizedBox(height: 26),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'New Feeds',
+                          style: DoctorStyles.heroSection,
+                        ),
+                      ),
+                      if (DoctorPostStore.instance.posts.isNotEmpty)
+                        TextButton(
+                          key: const ValueKey('doctor-manage-posts-link'),
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const DoctorPostsManagerPage(),
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: DoctorStyles.green,
+                            padding: const EdgeInsets.only(bottom: 5),
+                            textStyle: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          child: const Text('View all'),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  if (DoctorPostStore.instance.posts.isEmpty)
+                    _DashboardFeedEmptyState(
+                      onWrite: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const DoctorCreatePostPage(),
+                        ),
+                      ),
+                    )
+                  else
+                    for (final post in DoctorPostStore.instance.posts.take(
+                      3,
+                    )) ...[
+                      _DashboardFeedCard(post: post),
+                      const SizedBox(height: 16),
+                    ],
                 ],
               ),
             ),
@@ -161,6 +213,7 @@ class DoctorDashboardPage extends StatelessWidget {
 
 class _DoctorDashboardSummary extends StatelessWidget {
   const _DoctorDashboardSummary({
+    required this.doctorName,
     required this.emergencyCount,
     required this.waitingCount,
     required this.completedCount,
@@ -171,6 +224,7 @@ class _DoctorDashboardSummary extends StatelessWidget {
     required this.onOpenToday,
   });
 
+  final String doctorName;
   final int emergencyCount;
   final int waitingCount;
   final int completedCount;
@@ -214,7 +268,7 @@ class _DoctorDashboardSummary extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        '${_greeting()}, Dr. Aye Chan',
+                        '${_greeting()}, $doctorName',
                         maxLines: 1,
                         style: DoctorStyles.dashboardGreeting,
                       ),
@@ -298,34 +352,160 @@ class _DoctorDashboardSummary extends StatelessWidget {
   }
 }
 
+String _dashboardDoctorName() {
+  final profileName = DoctorProfileStore.instance.data.name.trim();
+  final accountName = (ClinicApi.instance.account?['fullName'] as String? ?? '')
+      .trim();
+  final name = profileName.isNotEmpty ? profileName : accountName;
+  if (name.isEmpty) return 'Doctor';
+  if (RegExp(r'^(dr\.?|doctor)(?:\s|$)', caseSensitive: false).hasMatch(name)) {
+    return name;
+  }
+  return 'Dr. $name';
+}
+
 class _DashboardMenuButton extends StatelessWidget {
   const _DashboardMenuButton({
+    required this.icon,
     required this.label,
+    required this.description,
     required this.onPressed,
+    this.filled = true,
     super.key,
   });
 
+  final IconData icon;
   final String label;
+  final String description;
   final VoidCallback onPressed;
 
+  /// When true the card uses the solid mint accent; otherwise a white card
+  /// with a mint outline, giving the two actions a clear primary/secondary
+  /// relationship.
+  final bool filled;
+
   @override
-  Widget build(BuildContext context) => Material(
-    color: DoctorStyles.mint,
-    borderRadius: BorderRadius.circular(30),
-    elevation: 5,
-    shadowColor: const Color(0x55000000),
-    child: InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(30),
-      child: SizedBox(
-        height: 76,
-        child: Center(
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 24, color: Colors.black),
+  Widget build(BuildContext context) {
+    final background = filled ? DoctorStyles.mint : Colors.white;
+    final iconBackground = filled ? Colors.white : DoctorStyles.softMint;
+    return Material(
+      color: background,
+      borderRadius: BorderRadius.circular(22),
+      elevation: filled ? 5 : 0,
+      shadowColor: const Color(0x40000000),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          height: 132,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            border: filled
+                ? null
+                : Border.all(color: DoctorStyles.border, width: 1.4),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: iconBackground,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: DoctorStyles.green, size: 24),
+              ),
+              const Spacer(),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 18,
+                  height: 1.1,
+                  color: DoctorStyles.ink,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.25,
+                  color: Color(0xFF5A6864),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DashboardFeedEmptyState extends StatelessWidget {
+  const _DashboardFeedEmptyState({required this.onWrite});
+
+  final VoidCallback onWrite;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: DoctorStyles.border),
+    ),
+    child: Column(
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: const BoxDecoration(
+            color: DoctorStyles.softMint,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.article_outlined,
+            color: DoctorStyles.green,
+            size: 28,
+          ),
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          'No posts yet',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: DoctorStyles.ink,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Publish helpful pet-care advice and it will appear here for owners.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13.5,
+            height: 1.35,
+            color: Color(0xFF5A6864),
+          ),
+        ),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: onWrite,
+          icon: const Icon(Icons.edit_note_rounded),
+          label: const Text('Write your first post'),
+          style: FilledButton.styleFrom(
+            backgroundColor: DoctorStyles.mint,
+            foregroundColor: Colors.black,
+          ),
+        ),
+      ],
     ),
   );
 }

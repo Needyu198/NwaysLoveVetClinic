@@ -693,6 +693,13 @@ class DoctorPostsManagerPage extends StatelessWidget {
                   key: const ValueKey('doctor-posts-manager'),
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
                   children: [
+                    _PostsOverview(
+                      published: published.length,
+                      scheduled: scheduled.length,
+                      drafts: drafts.length,
+                      archived: archived.length,
+                    ),
+                    const SizedBox(height: 18),
                     FilledButton.icon(
                       key: const ValueKey('doctor-new-post'),
                       onPressed: () => Navigator.of(context).push(
@@ -705,13 +712,19 @@ class DoctorPostsManagerPage extends StatelessWidget {
                       style: FilledButton.styleFrom(
                         backgroundColor: DoctorStyles.mint,
                         foregroundColor: Colors.black,
-                        minimumSize: const Size.fromHeight(50),
+                        minimumSize: const Size.fromHeight(52),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 24),
                     _PostManagerSection(
                       title: 'Drafts',
                       empty: 'No saved drafts.',
+                      icon: Icons.edit_note_rounded,
+                      accent: const Color(0xFF8A6D00),
                       children: [
                         for (final draft in drafts)
                           _DraftManagerCard(
@@ -729,6 +742,8 @@ class DoctorPostsManagerPage extends StatelessWidget {
                     _PostManagerSection(
                       title: 'Scheduled',
                       empty: 'No scheduled posts.',
+                      icon: Icons.schedule_rounded,
+                      accent: const Color(0xFF1C6BD8),
                       children: [
                         for (final post in scheduled)
                           _PublishedManagerCard(
@@ -753,6 +768,8 @@ class DoctorPostsManagerPage extends StatelessWidget {
                     _PostManagerSection(
                       title: 'Published',
                       empty: 'No published posts.',
+                      icon: Icons.public_rounded,
+                      accent: DoctorStyles.green,
                       children: [
                         for (final post in published)
                           _PublishedManagerCard(
@@ -777,6 +794,8 @@ class DoctorPostsManagerPage extends StatelessWidget {
                     _PostManagerSection(
                       title: 'Archived',
                       empty: 'No archived posts.',
+                      icon: Icons.inventory_2_outlined,
+                      accent: const Color(0xFF6B7280),
                       children: [
                         for (final post in archived)
                           _PublishedManagerCard(
@@ -899,15 +918,122 @@ class DoctorPostsManagerPage extends StatelessWidget {
   }
 }
 
+class _PostsOverview extends StatelessWidget {
+  const _PostsOverview({
+    required this.published,
+    required this.scheduled,
+    required this.drafts,
+    required this.archived,
+  });
+
+  final int published;
+  final int scheduled;
+  final int drafts;
+  final int archived;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: DoctorStyles.border),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x0D1F4B3C),
+          blurRadius: 16,
+          offset: Offset(0, 5),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        _OverviewStat(
+          label: 'Published',
+          value: published,
+          color: DoctorStyles.green,
+        ),
+        const _OverviewDivider(),
+        _OverviewStat(
+          label: 'Scheduled',
+          value: scheduled,
+          color: const Color(0xFF1C6BD8),
+        ),
+        const _OverviewDivider(),
+        _OverviewStat(
+          label: 'Drafts',
+          value: drafts,
+          color: const Color(0xFF8A6D00),
+        ),
+        const _OverviewDivider(),
+        _OverviewStat(
+          label: 'Archived',
+          value: archived,
+          color: const Color(0xFF6B7280),
+        ),
+      ],
+    ),
+  );
+}
+
+class _OverviewStat extends StatelessWidget {
+  const _OverviewStat({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final int value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      children: [
+        Text(
+          '$value',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF5A6864),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _OverviewDivider extends StatelessWidget {
+  const _OverviewDivider();
+
+  @override
+  Widget build(BuildContext context) =>
+      Container(width: 1, height: 34, color: DoctorStyles.border);
+}
+
 class _PostManagerSection extends StatelessWidget {
   const _PostManagerSection({
     required this.title,
     required this.empty,
+    required this.icon,
+    required this.accent,
     required this.children,
   });
 
   final String title;
   final String empty;
+  final IconData icon;
+  final Color accent;
   final List<Widget> children;
 
   @override
@@ -916,10 +1042,41 @@ class _PostManagerSection extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('$title (${children.length})', style: DoctorStyles.title),
-        const SizedBox(height: 10),
+        Row(
+          children: [
+            Icon(icon, size: 20, color: accent),
+            const SizedBox(width: 8),
+            Text(title, style: DoctorStyles.title),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${children.length}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: accent,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         if (children.isEmpty)
-          Text(empty, style: DoctorStyles.muted)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: DoctorStyles.border),
+            ),
+            child: Text(empty, style: DoctorStyles.muted),
+          )
         else
           ...children,
       ],
@@ -939,20 +1096,93 @@ class _DraftManagerCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.only(bottom: 10),
-    child: ListTile(
-      key: ValueKey('doctor-draft-${draft.id}'),
-      leading: const Icon(Icons.edit_note_rounded),
-      title: Text(draft.title.isEmpty ? 'Untitled draft' : draft.title),
-      subtitle: Text(
-        '${draft.category} • Updated ${_shortDate(draft.updatedAt)}',
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: DoctorStyles.border),
+    ),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('doctor-draft-${draft.id}'),
+        onTap: onEdit,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3D1),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.edit_note_rounded,
+                  color: Color(0xFF8A6D00),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      draft.title.isEmpty ? 'Untitled draft' : draft.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DoctorStyles.cardTitle,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${draft.category} • Updated ${_shortDate(draft.updatedAt)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DoctorStyles.muted,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              _StatusPill(label: 'Draft', color: const Color(0xFF8A6D00)),
+              IconButton(
+                tooltip: 'Delete draft',
+                onPressed: onDelete,
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Color(0xFF9AA6A1),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      onTap: onEdit,
-      trailing: IconButton(
-        tooltip: 'Delete draft',
-        onPressed: onDelete,
-        icon: const Icon(Icons.delete_outline_rounded),
+    ),
+  );
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w800,
+        color: color,
       ),
     ),
   );
@@ -975,41 +1205,155 @@ class _PublishedManagerCard extends StatelessWidget {
   final VoidCallback onDelete;
   final bool archived;
 
+  ({String label, Color color}) get _statusBadge => switch (post.status) {
+    'scheduled' => (label: 'Scheduled', color: const Color(0xFF1C6BD8)),
+    'archived' => (label: 'Archived', color: const Color(0xFF6B7280)),
+    _ => (label: 'Published', color: DoctorStyles.green),
+  };
+
   @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.only(bottom: 10),
-    clipBehavior: Clip.antiAlias,
-    child: ListTile(
-      key: ValueKey('manage-doctor-post-${post.id}'),
-      leading: SizedBox.square(
-        dimension: 48,
-        child: DoctorPostImage(asset: post.coverAsset, cover: true),
+  Widget build(BuildContext context) {
+    final badge = _statusBadge;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: DoctorStyles.border),
       ),
-      title: Text(post.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text('${post.category} • ${_shortDate(post.updatedAt)}'),
-      onTap: onPreview,
-      trailing: PopupMenuButton<String>(
-        onSelected: (value) {
-          switch (value) {
-            case 'edit':
-              onEdit();
-            case 'archive':
-              onArchive();
-            case 'delete':
-              onDelete();
-          }
-        },
-        itemBuilder: (_) => [
-          const PopupMenuItem(value: 'edit', child: Text('Edit')),
-          PopupMenuItem(
-            value: 'archive',
-            child: Text(archived ? 'Publish again' : 'Archive'),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: ValueKey('manage-doctor-post-${post.id}'),
+          onTap: onPreview,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(13),
+                  child: SizedBox.square(
+                    dimension: 58,
+                    child: DoctorPostImage(asset: post.coverAsset, cover: true),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              post.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: DoctorStyles.cardTitle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _StatusPill(label: badge.label, color: badge.color),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${post.category} • ${post.audience}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: DoctorStyles.muted,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        post.status == 'scheduled' && post.scheduledFor != null
+                            ? 'Scheduled for ${_shortDate(post.scheduledFor!)}'
+                            : 'Updated ${_shortDate(post.updatedAt)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: DoctorStyles.small,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: 36,
+                  child: PopupMenuButton<String>(
+                    tooltip: 'Post actions',
+                    icon: const Icon(
+                      Icons.more_vert_rounded,
+                      color: Color(0xFF6B7772),
+                    ),
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'preview':
+                          onPreview();
+                        case 'edit':
+                          onEdit();
+                        case 'archive':
+                          onArchive();
+                        case 'delete':
+                          onDelete();
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'preview',
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.visibility_outlined),
+                          title: Text('Preview'),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.edit_outlined),
+                          title: Text('Edit'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'archive',
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            archived
+                                ? Icons.unarchive_outlined
+                                : Icons.archive_outlined,
+                          ),
+                          title: Text(archived ? 'Publish again' : 'Archive'),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            Icons.delete_outline_rounded,
+                            color: Color(0xFFB3261E),
+                          ),
+                          title: Text(
+                            'Delete',
+                            style: TextStyle(color: Color(0xFFB3261E)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          const PopupMenuItem(value: 'delete', child: Text('Delete')),
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ComposerTip extends StatelessWidget {
@@ -1345,10 +1689,10 @@ class _DashboardFeedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: DoctorStyles.mint,
-    borderRadius: BorderRadius.circular(28),
-    elevation: 5,
-    shadowColor: const Color(0x55000000),
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(24),
+    elevation: 4,
+    shadowColor: const Color(0x33000000),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
       key: ValueKey('open-doctor-post-${post.id}'),
@@ -1357,32 +1701,105 @@ class _DashboardFeedCard extends StatelessWidget {
           builder: (_) => DoctorPostDetailPage(post: post),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: SizedBox(
-                height: 215,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              SizedBox(
+                height: 178,
                 width: double.infinity,
                 child: DoctorPostImage(asset: post.coverAsset, cover: true),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 14, 4, 28),
-              child: Text(
-                post.title,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 25,
-                  fontWeight: FontWeight.w900,
-                ),
+              Positioned(
+                left: 12,
+                top: 12,
+                child: _FeedTag(label: post.category),
               ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  post.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: DoctorStyles.ink,
+                    fontSize: 20,
+                    height: 1.15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 15,
+                      backgroundColor: DoctorStyles.softMint,
+                      child: widgetForDoctorPostAuthor(post),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            post.authorName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: DoctorStyles.ink,
+                            ),
+                          ),
+                          Text(
+                            '${post.audience} • ${_shortDate(post.updatedAt)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: DoctorStyles.small,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 20,
+                      color: DoctorStyles.green,
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _FeedTag extends StatelessWidget {
+  const _FeedTag({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.94),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        color: DoctorStyles.green,
       ),
     ),
   );

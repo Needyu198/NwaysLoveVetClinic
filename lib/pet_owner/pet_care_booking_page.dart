@@ -177,8 +177,36 @@ class PetCareBookingStore extends ChangeNotifier {
     );
   }
 
+  bool hasDuplicateBooking({
+    required CarePet pet,
+    required DateTime date,
+    required String time,
+  }) {
+    return _bookings.any(
+      (booking) =>
+          booking.status != PetCareStatus.completed &&
+          _sameCarePet(booking.pet, pet) &&
+          DateUtils.isSameDay(booking.date, date) &&
+          booking.time == time,
+    );
+  }
+
+  bool _sameCarePet(CarePet left, CarePet right) {
+    final leftKey = left.petKey.trim().toLowerCase();
+    final rightKey = right.petKey.trim().toLowerCase();
+    if (leftKey.isNotEmpty && rightKey.isNotEmpty) return leftKey == rightKey;
+    String fallback(CarePet pet) =>
+        '${pet.name.trim().toLowerCase()}|${pet.breed.trim().toLowerCase()}';
+    return fallback(left) == fallback(right);
+  }
+
   void add(PetCareBooking booking) {
     _bookings.add(booking);
+    notifyListeners();
+  }
+
+  void remove(PetCareBooking booking) {
+    _bookings.remove(booking);
     notifyListeners();
   }
 
@@ -723,7 +751,7 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
                   if (pet.conditions.trim().isNotEmpty) pet.conditions,
                 ].join(' • '),
                 color: const Color(0xFF2F80FF),
-                petKey: ProfilePetStore.keyOf(pet),
+                petKey: databaseKeyOf(pet) ?? ProfilePetStore.keyOf(pet),
               ),
             )
             .toList(growable: false);
@@ -830,7 +858,23 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
     _next();
   }
 
-  void _confirm() {
+  Future<void> _confirm() async {
+    if (_pet != null &&
+        _date != null &&
+        _time != null &&
+        PetCareBookingStore.instance.hasDuplicateBooking(
+          pet: _pet!,
+          date: _date!,
+          time: _time!,
+        )) {
+      setState(() {
+        _step = 2;
+        _time = null;
+        _error =
+            '${_pet!.name} already has an active pet-care booking at this date and time.';
+      });
+      return;
+    }
     if (_holdSeconds == 0 ||
         !_availableProviders.any((provider) => provider.id == _providerId) ||
         !PetCareBookingStore.instance.isSlotAvailable(
@@ -858,8 +902,26 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
       time: _time!,
       location: "Nway's Love Vet Clinic",
     );
-    _timer?.cancel();
     PetCareBookingStore.instance.add(booking);
+    if (DatabaseSync.instance.active) {
+      try {
+        await DatabaseSync.instance.flushOrThrow();
+      } catch (error) {
+        PetCareBookingStore.instance.remove(booking);
+        await DatabaseSync.instance.flush();
+        if (!mounted) return;
+        setState(() {
+          _step = 2;
+          _time = null;
+          _error = error.toString().contains('already has an active booking')
+              ? '${_pet!.name} already has an active pet-care booking at this date and time.'
+              : 'The service booking could not be saved. Please retry.';
+        });
+        return;
+      }
+    }
+    if (!mounted) return;
+    _timer?.cancel();
     setState(() => _created = booking);
   }
 

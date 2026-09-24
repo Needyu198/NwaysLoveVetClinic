@@ -322,7 +322,9 @@ InputDecoration _inventoryInput(String label, String iconAsset) =>
         heightFactor: 1,
         child: Image.asset(
           iconAsset,
-          key: ValueKey('inventory-field-icon-${label.toLowerCase().replaceAll(' ', '-')}'),
+          key: ValueKey(
+            'inventory-field-icon-${label.toLowerCase().replaceAll(' ', '-')}',
+          ),
           width: 24,
           height: 24,
           fit: BoxFit.contain,

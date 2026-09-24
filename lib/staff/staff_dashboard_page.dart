@@ -640,11 +640,18 @@ class _DoctorAvailability extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final doctors = DatabaseSync.instance.active
-        ? ClinicDirectory.instance.doctorProfiles
-        : _demoDoctors
-              .map((name) => ClinicPerson(name: name, role: 'doctor'))
-              .toList();
+    // Always prefer the live doctor directory so the card reflects each
+    // doctor's own availability (their "accepting appointments" setting). The
+    // demo roster is only used offline when no real doctor data exists yet.
+    final liveDoctors = ClinicDirectory.instance.doctorProfiles;
+    final doctors = liveDoctors.isNotEmpty
+        ? liveDoctors
+        : (DatabaseSync.instance.active
+              ? const <ClinicPerson>[]
+              : _demoDoctors
+                    .map((name) => ClinicPerson(name: name, role: 'doctor'))
+                    .toList());
+    final availableCount = doctors.where((d) => d.available).length;
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: _cardDecoration(),
@@ -655,6 +662,26 @@ class _DoctorAvailability extends StatelessWidget {
             )
           : Column(
               children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.medical_services_outlined,
+                      size: 18,
+                      color: _muted,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '$availableCount of ${doctors.length} available',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(),
                 for (var index = 0; index < doctors.length; index++) ...[
                   _AvailabilityRow(doctor: doctors[index]),
                   if (index < doctors.length - 1) const Divider(),

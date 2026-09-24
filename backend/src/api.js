@@ -11,6 +11,30 @@ const fail = (status, message) => Object.assign(new Error(message), { status });
 const APPOINTMENT_SLOT_CAPACITY = Math.max(1, Number(process.env.APPOINTMENT_SLOT_CAPACITY) || 2);
 const APPOINTMENT_CANCELLATION_SUSPEND_THRESHOLD = Math.max(1, Number(process.env.APPOINTMENT_CANCELLATION_SUSPEND_THRESHOLD) || 3);
 const normalizedPhone = value => String(value || '').replace(/[^0-9]/g, '');
+const duplicateProtectedBookingTables = new Set(['appointments', 'home_visits', 'pet_care_bookings']);
+const normalizedBookingText = value => String(value || '').trim().toLowerCase();
+const bookingPetStableId = value => {
+  const pet = value?.pet || {};
+  return normalizedBookingText(pet.id || pet.petKey);
+};
+const bookingPetFallback = value => {
+  const pet = value?.pet || {};
+  return [pet.name, pet.species, pet.breed].map(normalizedBookingText).join('|');
+};
+const sameBookingPet = (left, right) => {
+  const leftId = bookingPetStableId(left);
+  const rightId = bookingPetStableId(right);
+  return leftId && rightId
+    ? leftId === rightId
+    : bookingPetFallback(left) === bookingPetFallback(right);
+};
+const bookingDate = value => String(value?.date || '').slice(0, 10);
+const bookingTime = value => String(value?.time || '').trim();
+const activeBooking = (table, value) => {
+  const status = normalizedBookingText(value?.status);
+  if (table === 'appointments') return status !== 'cancelled';
+  return status !== 'completed';
+};
 const clinicDateToday = () => {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: process.env.CLINIC_TIME_ZONE || 'Asia/Bangkok',
@@ -595,6 +619,53 @@ function installApi(app, pool) {
           const value = item.data.value;
           await syncUserDirectoryAccount(client, value, existing, req.session.account_id);
         }
+        // Reject a second active booking for the same owner, pet, date and
+        // time. The transaction locks make this authoritative even when two
+        // devices submit the same booking concurrently. Stable pet IDs are
+        // preferred, with a name/species/breed fallback for older records.
+        let appointmentSlotLocked = false;
+        if (duplicateProtectedBookingTables.has(req.params.table)) {
+          const value = item.data.value || {};
+          const previous = existing?.data?.value || {};
+          const date = bookingDate(value);
+          const time = bookingTime(value);
+          const hasPet = Boolean(bookingPetStableId(value) || normalizedBookingText(value.pet?.name));
+          const shouldCheckDuplicate = activeBooking(req.params.table, value) &&
+            date && time && hasPet && (
+              !existing ||
+              !activeBooking(req.params.table, previous) ||
+              bookingDate(previous) !== date ||
+              bookingTime(previous) !== time ||
+              !sameBookingPet(previous, value)
+            );
+          if (shouldCheckDuplicate) {
+            if (req.params.table === 'appointments') {
+              await client.query(
+                'SELECT pg_advisory_xact_lock(hashtext($1))',
+                [`booking-slot:${req.params.table}:${date}:${time}`],
+              );
+              appointmentSlotLocked = true;
+            }
+            await client.query(
+              'SELECT pg_advisory_xact_lock(hashtext($1))',
+              [`booking-owner:${req.params.table}:${ownerId}`],
+            );
+            const candidates = (await client.query(
+              `SELECT data FROM ${req.params.table}
+               WHERE id<>$1 AND owner_id=$2
+                 AND LEFT(data->'value'->>'date',10)=$3
+                 AND data->'value'->>'time'=$4`,
+              [item.id, ownerId, date, time],
+            )).rows;
+            const duplicate = candidates.some(row => {
+              const candidate = row.data?.value || {};
+              return activeBooking(req.params.table, candidate) && sameBookingPet(candidate, value);
+            });
+            if (duplicate) {
+              throw fail(409, 'This pet already has an active booking at that date and time.');
+            }
+          }
+        }
         // Appointment booking rules are authoritative on the server so they
         // cannot be bypassed by a modified client:
         //  1. A veterinarian/date/time slot may hold at most APPOINTMENT_SLOT_CAPACITY
@@ -623,6 +694,12 @@ function installApi(app, pool) {
           const becameActive = existing && previousStatus === 'Cancelled' && isActiveBooking;
           if (isActiveBooking && slotKey.date && slotKey.time &&
               (!existing || slotChanged || becameActive)) {
+            if (!appointmentSlotLocked) {
+              await client.query(
+                'SELECT pg_advisory_xact_lock(hashtext($1))',
+                [`booking-slot:${req.params.table}:${slotKey.date}:${slotKey.time}`],
+              );
+            }
             const occupancy = (await client.query(
               `SELECT COUNT(*)::int AS count FROM appointments
                WHERE id<>$1

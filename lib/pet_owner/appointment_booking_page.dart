@@ -179,8 +179,43 @@ class AppointmentStore extends ChangeNotifier {
         slotCapacity;
   }
 
+  /// Prevents an owner from booking the same pet into the same date/time more
+  /// than once, even when a different service or veterinarian is selected.
+  bool hasDuplicateBooking({
+    required BookingPet pet,
+    required DateTime date,
+    required String time,
+    String? excludingAppointmentId,
+    String? ownerId,
+  }) {
+    return _appointments.any(
+      (appointment) =>
+          appointment.id != excludingAppointmentId &&
+          (ownerId == null || databaseOwnerOf(appointment) == ownerId) &&
+          appointment.status != 'Cancelled' &&
+          _sameBookingPet(appointment.pet, pet) &&
+          DateUtils.isSameDay(appointment.date, date) &&
+          appointment.time == time,
+    );
+  }
+
+  bool _sameBookingPet(BookingPet left, BookingPet right) {
+    final leftId = left.id.trim().toLowerCase();
+    final rightId = right.id.trim().toLowerCase();
+    if (leftId.isNotEmpty && rightId.isNotEmpty) return leftId == rightId;
+    String fallback(BookingPet pet) =>
+        '${pet.name.trim().toLowerCase()}|${pet.species.trim().toLowerCase()}|'
+        '${pet.breed.trim().toLowerCase()}';
+    return fallback(left) == fallback(right);
+  }
+
   void add(BookedAppointment appointment) {
     _appointments.add(appointment);
+    notifyListeners();
+  }
+
+  void remove(BookedAppointment appointment) {
+    _appointments.remove(appointment);
     notifyListeners();
   }
 
@@ -238,10 +273,16 @@ class AppointmentStore extends ChangeNotifier {
       return false;
     }
     if (!isSlotAvailable(
-      date: date,
-      time: time,
-      excludingAppointmentId: appointment.id,
-    )) {
+          date: date,
+          time: time,
+          excludingAppointmentId: appointment.id,
+        ) ||
+        hasDuplicateBooking(
+          pet: appointment.pet,
+          date: date,
+          time: time,
+          excludingAppointmentId: appointment.id,
+        )) {
       return false;
     }
     appointment.date = date;
@@ -2172,6 +2213,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       : ProfilePetStore.instance.pets
             .map(
               (p) => BookingPet(
+                id: databaseKeyOf(p) ?? ProfilePetStore.keyOf(p),
                 name: p.name,
                 species: p.type,
                 breed: p.breed,
@@ -2881,7 +2923,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
     _next();
   }
 
-  void _confirmBooking() {
+  Future<void> _confirmBooking() async {
     if (_holdSeconds == 0 || _time == null) {
       setState(
         () => _error = 'The slot hold expired. Please select a time again.',
@@ -2891,6 +2933,19 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
     }
     if (!isFutureBookingSlot(_date!, _time!)) {
       setState(() => _error = 'That time has passed. Select a later slot.');
+      _goToStep(4);
+      return;
+    }
+
+    if (AppointmentStore.instance.hasDuplicateBooking(
+      pet: _pet!,
+      date: _date!,
+      time: _time!,
+    )) {
+      setState(
+        () => _error =
+            '${_pet!.name} already has an active booking at this date and time.',
+      );
       _goToStep(4);
       return;
     }
@@ -2924,6 +2979,23 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       ownerPhone: OwnerProfileStore.instance.profile.phone,
     );
     AppointmentStore.instance.add(appointment);
+    if (DatabaseSync.instance.active) {
+      try {
+        await DatabaseSync.instance.flushOrThrow();
+      } catch (error) {
+        AppointmentStore.instance.remove(appointment);
+        await DatabaseSync.instance.flush();
+        if (!mounted) return;
+        setState(() {
+          _error = error.toString().contains('already has an active booking')
+              ? '${_pet!.name} already has an active booking at this date and time.'
+              : 'The booking could not be saved. Please retry.';
+          _step = 4;
+        });
+        return;
+      }
+    }
+    if (!mounted) return;
     _holdTimer?.cancel();
     setState(() => _createdAppointment = appointment);
   }

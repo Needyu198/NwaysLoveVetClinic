@@ -761,10 +761,31 @@ Future<void> _reschedule(BuildContext context, StaffAppointment item) async {
     initialTime: const TimeOfDay(hour: 10, minute: 0),
   );
   if (time == null || !context.mounted) return;
+  final formattedTime = time.format(context);
+  final source = item.source;
+  if (source != null &&
+      (AppointmentStore.instance.hasDuplicateBooking(
+            pet: source.pet,
+            date: date,
+            time: formattedTime,
+            excludingAppointmentId: source.id,
+            ownerId: databaseOwnerOf(source),
+          ) ||
+          !AppointmentStore.instance.isSlotAvailable(
+            date: date,
+            time: formattedTime,
+            excludingAppointmentId: source.id,
+          ))) {
+    _notice(
+      context,
+      '${source.pet.name} already has a booking at that time, or the slot is full.',
+    );
+    return;
+  }
   StaffOperationsStore.instance.update(
     item,
     date: date,
-    time: time.format(context),
+    time: formattedTime,
     status: 'Confirmed',
   );
   _notice(context, 'Appointment rescheduled. Owner and doctor notified.');

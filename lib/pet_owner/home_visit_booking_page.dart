@@ -151,8 +151,36 @@ class HomeVisitStore extends ChangeNotifier {
     );
   }
 
+  bool hasDuplicateBooking({
+    required HomeVisitPet pet,
+    required DateTime date,
+    required String time,
+  }) {
+    return _visits.any(
+      (visit) =>
+          visit.status != HomeVisitStatus.completed &&
+          _sameHomeVisitPet(visit.pet, pet) &&
+          DateUtils.isSameDay(visit.date, date) &&
+          visit.time == time,
+    );
+  }
+
+  bool _sameHomeVisitPet(HomeVisitPet left, HomeVisitPet right) {
+    final leftKey = left.petKey.trim().toLowerCase();
+    final rightKey = right.petKey.trim().toLowerCase();
+    if (leftKey.isNotEmpty && rightKey.isNotEmpty) return leftKey == rightKey;
+    String fallback(HomeVisitPet pet) =>
+        '${pet.name.trim().toLowerCase()}|${pet.breed.trim().toLowerCase()}';
+    return fallback(left) == fallback(right);
+  }
+
   void add(HomeVisit visit) {
     _visits.add(visit);
+    notifyListeners();
+  }
+
+  void remove(HomeVisit visit) {
+    _visits.remove(visit);
     notifyListeners();
   }
 
@@ -271,6 +299,7 @@ class HomeVisitPet {
     'age': age,
     'medicalHistory': medicalHistory,
     'color': color.toARGB32(),
+    'petKey': petKey,
   };
   static HomeVisitPet fromDb(Map<String, dynamic> data) {
     final value = HomeVisitPet(
@@ -279,6 +308,7 @@ class HomeVisitPet {
       age: data['age'] as String,
       medicalHistory: data['medicalHistory'] as String,
       color: Color(data['color'] as int),
+      petKey: data['petKey'] as String? ?? '',
     );
     return value;
   }
@@ -289,6 +319,7 @@ class HomeVisitPet {
     required this.age,
     required this.medicalHistory,
     required this.color,
+    this.petKey = '',
   });
 
   final String name;
@@ -296,6 +327,7 @@ class HomeVisitPet {
   final String age;
   final String medicalHistory;
   final Color color;
+  final String petKey;
 }
 
 class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
@@ -309,6 +341,7 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
                 age: '${p.ageYears} years',
                 medicalHistory: p.conditions,
                 color: const Color(0xFF2F80FF),
+                petKey: databaseKeyOf(p) ?? ProfilePetStore.keyOf(p),
               ),
             )
             .toList();
@@ -499,12 +532,25 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
     return true;
   }
 
-  void _confirm() {
+  Future<void> _confirm() async {
     if (!isFutureBookingSlot(_date!, _time!)) {
       setState(() {
         _step = 3;
         _time = null;
         _error = 'That time has passed. Select a later slot.';
+      });
+      return;
+    }
+    if (HomeVisitStore.instance.hasDuplicateBooking(
+      pet: _pet!,
+      date: _date!,
+      time: _time!,
+    )) {
+      setState(() {
+        _step = 3;
+        _time = null;
+        _error =
+            '${_pet!.name} already has an active home visit at this date and time.';
       });
       return;
     }
@@ -534,8 +580,26 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
       contactPerson: _contactPerson.text.trim(),
       phone: _phone.text.trim(),
     );
-    _holdTimer?.cancel();
     HomeVisitStore.instance.add(visit);
+    if (DatabaseSync.instance.active) {
+      try {
+        await DatabaseSync.instance.flushOrThrow();
+      } catch (error) {
+        HomeVisitStore.instance.remove(visit);
+        await DatabaseSync.instance.flush();
+        if (!mounted) return;
+        setState(() {
+          _step = 3;
+          _time = null;
+          _error = error.toString().contains('already has an active booking')
+              ? '${_pet!.name} already has an active home visit at this date and time.'
+              : 'The home visit could not be saved. Please retry.';
+        });
+        return;
+      }
+    }
+    if (!mounted) return;
+    _holdTimer?.cancel();
     setState(() => _created = visit);
   }
 

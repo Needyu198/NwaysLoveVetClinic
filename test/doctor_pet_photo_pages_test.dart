@@ -11,6 +11,17 @@ void main() {
   testWidgets('doctor workflow pages show the owner-uploaded pet photo', (
     tester,
   ) async {
+    final originalProfile = DoctorProfileStore.instance.data;
+    addTearDown(() async {
+      await DoctorProfileStore.instance.saveProfile(
+        name: originalProfile.name,
+        specialty: originalProfile.specialty,
+        biography: originalProfile.biography,
+        phone: originalProfile.phone,
+        email: originalProfile.email,
+        experience: originalProfile.experience,
+      );
+    });
     ProfilePetStore.instance.reset();
     AppointmentStore.instance.clear();
     DoctorMedicalRecordStore.instance.clear();
@@ -55,8 +66,8 @@ void main() {
         doctors: [DoctorAppointmentStore.doctorName],
       ),
       veterinarian: DoctorAppointmentStore.doctorName,
-      date: DateTime(2026, 9, 20),
-      time: '10:00 AM',
+      date: DateTime.now(),
+      time: '12:01 AM',
       symptoms: 'Low appetite',
       reason: 'Checkup',
       notes: '',
@@ -105,6 +116,21 @@ void main() {
         findsOneWidget,
       );
     }
+
+    await DoctorProfileStore.instance.saveProfile(
+      name: 'Dashboard Name',
+      specialty: originalProfile.specialty,
+      biography: originalProfile.biography,
+      phone: originalProfile.phone,
+      email: originalProfile.email,
+      experience: originalProfile.experience,
+    );
+    DoctorAppointmentStore.instance.clearDemoSchedule();
+    await show(
+      DoctorDashboardPage(onOpenAppointments: (_) {}, onOpenProfile: () {}),
+    );
+    expect(find.textContaining('Dr. Dashboard Name'), findsOneWidget);
+    expectUploadedPhoto('doctor-up-next-pet-photo-${appointment.id}');
 
     await show(DoctorAppointmentCard(record: appointment));
     expectUploadedPhoto('doctor-appointment-list-photo-${appointment.id}');

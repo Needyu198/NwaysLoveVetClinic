@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../data/clinic_api.dart';
 import '../data/messaging_service.dart';
+import '../doctor/doctor_portal.dart';
 import '../login/login_page.dart';
 import 'appointment_booking_page.dart';
 import 'home_visit_booking_page.dart';
@@ -50,7 +51,89 @@ class ProfileMedicalEntry {
   final String? followUp;
 }
 
+/// Medical entries shown to the pet owner.
+///
+/// Real records come from the clinic's `medical_records` table (written by
+/// doctors/staff, readable by the owner) via [DoctorMedicalRecordStore]. When a
+/// live session has synced records they are used directly. The fabricated demo
+/// set is only used offline / in the widget showcase, where no database is
+/// connected, so the screens still have something to render.
 List<ProfileMedicalEntry> _medicalEntries() {
+  final live = DoctorMedicalRecordStore.instance.records
+      .where((record) => record.finalized)
+      .map(_entryFromMedicalRecord)
+      .toList();
+  if (live.isNotEmpty) return live;
+  // A connected session with no records yet should show an empty state rather
+  // than misleading demo data.
+  if (DatabaseSync.instance.active) return const [];
+  return _demoMedicalEntries();
+}
+
+/// Derives the owner-facing category from what the veterinarian recorded, so a
+/// single clinical record lands in the right tab (vaccination, prescription,
+/// treatment, or a general consultation).
+MedicalRecordCategory _categoryForMedicalRecord(DoctorMedicalRecord record) {
+  final service = record.service.toLowerCase();
+  if (service.contains('emergency')) return MedicalRecordCategory.emergency;
+  if (record.vaccination.trim().isNotEmpty || service.contains('vaccin')) {
+    return MedicalRecordCategory.vaccination;
+  }
+  if (record.treatment.trim().isNotEmpty) {
+    return MedicalRecordCategory.treatment;
+  }
+  if (record.prescription.trim().isNotEmpty) {
+    return MedicalRecordCategory.prescription;
+  }
+  return MedicalRecordCategory.consultation;
+}
+
+ProfileMedicalEntry _entryFromMedicalRecord(DoctorMedicalRecord record) {
+  final category = _categoryForMedicalRecord(record);
+  final vet = DoctorAppointmentStore.doctorName;
+  final hasFollowUp = record.followUp.trim().isNotEmpty;
+  final details = <String, String>{
+    if (record.symptoms.trim().isNotEmpty) 'Symptoms': record.symptoms.trim(),
+    if (record.findings.trim().isNotEmpty)
+      'Examination findings': record.findings.trim(),
+    if (record.diagnosis.trim().isNotEmpty)
+      'Diagnosis': record.diagnosis.trim(),
+    if (record.treatment.trim().isNotEmpty)
+      'Treatment': record.treatment.trim(),
+    if (record.prescription.trim().isNotEmpty)
+      'Prescription': record.prescription.trim(),
+    if (record.vaccination.trim().isNotEmpty)
+      'Vaccination': record.vaccination.trim(),
+    if (record.nextDoseDate.trim().isNotEmpty)
+      'Next dose': record.nextDoseDate.trim(),
+    if (record.testResult.trim().isNotEmpty)
+      'Test result': record.testResult.trim(),
+    'Clinic': "Nway's Love Vet Clinic",
+  };
+  if (details.length == 1) {
+    details['Notes'] = 'Recorded by the clinic. No additional details noted.';
+  }
+  return ProfileMedicalEntry(
+    id: record.id,
+    petName: record.petName,
+    category: category,
+    title: record.service.trim().isEmpty ? 'Medical Record' : record.service,
+    date: record.date,
+    veterinarian: vet,
+    status: hasFollowUp ? 'Follow-up Required' : 'Completed',
+    details: details,
+    documentTitle: switch (category) {
+      MedicalRecordCategory.vaccination => 'Vaccination Certificate',
+      MedicalRecordCategory.prescription ||
+      MedicalRecordCategory.treatment => 'Prescription',
+      MedicalRecordCategory.emergency => 'Emergency Treatment Report',
+      _ => 'Consultation Report',
+    },
+    followUp: hasFollowUp ? record.followUp.trim() : null,
+  );
+}
+
+List<ProfileMedicalEntry> _demoMedicalEntries() {
   final now = DateUtils.dateOnly(DateTime.now());
   final entries = <ProfileMedicalEntry>[];
   for (final pet in ProfilePetStore.instance.pets) {
@@ -195,7 +278,15 @@ class _VaccinationSummaryPageState extends State<VaccinationSummaryPage> {
   final Set<String> _reminders = {};
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: Listenable.merge([
+      DoctorMedicalRecordStore.instance,
+      ProfilePetStore.instance,
+    ]),
+    builder: (context, _) => _buildContent(context),
+  );
+
+  Widget _buildContent(BuildContext context) {
     final records = _medicalEntries()
         .where(
           (record) =>
@@ -274,7 +365,15 @@ class _TreatmentHistoryPageState extends State<TreatmentHistoryPage> {
   late String _petName = ProfilePetStore.instance.firstPetName;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: Listenable.merge([
+      DoctorMedicalRecordStore.instance,
+      ProfilePetStore.instance,
+    ]),
+    builder: (context, _) => _buildContent(context),
+  );
+
+  Widget _buildContent(BuildContext context) {
     final records = _medicalEntries()
         .where(
           (record) =>
@@ -336,7 +435,15 @@ class _ProfileMedicalRecordsPageState extends State<ProfileMedicalRecordsPage> {
   String _dateFilter = 'All dates';
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: Listenable.merge([
+      DoctorMedicalRecordStore.instance,
+      ProfilePetStore.instance,
+    ]),
+    builder: (context, _) => _buildContent(context),
+  );
+
+  Widget _buildContent(BuildContext context) {
     final now = DateTime.now();
     final records = _medicalEntries().where((record) {
       if (record.petName != _petName) return false;

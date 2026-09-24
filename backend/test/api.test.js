@@ -72,6 +72,35 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
     assert.equal((await request('/data/pets',tokens.ownerA)).records[0].data.value.name,'Updated');
     assert.equal((await request('/data/pets/sync',tokens.ownerA,{deletions:[{id:'pet-1',version:2}]})).status,200);
     assert.equal((await request('/data/pets',tokens.ownerA)).records.length,0);
+    // Identical active bookings for one owner/pet/date/time are rejected by
+    // the server for every booking path. Another owner is independent.
+    const duplicateDate = '2035-05-10T00:00:00.000';
+    const duplicatePet = {id:'pet-max',name:'Max',species:'Dog',breed:'Retriever'};
+    const bookingCases = [
+      ['appointments','Confirmed'],
+      ['home_visits','confirmed'],
+      ['pet_care_bookings','confirmed'],
+    ];
+    for (const [table,status] of bookingCases) {
+      const value = {
+        id:`${table}-first`,date:duplicateDate,time:'02:00 PM',status,
+        pet:duplicatePet,veterinarian:'Dr. One',provider:'Provider One',
+      };
+      const first = {id:`${table}-first-row`,version:0,data:{key:`${table}-first`,value}};
+      const duplicateBooking = {
+        id:`${table}-duplicate-row`,version:0,
+        data:{key:`${table}-duplicate`,value:{...value,id:`${table}-duplicate`,veterinarian:'Dr. Two',provider:'Provider Two'}},
+      };
+      assert.equal((await request(`/data/${table}/sync`,tokens.ownerA,{changes:[first]})).status,200,`${table} first booking`);
+      const rejected = await request(`/data/${table}/sync`,tokens.ownerA,{changes:[duplicateBooking]});
+      assert.equal(rejected.status,409,`${table} duplicate booking`);
+      assert.match(rejected.message,/already has an active booking/i,table);
+      assert.equal((await request(`/data/${table}/sync`,tokens.ownerB,{changes:[{
+        ...duplicateBooking,
+        id:`${table}-other-owner-row`,
+        data:{...duplicateBooking.data,key:`${table}-other-owner`},
+      }]})).status,200,`${table} other owner`);
+    }
     // Health posts are clinic-visible but doctor-owned for mutation. Publishing
     // also creates an in-app notification for every active pet owner.
     const healthPost = {
