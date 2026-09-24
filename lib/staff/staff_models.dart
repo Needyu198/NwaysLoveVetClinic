@@ -436,6 +436,15 @@ class StaffOperationsStore extends ChangeNotifier {
     );
   }
 
+  void recordConfirmationCall(
+    StaffAppointment item,
+    AppointmentConfirmationCall call,
+  ) {
+    item.confirmationCalls.add(call);
+    if (item.source != null) AppointmentStore.instance.databaseChanged();
+    notifyListeners();
+  }
+
   /// Sends the pet owner a notification reflecting a staff change so the owner
   /// sees clinic-side updates to their booking.
   void _notifyOwner(
@@ -545,6 +554,9 @@ class StaffAppointment {
     'status': status,
     'priority': priority,
     'queueNumber': queueNumber,
+    'confirmationCalls': confirmationCalls
+        .map((value) => value.toDb())
+        .toList(),
   };
   static StaffAppointment fromDb(Map<String, dynamic> data) {
     final value = StaffAppointment(
@@ -560,6 +572,13 @@ class StaffAppointment {
       status: data['status'] as String,
       priority: data['priority'] as String,
       queueNumber: data['queueNumber'] as String,
+      confirmationCalls: (data['confirmationCalls'] as List? ?? const [])
+          .map(
+            (value) => AppointmentConfirmationCall.fromDb(
+              Map<String, dynamic>.from(value as Map),
+            ),
+          )
+          .toList(),
     );
     return value;
   }
@@ -578,7 +597,8 @@ class StaffAppointment {
     required this.priority,
     this.queueNumber = '',
     this.source,
-  });
+    List<AppointmentConfirmationCall>? confirmationCalls,
+  }) : confirmationCalls = confirmationCalls ?? [];
 
   factory StaffAppointment.fromBooking(BookedAppointment value) {
     final queue = QueueStore.instance.existingEntryFor(value);
@@ -596,8 +616,8 @@ class StaffAppointment {
     return StaffAppointment(
       id: value.id,
       pet: value.pet.name,
-      owner: 'Registered Owner',
-      phone: 'Owner account',
+      owner: value.ownerName,
+      phone: value.ownerPhone,
       service: value.service.name,
       doctor: value.veterinarian,
       date: value.date,
@@ -607,6 +627,7 @@ class StaffAppointment {
       priority: queue?.priority == 'urgent' ? 'Urgent' : 'Normal',
       source: value,
       queueNumber: queue?.queueNumber ?? '',
+      confirmationCalls: value.confirmationCalls,
     );
   }
 
@@ -623,6 +644,49 @@ class StaffAppointment {
   final String priority;
   String queueNumber;
   final BookedAppointment? source;
+  final List<AppointmentConfirmationCall> confirmationCalls;
+
+  DateTime? get startsAt {
+    final match = RegExp(
+      r'^(\d{1,2}):(\d{2})\s*(AM|PM)$',
+    ).firstMatch(time.trim().toUpperCase());
+    if (match == null) return null;
+    var hour = int.parse(match.group(1)!);
+    final minute = int.parse(match.group(2)!);
+    hour = hour % 12 + (match.group(3) == 'PM' ? 12 : 0);
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+  bool confirmationCallDue({DateTime? now}) {
+    final current = now ?? DateTime.now();
+    final start = startsAt;
+    if (start == null ||
+        !DateUtils.isSameDay(start, current) ||
+        !const {'Pending', 'Confirmed'}.contains(status)) {
+      return false;
+    }
+    final resolved = confirmationCalls.any(
+      (call) => const {
+        AppointmentCallOutcome.confirmed,
+        AppointmentCallOutcome.runningLate,
+        AppointmentCallOutcome.cannotCome,
+      }.contains(call.outcome),
+    );
+    if (resolved) return false;
+    if (confirmationCalls.isNotEmpty) {
+      final latest = confirmationCalls.last;
+      if (latest.retryAt case final retryAt? when retryAt.isAfter(current)) {
+        return false;
+      }
+    }
+    final untilStart = start.difference(current);
+    return untilStart <= const Duration(minutes: 30) &&
+        untilStart > const Duration(hours: -2);
+  }
+
+  bool confirmationCallOverdue({DateTime? now}) =>
+      confirmationCallDue(now: now) &&
+      startsAt!.isBefore(now ?? DateTime.now());
 
   QueueServiceGroup get queueServiceGroup =>
       queueServiceGroupForName(service, walkIn: id.startsWith('WALK-'));

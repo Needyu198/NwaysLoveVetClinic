@@ -12,6 +12,7 @@ import '../data/clinic_directory.dart';
 import '../login/login_page.dart';
 import '../pet_owner/appointment_booking_page.dart';
 import '../pet_owner/contact_clinic_page.dart';
+import '../pet_owner/clinic_phone.dart';
 import '../pet_owner/emergency_service_page.dart';
 import '../pet_owner/home_visit_booking_page.dart';
 import '../pet_owner/owner_shared_stores.dart';
@@ -51,9 +52,19 @@ class StaffPortalPage extends StatefulWidget {
 class _StaffPortalPageState extends State<StaffPortalPage> {
   var _index = 0;
   late final PageController _pageController = PageController();
+  Timer? _clock;
+
+  @override
+  void initState() {
+    super.initState();
+    _clock = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   void dispose() {
+    _clock?.cancel();
     _pageController.dispose();
     super.dispose();
   }

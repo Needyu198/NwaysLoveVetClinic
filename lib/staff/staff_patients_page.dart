@@ -300,6 +300,9 @@ class StaffPatientDetailPage extends StatelessWidget {
                 final latest = visits.isEmpty ? null : visits.first;
                 final owner = latest?.owner ?? 'Registered Owner';
                 final phone = latest?.phone ?? 'Not recorded';
+                final callHistory =
+                    visits.expand((visit) => visit.confirmationCalls).toList()
+                      ..sort((a, b) => a.calledAt.compareTo(b.calledAt));
                 final homeVisits = HomeVisitStore.instance.visits
                     .where((v) => v.pet.name == petName)
                     .toList();
@@ -356,8 +359,9 @@ class StaffPatientDetailPage extends StatelessWidget {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () =>
-                                _notice(context, 'Calling $phone…'),
+                            onPressed: latest == null
+                                ? null
+                                : () => _callOwnerAndRecord(context, latest),
                             icon: const Icon(Icons.call_outlined),
                             label: const Text('Call owner'),
                           ),
@@ -373,6 +377,12 @@ class StaffPatientDetailPage extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (callHistory.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      const Text('Owner call history', style: _sectionStyle),
+                      const SizedBox(height: 8),
+                      _ConfirmationCallHistory(calls: callHistory),
+                    ],
                     const SizedBox(height: 18),
                     const Text('Appointment history', style: _sectionStyle),
                     const SizedBox(height: 8),

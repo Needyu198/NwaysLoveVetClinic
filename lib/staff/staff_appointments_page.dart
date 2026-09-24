@@ -14,6 +14,21 @@ class StaffAppointmentsPage extends StatefulWidget {
 
 class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
   late String _filter = _normalizeFilter(widget.initialFilter);
+  Timer? _clock;
+
+  @override
+  void initState() {
+    super.initState();
+    _clock = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
+  }
 
   static const _filters = ['All', 'Consulting', 'In Queue', 'Emergency'];
 
@@ -62,6 +77,9 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
         builder: (context, _) {
           final all = StaffOperationsStore.instance.appointments;
           final items = all.where(_matchesFilter).toList();
+          final callsDue = all
+              .where((item) => item.confirmationCallDue())
+              .length;
           return Column(
             children: [
               _StaffAppointmentsHeader(
@@ -110,6 +128,32 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
                   ),
                 ),
               ),
+              if (callsDue > 0)
+                Container(
+                  key: const ValueKey('appointment-calls-due'),
+                  margin: const EdgeInsets.fromLTRB(18, 2, 18, 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3C4),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.phone_in_talk_rounded, color: _ink),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '$callsDue owner ${callsDue == 1 ? 'call is' : 'calls are'} due now',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      const Text('30 min reminder'),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: items.isEmpty
                     ? Center(
@@ -301,6 +345,18 @@ class StaffAppointmentDetailsPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
+          _ActionButton(
+            label: item.confirmationCallDue() ? 'Call Owner Now' : 'Call Owner',
+            icon: Icons.phone_in_talk_rounded,
+            onTap: () => _callOwnerAndRecord(context, item),
+          ),
+          if (item.confirmationCalls.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            const Text('Confirmation call history', style: _sectionStyle),
+            const SizedBox(height: 10),
+            _ConfirmationCallHistory(calls: item.confirmationCalls),
+            const SizedBox(height: 18),
+          ],
           const Text('Management actions', style: _sectionStyle),
           const SizedBox(height: 10),
           if (item.status == 'Pending')
@@ -454,6 +510,30 @@ class _AppointmentTile extends StatelessWidget {
                         fontSize: 13,
                       ),
                     ),
+                    if (item.confirmationCallDue()) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        key: ValueKey('call-due-${item.id}'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          item.confirmationCallOverdue()
+                              ? 'Call overdue'
+                              : 'Call owner now',
+                          style: const TextStyle(
+                            color: Color(0xFF8A5A00),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -706,4 +786,155 @@ Future<void> _cancel(BuildContext context, StaffAppointment item) async {
       'Appointment cancelled. Slot released and audit recorded.',
     );
   }
+}
+
+Future<void> _callOwnerAndRecord(
+  BuildContext context,
+  StaffAppointment item,
+) async {
+  if (item.phone.trim().isEmpty || item.phone == 'Not recorded') {
+    _notice(context, 'No phone number is recorded for this owner.');
+    return;
+  }
+  final opened = await openClinicPhoneApp(item.phone);
+  if (!context.mounted) return;
+  if (!opened) {
+    _notice(context, 'This device could not open the phone app.');
+    return;
+  }
+
+  final outcome = await showModalBottomSheet<AppointmentCallOutcome>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const ListTile(
+            title: Text(
+              'Record call result',
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+            ),
+            subtitle: Text('Choose what the owner told you.'),
+          ),
+          for (final value in AppointmentCallOutcome.values)
+            ListTile(
+              leading: Icon(switch (value) {
+                AppointmentCallOutcome.confirmed =>
+                  Icons.check_circle_outline_rounded,
+                AppointmentCallOutcome.runningLate => Icons.schedule_rounded,
+                AppointmentCallOutcome.cannotCome => Icons.event_busy_rounded,
+                AppointmentCallOutcome.noAnswer => Icons.phone_missed_rounded,
+                AppointmentCallOutcome.callAgainLater => Icons.replay_rounded,
+              }),
+              title: Text(value.label),
+              onTap: () => Navigator.pop(sheetContext, value),
+            ),
+        ],
+      ),
+    ),
+  );
+  if (outcome == null || !context.mounted) return;
+
+  final notesController = TextEditingController();
+  final notes = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(outcome.label),
+      content: TextField(
+        controller: notesController,
+        maxLines: 3,
+        decoration: _input(
+          outcome == AppointmentCallOutcome.runningLate
+              ? 'Expected arrival time or note'
+              : 'Optional note',
+          Icons.notes_rounded,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, ''),
+          child: const Text('Skip note'),
+        ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.pop(dialogContext, notesController.text.trim()),
+          child: const Text('Save result'),
+        ),
+      ],
+    ),
+  );
+  notesController.dispose();
+  if (notes == null) return;
+  final retry = const {
+    AppointmentCallOutcome.noAnswer,
+    AppointmentCallOutcome.callAgainLater,
+  }.contains(outcome);
+  StaffOperationsStore.instance.recordConfirmationCall(
+    item,
+    AppointmentConfirmationCall(
+      calledAt: DateTime.now(),
+      outcome: outcome,
+      staffName: StaffProfileStore.instance.firstName,
+      notes: notes,
+      retryAt: retry ? DateTime.now().add(const Duration(minutes: 15)) : null,
+    ),
+  );
+  if (context.mounted) {
+    _notice(
+      context,
+      retry
+          ? 'Call result saved. Retry due in 15 minutes.'
+          : 'Call result saved.',
+    );
+  }
+}
+
+class _ConfirmationCallHistory extends StatelessWidget {
+  const _ConfirmationCallHistory({required this.calls});
+
+  final List<AppointmentConfirmationCall> calls;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFE2E8E5)),
+    ),
+    child: Column(
+      children: [
+        for (var index = calls.length - 1; index >= 0; index--) ...[
+          if (index != calls.length - 1)
+            const Divider(height: 1, indent: 16, endIndent: 16),
+          Builder(
+            builder: (context) {
+              final call = calls[index];
+              final time = TimeOfDay.fromDateTime(
+                call.calledAt,
+              ).format(context);
+              return ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: _mint,
+                  child: Icon(Icons.phone_in_talk_rounded, color: _green),
+                ),
+                title: Text(
+                  call.outcome.label,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text(
+                  [
+                    '${_shortDate(call.calledAt)} at $time • ${call.staffName}',
+                    if (call.notes.isNotEmpty) call.notes,
+                    if (call.retryAt != null)
+                      'Retry at ${TimeOfDay.fromDateTime(call.retryAt!).format(context)}',
+                  ].join('\n'),
+                ),
+              );
+            },
+          ),
+        ],
+      ],
+    ),
+  );
 }

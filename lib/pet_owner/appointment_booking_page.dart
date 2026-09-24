@@ -848,6 +848,11 @@ class BookedAppointment {
     'notes': notes,
     'address': address,
     'status': status,
+    'ownerName': ownerName,
+    'ownerPhone': ownerPhone,
+    'confirmationCalls': confirmationCalls
+        .map((value) => value.toDb())
+        .toList(),
     'cancellation': cancellation?.toDb(),
   };
   static BookedAppointment fromDb(Map<String, dynamic> data) {
@@ -866,6 +871,15 @@ class BookedAppointment {
       notes: data['notes'] as String,
       address: data['address'] as String,
       status: data['status'] as String,
+      ownerName: data['ownerName'] as String? ?? 'Registered Owner',
+      ownerPhone: data['ownerPhone'] as String? ?? 'Not recorded',
+      confirmationCalls: (data['confirmationCalls'] as List? ?? const [])
+          .map(
+            (value) => AppointmentConfirmationCall.fromDb(
+              Map<String, dynamic>.from(value as Map),
+            ),
+          )
+          .toList(),
       cancellation: data['cancellation'] == null
           ? null
           : BookingCancellation.fromDb(
@@ -888,8 +902,11 @@ class BookedAppointment {
     required this.notes,
     required this.address,
     required this.status,
+    this.ownerName = 'Registered Owner',
+    this.ownerPhone = 'Not recorded',
+    List<AppointmentConfirmationCall>? confirmationCalls,
     this.cancellation,
-  });
+  }) : confirmationCalls = confirmationCalls ?? [];
 
   final String id;
   final DateTime createdAt;
@@ -902,8 +919,66 @@ class BookedAppointment {
   final String reason;
   final String notes;
   final String address;
+  final String ownerName;
+  final String ownerPhone;
   String status;
+  final List<AppointmentConfirmationCall> confirmationCalls;
   BookingCancellation? cancellation;
+}
+
+enum AppointmentCallOutcome {
+  confirmed,
+  runningLate,
+  cannotCome,
+  noAnswer,
+  callAgainLater,
+}
+
+extension AppointmentCallOutcomeLabel on AppointmentCallOutcome {
+  String get label => switch (this) {
+    AppointmentCallOutcome.confirmed => 'Confirmed — will come',
+    AppointmentCallOutcome.runningLate => 'Running late',
+    AppointmentCallOutcome.cannotCome => 'Cannot come',
+    AppointmentCallOutcome.noAnswer => 'No answer',
+    AppointmentCallOutcome.callAgainLater => 'Call again later',
+  };
+}
+
+class AppointmentConfirmationCall {
+  AppointmentConfirmationCall({
+    required this.calledAt,
+    required this.outcome,
+    required this.staffName,
+    this.notes = '',
+    this.retryAt,
+  });
+
+  factory AppointmentConfirmationCall.fromDb(Map<String, dynamic> data) =>
+      AppointmentConfirmationCall(
+        calledAt: DateTime.parse(data['calledAt'] as String),
+        outcome: AppointmentCallOutcome.values.byName(
+          data['outcome'] as String,
+        ),
+        staffName: data['staffName'] as String? ?? 'Clinic staff',
+        notes: data['notes'] as String? ?? '',
+        retryAt: data['retryAt'] == null
+            ? null
+            : DateTime.parse(data['retryAt'] as String),
+      );
+
+  Map<String, dynamic> toDb() => {
+    'calledAt': calledAt.toIso8601String(),
+    'outcome': outcome.name,
+    'staffName': staffName,
+    'notes': notes,
+    'retryAt': retryAt?.toIso8601String(),
+  };
+
+  final DateTime calledAt;
+  final AppointmentCallOutcome outcome;
+  final String staffName;
+  final String notes;
+  final DateTime? retryAt;
 }
 
 enum CancellationInitiator { owner, staff }
@@ -2743,6 +2818,8 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       notes: _notesController.text.trim(),
       address: _addressController.text.trim(),
       status: 'Confirmed',
+      ownerName: OwnerProfileStore.instance.profile.fullName,
+      ownerPhone: OwnerProfileStore.instance.profile.phone,
     );
     AppointmentStore.instance.add(appointment);
     _holdTimer?.cancel();

@@ -44,6 +44,9 @@ class StaffDashboardPage extends StatelessWidget {
                   }.contains(a.status),
             )
             .length;
+        final callsDue = today
+            .where((appointment) => appointment.confirmationCallDue())
+            .toList();
         return CustomScrollView(
           key: const ValueKey('staff-dashboard'),
           slivers: [
@@ -130,6 +133,56 @@ class StaffDashboardPage extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (callsDue.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Material(
+                        color: const Color(0xFFFFF3C4),
+                        borderRadius: BorderRadius.circular(20),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          key: const ValueKey('dashboard-calls-due'),
+                          onTap: () => _push(
+                            context,
+                            const StaffAppointmentsPage(standalone: true),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Row(
+                              children: [
+                                const CircleAvatar(
+                                  backgroundColor: Colors.white,
+                                  child: Icon(
+                                    Icons.phone_in_talk_rounded,
+                                    color: _ink,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${callsDue.length} confirmation ${callsDue.length == 1 ? 'call' : 'calls'} due',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      const Text(
+                                        'Appointments starting within 30 minutes',
+                                        style: TextStyle(color: _muted),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_right_rounded),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     const Text('Quick Actions', style: _sectionStyle),
                     const SizedBox(height: 12),
