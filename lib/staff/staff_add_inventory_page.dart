@@ -184,12 +184,14 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                 _AddField(
                   controller: _name,
                   label: 'Item Name',
-                  iconAsset: _InventoryFieldIcons.itemName,
+                  // Icons swapped per request: Item Name now uses the price icon.
+                  iconAsset: _InventoryFieldIcons.price,
                   validator: _required,
                 ),
                 _AddDropdown(
                   label: 'Category',
-                  iconAsset: _InventoryFieldIcons.category,
+                  // Category now uses the description icon.
+                  iconAsset: _InventoryFieldIcons.description,
                   value: _category,
                   items: StaffOperationsStore.inventoryCategories,
                   onChanged: (v) => setState(() => _category = v),
@@ -197,7 +199,8 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                 _AddField(
                   controller: _subcategory,
                   label: 'Subcategory',
-                  iconAsset: _InventoryFieldIcons.subcategory,
+                  // Subcategory now uses the brand icon.
+                  iconAsset: _InventoryFieldIcons.brand,
                   validator: _required,
                 ),
                 _AddDropdown(
@@ -210,13 +213,15 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                 _AddField(
                   controller: _brand,
                   label: 'Brand',
-                  iconAsset: _InventoryFieldIcons.brand,
+                  // Brand now uses the subcategory icon.
+                  iconAsset: _InventoryFieldIcons.subcategory,
                   validator: _required,
                 ),
                 _AddField(
                   controller: _description,
                   label: 'Description',
-                  iconAsset: _InventoryFieldIcons.description,
+                  // Description now uses the category icon.
+                  iconAsset: _InventoryFieldIcons.category,
                   maxLines: 4,
                 ),
                 const SizedBox(height: 8),
@@ -229,7 +234,8 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                 _AddField(
                   controller: _selling,
                   label: 'Price',
-                  iconAsset: _InventoryFieldIcons.price,
+                  // Price now uses the item name icon.
+                  iconAsset: _InventoryFieldIcons.itemName,
                   keyboardType: TextInputType.number,
                   validator: _positiveIntValidator,
                 ),
