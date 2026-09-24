@@ -142,20 +142,41 @@ class AppointmentStore extends ChangeNotifier {
   List<BookedAppointment> get appointments =>
       List.unmodifiable(_appointments.reversed);
 
-  bool isSlotAvailable({
-    required String veterinarian,
+  /// The maximum number of active bookings allowed for a single date/time slot
+  /// across the whole clinic (all doctors combined). Cancelled bookings are
+  /// never counted, so a cancellation immediately frees capacity back into the
+  /// slot.
+  static const slotCapacity = 2;
+
+  /// Number of active (non-cancelled) bookings currently held for this date/time
+  /// slot, counted clinic-wide regardless of which doctor they are with.
+  int slotBookingCount({
     required DateTime date,
     required String time,
     String? excludingAppointmentId,
   }) {
-    return !_appointments.any(
-      (appointment) =>
-          appointment.id != excludingAppointmentId &&
-          appointment.status != 'Cancelled' &&
-          appointment.veterinarian == veterinarian &&
-          DateUtils.isSameDay(appointment.date, date) &&
-          appointment.time == time,
-    );
+    return _appointments
+        .where(
+          (appointment) =>
+              appointment.id != excludingAppointmentId &&
+              appointment.status != 'Cancelled' &&
+              DateUtils.isSameDay(appointment.date, date) &&
+              appointment.time == time,
+        )
+        .length;
+  }
+
+  bool isSlotAvailable({
+    required DateTime date,
+    required String time,
+    String? excludingAppointmentId,
+  }) {
+    return slotBookingCount(
+          date: date,
+          time: time,
+          excludingAppointmentId: excludingAppointmentId,
+        ) <
+        slotCapacity;
   }
 
   void add(BookedAppointment appointment) {
@@ -217,7 +238,6 @@ class AppointmentStore extends ChangeNotifier {
       return false;
     }
     if (!isSlotAvailable(
-      veterinarian: appointment.veterinarian,
       date: date,
       time: time,
       excludingAppointmentId: appointment.id,
@@ -2587,7 +2607,6 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
               final available =
                   isFutureBookingSlot(_date!, time) &&
                   AppointmentStore.instance.isSlotAvailable(
-                    veterinarian: _veterinarian!,
                     date: _date!,
                     time: time,
                   );
@@ -2793,7 +2812,6 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
     }
 
     final slotAvailable = AppointmentStore.instance.isSlotAvailable(
-      veterinarian: _veterinarian!,
       date: _date!,
       time: _time!,
     );

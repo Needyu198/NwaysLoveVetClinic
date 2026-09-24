@@ -5,6 +5,11 @@ const { broadcastChange } = require('./realtime');
 const { sendToAccount } = require('./messaging');
 const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 const fail = (status, message) => Object.assign(new Error(message), { status });
+// Booking policy: at most this many active bookings per veterinarian/date/time
+// slot, and a pet owner is suspended once their cancellations reach the
+// threshold. Both are overridable via environment for different clinics.
+const APPOINTMENT_SLOT_CAPACITY = Math.max(1, Number(process.env.APPOINTMENT_SLOT_CAPACITY) || 2);
+const APPOINTMENT_CANCELLATION_SUSPEND_THRESHOLD = Math.max(1, Number(process.env.APPOINTMENT_CANCELLATION_SUSPEND_THRESHOLD) || 3);
 const normalizedPhone = value => String(value || '').replace(/[^0-9]/g, '');
 const clinicDateToday = () => {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -533,6 +538,9 @@ function installApi(app, pool) {
       await client.query('BEGIN');
       const saved = [];
       const postNotifications = [];
+      // Owners whose cancellation count reached the suspension threshold during
+      // this sync. They are suspended once, atomically, before the commit.
+      const ownersToSuspend = new Set();
       for (const item of [...changes, ...deletions.map(x => ({ ...x, deleting: true }))]) {
         if (typeof item.id !== 'string' || !item.id || item.id.length > 250 || !Number.isInteger(item.version) || item.version < 0) throw fail(400, 'Invalid record.');
         const existing = (await client.query(`SELECT * FROM ${req.params.table} WHERE id=$1 FOR UPDATE`, [item.id])).rows[0];
@@ -587,6 +595,64 @@ function installApi(app, pool) {
           const value = item.data.value;
           await syncUserDirectoryAccount(client, value, existing, req.session.account_id);
         }
+        // Appointment booking rules are authoritative on the server so they
+        // cannot be bypassed by a modified client:
+        //  1. A veterinarian/date/time slot may hold at most APPOINTMENT_SLOT_CAPACITY
+        //     active (non-cancelled) bookings. Cancelling a booking frees the
+        //     slot immediately because cancelled rows are never counted.
+        //  2. A pet owner whose cancellations reach the suspension threshold is
+        //     suspended automatically (login disabled, sessions revoked).
+        if (req.params.table === 'appointments') {
+          const value = item.data.value || {};
+          const status = String(value.status || '');
+          const previousStatus = String(existing?.data?.value?.status || '');
+          const slotKey = {
+            date: String(value.date || '').slice(0, 10),
+            time: String(value.time || ''),
+          };
+          // Enforce slot capacity whenever a booking is (or becomes) active for
+          // a slot: on creation, or when an existing row is moved into an active
+          // status / re-slotted. The slot is clinic-wide, so bookings for every
+          // doctor at the same date/time share the same capacity. Cancelled
+          // bookings are exempt.
+          const isActiveBooking = status !== 'Cancelled';
+          const slotChanged = existing && (
+            String(existing.data.value.date || '').slice(0, 10) !== slotKey.date ||
+            String(existing.data.value.time || '') !== slotKey.time
+          );
+          const becameActive = existing && previousStatus === 'Cancelled' && isActiveBooking;
+          if (isActiveBooking && slotKey.date && slotKey.time &&
+              (!existing || slotChanged || becameActive)) {
+            const occupancy = (await client.query(
+              `SELECT COUNT(*)::int AS count FROM appointments
+               WHERE id<>$1
+                 AND LEFT(data->'value'->>'date',10)=$2
+                 AND data->'value'->>'time'=$3
+                 AND COALESCE(data->'value'->>'status','')<>'Cancelled'`,
+              [item.id, slotKey.date, slotKey.time],
+            )).rows[0].count;
+            if (occupancy >= APPOINTMENT_SLOT_CAPACITY) {
+              throw fail(409, 'That time slot is fully booked. Please choose another time.');
+            }
+          }
+          // Auto-suspend when an owner's booking is newly cancelled.
+          const newlyCancelled = status === 'Cancelled' && previousStatus !== 'Cancelled';
+          const cancelledByOwner = String(value.cancellation?.initiatedBy || 'owner') === 'owner';
+          if (newlyCancelled && cancelledByOwner) {
+            // Count this owner's cancelled appointments, including the one being
+            // saved in this request (it may be an insert or an update).
+            const priorCancellations = (await client.query(
+              `SELECT COUNT(*)::int AS count FROM appointments
+               WHERE owner_id=$1 AND id<>$2
+                 AND data->'value'->>'status'='Cancelled'
+                 AND COALESCE(data->'value'->'cancellation'->>'initiatedBy','owner')='owner'`,
+              [ownerId, item.id],
+            )).rows[0].count;
+            if (priorCancellations + 1 >= APPOINTMENT_CANCELLATION_SUSPEND_THRESHOLD) {
+              ownersToSuspend.add(ownerId);
+            }
+          }
+        }
         if (existing) {
           saved.push((await client.query(`UPDATE ${req.params.table} SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1 RETURNING id,owner_id,data,version`, [item.id, item.data])).rows[0]);
         } else {
@@ -602,7 +668,20 @@ function installApi(app, pool) {
           }
         }
       }
+      // Apply automatic suspension for owners who hit the cancellation limit.
+      // Disabling the account blocks future logins (the login query and the
+      // session guard both require active=TRUE); clearing sessions signs the
+      // owner out of any device currently holding a token. The public user
+      // directory view reflects active=FALSE as a "suspended" status.
+      const suspendedOwners = [...ownersToSuspend];
+      for (const suspendOwnerId of suspendedOwners) {
+        await client.query("UPDATE app_accounts SET active=FALSE WHERE id=$1 AND role='petOwner'", [suspendOwnerId]);
+        await client.query('DELETE FROM app_sessions WHERE account_id=$1', [suspendOwnerId]);
+      }
       await client.query('COMMIT');
+      for (const suspendOwnerId of suspendedOwners) {
+        broadcastChange('user_directory', { ownerId: suspendOwnerId });
+      }
       // Notify connected clients that this table changed so they refresh live
       // (drives the real-time queue). Only emit when something actually changed.
       if (changes.length || deletions.length) {
