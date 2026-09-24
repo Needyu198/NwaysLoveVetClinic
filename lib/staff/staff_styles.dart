@@ -21,11 +21,27 @@ const _sectionStyle = TextStyle(
 
 const _demoDoctors = ['Dr. Aye Chan', 'Dr. Cindy Lynn', 'Dr. Myat Noe'];
 
+List<ClinicPerson> get _availableDoctorProfiles {
+  final liveDoctors = ClinicDirectory.instance.availableDoctorProfiles;
+  if (liveDoctors.isNotEmpty) return liveDoctors;
+  if (DatabaseSync.instance.active) return const [];
+  return _demoDoctors
+      .map(
+        (name) => ClinicPerson(
+          id: name,
+          name: name,
+          role: 'doctor',
+          specialty: 'Available veterinarian',
+        ),
+      )
+      .toList(growable: false);
+}
+
 /// Real sessions use the live doctor directory. Demo/widget flows retain their
 /// fixture doctors so the offline showcase remains usable.
-List<String> get _availableDoctors => DatabaseSync.instance.active
-    ? ClinicDirectory.instance.availableDoctors
-    : _demoDoctors;
+List<String> get _availableDoctors => _availableDoctorProfiles
+    .map((doctor) => doctor.name)
+    .toList(growable: false);
 
 BoxDecoration _cardDecoration({Color border = _border}) => BoxDecoration(
   color: Colors.white,

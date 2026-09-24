@@ -1,18 +1,5 @@
 part of 'staff_portal.dart';
 
-/// A selectable clinic doctor shown in the assignment picker.
-class _StaffDoctor {
-  const _StaffDoctor(this.name, this.specialty);
-  final String name;
-  final String specialty;
-}
-
-const _staffDoctors = [
-  _StaffDoctor('Dr. Aye Chan', 'Heart Specialist'),
-  _StaffDoctor('Dr. Cindy Lynn', 'Attending Physician'),
-  _StaffDoctor('Dr. Myat Noe', 'Operation Lead'),
-];
-
 class StaffHomeVisitsPage extends StatefulWidget {
   const StaffHomeVisitsPage({super.key});
 
@@ -277,20 +264,16 @@ class StaffHomeVisitDetailPage extends StatefulWidget {
 }
 
 class _StaffHomeVisitDetailPageState extends State<StaffHomeVisitDetailPage> {
-  late final TextEditingController _location = TextEditingController(
-    text: widget.visit.address,
-  );
   late String _doctor = _resolveDoctor(widget.visit.veterinarian);
 
-  static String _resolveDoctor(String current) {
-    final match = _staffDoctors.any((d) => d.name == current);
-    return match ? current : _staffDoctors.first.name;
-  }
-
-  @override
-  void dispose() {
-    _location.dispose();
-    super.dispose();
+  String _resolveDoctor(String current) {
+    final doctors = _availableDoctorProfiles;
+    final match = doctors.any((doctor) => doctor.name == current);
+    return match
+        ? current
+        : doctors.isEmpty
+        ? 'Unassigned'
+        : doctors.first.name;
   }
 
   /// Opens the doctor picker. When [assignOnPick] is true (the primary
@@ -303,7 +286,10 @@ class _StaffHomeVisitDetailPageState extends State<StaffHomeVisitDetailPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (sheetContext) => _DoctorPickerSheet(selected: _doctor),
+      builder: (sheetContext) => _DoctorPickerSheet(
+        selected: _doctor,
+        doctors: _availableDoctorProfiles,
+      ),
     );
     if (choice == null) return;
     setState(() => _doctor = choice);
@@ -343,6 +329,12 @@ class _StaffHomeVisitDetailPageState extends State<StaffHomeVisitDetailPage> {
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     child: Row(
                       children: [
+                        _PersonPhoto(
+                          source: _doctorForName(_doctor)?.photoUrl,
+                          fallbackText: _initialFor(_doctor),
+                          size: 42,
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             _doctor,
@@ -363,7 +355,7 @@ class _StaffHomeVisitDetailPageState extends State<StaffHomeVisitDetailPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              _LocationField(controller: _location),
+              _LocationField(address: widget.visit.address),
               const SizedBox(height: 26),
               SizedBox(
                 height: 58,
@@ -455,6 +447,11 @@ class _HomeVisitSummaryCard extends StatelessWidget {
           'Symptoms : ${_orDash(visit.symptoms)}',
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
+        const SizedBox(height: 6),
+        Text(
+          'Contact : ${_orDash(visit.contactPerson)} • ${_orDash(visit.phone)}',
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
       ],
     ),
   );
@@ -513,8 +510,8 @@ class _HomeVisitLabeledField extends StatelessWidget {
 }
 
 class _LocationField extends StatelessWidget {
-  const _LocationField({required this.controller});
-  final TextEditingController controller;
+  const _LocationField({required this.address});
+  final String address;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -536,16 +533,16 @@ class _LocationField extends StatelessWidget {
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: TextField(
-                controller: controller,
-                maxLines: 3,
-                style: const TextStyle(fontSize: 16, color: _ink),
-                decoration: const InputDecoration(
-                  hintText: 'Location',
-                  hintStyle: TextStyle(color: _muted, fontSize: 16),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  address.trim().isEmpty
+                      ? 'No address uploaded by the pet owner'
+                      : address,
+                  key: const ValueKey('staff-home-visit-owner-address'),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 16, color: _ink),
                 ),
               ),
             ),
@@ -554,7 +551,7 @@ class _LocationField extends StatelessWidget {
         OutlinedButton.icon(
           key: const ValueKey('home-visit-open-map'),
           onPressed: () {
-            final query = controller.text.trim();
+            final query = address.trim();
             _showInfo(
               context,
               'Open in Map',
@@ -581,8 +578,9 @@ class _LocationField extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _DoctorPickerSheet extends StatelessWidget {
-  const _DoctorPickerSheet({required this.selected});
+  const _DoctorPickerSheet({required this.selected, required this.doctors});
   final String selected;
+  final List<ClinicPerson> doctors;
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -606,7 +604,12 @@ class _DoctorPickerSheet extends StatelessWidget {
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 14),
-          for (final doctor in _staffDoctors) ...[
+          if (doctors.isEmpty)
+            const ListTile(
+              leading: Icon(Icons.event_busy_outlined),
+              title: Text('No doctors are currently available'),
+            ),
+          for (final doctor in doctors) ...[
             _DoctorPickerTile(
               doctor: doctor,
               selected: doctor.name == selected,
@@ -621,7 +624,7 @@ class _DoctorPickerSheet extends StatelessWidget {
 
 class _DoctorPickerTile extends StatelessWidget {
   const _DoctorPickerTile({required this.doctor, required this.selected});
-  final _StaffDoctor doctor;
+  final ClinicPerson doctor;
   final bool selected;
 
   @override
@@ -634,10 +637,11 @@ class _DoctorPickerTile extends StatelessWidget {
     ),
     child: Row(
       children: [
-        const CircleAvatar(
-          radius: 24,
-          backgroundColor: Color(0xFFE6FAF2),
-          child: Icon(Icons.person_rounded, color: _green),
+        _PersonPhoto(
+          key: ValueKey('home-visit-doctor-photo-${doctor.id}'),
+          source: doctor.photoUrl,
+          fallbackText: _initialFor(doctor.name),
+          size: 48,
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -652,7 +656,9 @@ class _DoctorPickerTile extends StatelessWidget {
                 ),
               ),
               Text(
-                doctor.specialty,
+                (doctor.specialty?.trim().isNotEmpty ?? false)
+                    ? doctor.specialty!.trim()
+                    : 'Available veterinarian',
                 style: const TextStyle(color: _muted, fontSize: 12),
               ),
             ],

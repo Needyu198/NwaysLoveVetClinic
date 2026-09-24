@@ -111,11 +111,17 @@ class _StaffScaffold extends StatelessWidget {
 /// Shared mint rounded page header (back arrow + title/subtitle + clinic logo)
 /// used across staff subpages so they all match.
 class _StaffMintHeader extends StatelessWidget {
-  const _StaffMintHeader({required this.title, this.subtitle, this.icon});
+  const _StaffMintHeader({
+    required this.title,
+    this.subtitle,
+    this.icon,
+    this.logoKey,
+  });
 
   final String title;
   final String? subtitle;
   final IconData? icon;
+  final Key? logoKey;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -165,6 +171,7 @@ class _StaffMintHeader extends StatelessWidget {
             ),
             Image.asset(
               'assets/photos/logoandphoto/nways_love_logo.png',
+              key: logoKey,
               width: 52,
               height: 52,
               fit: BoxFit.contain,

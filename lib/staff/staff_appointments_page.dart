@@ -324,103 +324,124 @@ class StaffAppointmentDetailsPage extends StatelessWidget {
     animation: StaffOperationsStore.instance,
     builder: (context, _) => Scaffold(
       backgroundColor: _page,
-      appBar: _appBar('Appointment Details'),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
+      body: Column(
         children: [
-          _StatusBanner(status: item.status, priority: item.priority),
-          const SizedBox(height: 14),
-          _InfoCard(
-            rows: [
-              ('Booking ID', item.id),
-              ('Pet', item.pet),
-              ('Owner', item.owner),
-              ('Contact', item.phone),
-              ('Service', item.service),
-              ('Reason', item.reason),
-              ('Date', _shortDate(item.date)),
-              ('Time', item.time),
-              ('Doctor', item.doctor),
-              if (item.queueNumber.isNotEmpty) ('Queue', item.queueNumber),
-            ],
+          const _StaffMintHeader(
+            title: 'Appointment Details',
+            subtitle: 'Review and manage this booking',
+            icon: Icons.calendar_month_outlined,
+            logoKey: ValueKey('staff-appointment-details-logo'),
           ),
-          const SizedBox(height: 18),
-          _ActionButton(
-            label: item.confirmationCallDue() ? 'Call Owner Now' : 'Call Owner',
-            icon: Icons.phone_in_talk_rounded,
-            onTap: () => _callOwnerAndRecord(context, item),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
+              children: [
+                _StatusBanner(status: item.status, priority: item.priority),
+                const SizedBox(height: 14),
+                _InfoCard(
+                  rows: [
+                    ('Booking ID', item.id),
+                    ('Pet', item.pet),
+                    ('Owner', item.owner),
+                    ('Contact', item.phone),
+                    ('Service', item.service),
+                    ('Reason', item.reason),
+                    ('Date', _shortDate(item.date)),
+                    ('Time', item.time),
+                    ('Doctor', item.doctor),
+                    if (item.queueNumber.isNotEmpty)
+                      ('Queue', item.queueNumber),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                _ActionButton(
+                  label: item.confirmationCallDue()
+                      ? 'Call Owner Now'
+                      : 'Call Owner',
+                  icon: Icons.phone_in_talk_rounded,
+                  onTap: () => _callOwnerAndRecord(context, item),
+                ),
+                if (item.confirmationCalls.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text('Confirmation call history', style: _sectionStyle),
+                  const SizedBox(height: 10),
+                  _ConfirmationCallHistory(calls: item.confirmationCalls),
+                  const SizedBox(height: 18),
+                ],
+                const Text('Management actions', style: _sectionStyle),
+                const SizedBox(height: 10),
+                if (item.status == 'Pending')
+                  _ActionButton(
+                    label: 'Confirm Appointment',
+                    icon: Icons.event_available_rounded,
+                    onTap: () {
+                      StaffOperationsStore.instance.update(
+                        item,
+                        status: 'Confirmed',
+                      );
+                      _notice(
+                        context,
+                        'Appointment confirmed and owner notified.',
+                      );
+                    },
+                  ),
+                if (const {'Pending', 'Confirmed'}.contains(item.status))
+                  _ActionButton(
+                    label: 'Assign Doctor',
+                    icon: Icons.medical_services_outlined,
+                    onTap: () => _chooseDoctor(context, item),
+                  ),
+                if (const {'Pending', 'Confirmed'}.contains(item.status))
+                  _ActionButton(
+                    label: 'Reschedule',
+                    icon: Icons.edit_calendar_outlined,
+                    onTap: () => _reschedule(context, item),
+                  ),
+                if (item.status == 'Confirmed')
+                  _ActionButton(
+                    label: 'Check In Patient',
+                    icon: Icons.login_rounded,
+                    onTap: () async {
+                      try {
+                        if (item.source case final source?) {
+                          await QueueStore.instance.checkIn(
+                            source,
+                            priority: item.priority.toLowerCase(),
+                          );
+                        } else {
+                          StaffOperationsStore.instance.update(
+                            item,
+                            status: 'Checked In',
+                          );
+                        }
+                        if (context.mounted) {
+                          _notice(
+                            context,
+                            'Patient checked in and added to the live queue.',
+                          );
+                        }
+                      } on ClinicApiException catch (error) {
+                        if (context.mounted) _notice(context, error.message);
+                      }
+                    },
+                  ),
+                if (const {'Pending', 'Confirmed'}.contains(item.status))
+                  _ActionButton(
+                    label: 'Cancel Appointment',
+                    icon: Icons.cancel_outlined,
+                    destructive: true,
+                    onTap: () => _cancel(context, item),
+                  ),
+                if (item.status == 'Waiting')
+                  _ActionButton(
+                    label: 'Open Live Queue',
+                    icon: Icons.format_list_numbered_rounded,
+                    onTap: () =>
+                        _push(context, const StaffQueueStandalonePage()),
+                  ),
+              ],
+            ),
           ),
-          if (item.confirmationCalls.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            const Text('Confirmation call history', style: _sectionStyle),
-            const SizedBox(height: 10),
-            _ConfirmationCallHistory(calls: item.confirmationCalls),
-            const SizedBox(height: 18),
-          ],
-          const Text('Management actions', style: _sectionStyle),
-          const SizedBox(height: 10),
-          if (item.status == 'Pending')
-            _ActionButton(
-              label: 'Confirm Appointment',
-              icon: Icons.event_available_rounded,
-              onTap: () {
-                StaffOperationsStore.instance.update(item, status: 'Confirmed');
-                _notice(context, 'Appointment confirmed and owner notified.');
-              },
-            ),
-          if (const {'Pending', 'Confirmed'}.contains(item.status))
-            _ActionButton(
-              label: 'Assign Doctor',
-              icon: Icons.medical_services_outlined,
-              onTap: () => _chooseDoctor(context, item),
-            ),
-          if (const {'Pending', 'Confirmed'}.contains(item.status))
-            _ActionButton(
-              label: 'Reschedule',
-              icon: Icons.edit_calendar_outlined,
-              onTap: () => _reschedule(context, item),
-            ),
-          if (item.status == 'Confirmed')
-            _ActionButton(
-              label: 'Check In Patient',
-              icon: Icons.login_rounded,
-              onTap: () async {
-                try {
-                  if (item.source case final source?) {
-                    await QueueStore.instance.checkIn(
-                      source,
-                      priority: item.priority.toLowerCase(),
-                    );
-                  } else {
-                    StaffOperationsStore.instance.update(
-                      item,
-                      status: 'Checked In',
-                    );
-                  }
-                  if (context.mounted) {
-                    _notice(
-                      context,
-                      'Patient checked in and added to the live queue.',
-                    );
-                  }
-                } on ClinicApiException catch (error) {
-                  if (context.mounted) _notice(context, error.message);
-                }
-              },
-            ),
-          if (const {'Pending', 'Confirmed'}.contains(item.status))
-            _ActionButton(
-              label: 'Cancel Appointment',
-              icon: Icons.cancel_outlined,
-              destructive: true,
-              onTap: () => _cancel(context, item),
-            ),
-          if (item.status == 'Waiting')
-            _ActionButton(
-              label: 'Open Live Queue',
-              icon: Icons.format_list_numbered_rounded,
-              onTap: () => _push(context, const StaffQueueStandalonePage()),
-            ),
         ],
       ),
     ),
@@ -661,7 +682,7 @@ class _ActionButton extends StatelessWidget {
 }
 
 Future<void> _chooseDoctor(BuildContext context, StaffAppointment item) async {
-  final doctors = _availableDoctors;
+  final doctors = _availableDoctorProfiles;
   final choice = await showModalBottomSheet<String>(
     context: context,
     builder: (_) => SafeArea(
@@ -681,13 +702,23 @@ Future<void> _chooseDoctor(BuildContext context, StaffAppointment item) async {
             ),
           ...doctors.map(
             (doctor) => ListTile(
-              leading: const CircleAvatar(
-                backgroundColor: _mint,
-                child: Icon(Icons.medical_services_outlined),
+              key: ValueKey('appointment-doctor-${doctor.id}'),
+              leading: _PersonPhoto(
+                key: ValueKey('appointment-doctor-photo-${doctor.id}'),
+                source: doctor.photoUrl,
+                fallbackText: _initialFor(doctor.name),
+                size: 48,
               ),
-              title: Text(doctor),
-              subtitle: const Text('Available'),
-              onTap: () => Navigator.pop(context, doctor),
+              title: Text(
+                doctor.name,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text(
+                (doctor.specialty?.trim().isNotEmpty ?? false)
+                    ? doctor.specialty!.trim()
+                    : 'Available veterinarian',
+              ),
+              onTap: () => Navigator.pop(context, doctor.name),
             ),
           ),
         ],
@@ -740,51 +771,103 @@ Future<void> _reschedule(BuildContext context, StaffAppointment item) async {
 }
 
 Future<void> _cancel(BuildContext context, StaffAppointment item) async {
-  final controller = TextEditingController();
+  var enteredReason = '';
   final reason = await showDialog<String>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const Text('Cancel appointment?'),
       content: TextField(
-        controller: controller,
+        key: const ValueKey('staff-cancellation-reason'),
         autofocus: true,
         maxLines: 2,
-        decoration: _input('Cancellation reason', Icons.notes_rounded),
+        onChanged: (value) => enteredReason = value,
+        decoration: _input('Cancellation reason', Icons.notes_rounded).copyWith(
+          labelStyle: const TextStyle(color: _ink, fontWeight: FontWeight.w700),
+          floatingLabelStyle: const TextStyle(
+            color: _green,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
       actions: [
         TextButton(
+          key: const ValueKey('keep-staff-appointment'),
           onPressed: () => Navigator.pop(dialogContext),
+          style: TextButton.styleFrom(
+            foregroundColor: _ink,
+            backgroundColor: const Color(0xFFE8FFF5),
+            textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          ),
           child: const Text('Keep'),
         ),
         FilledButton(
+          key: const ValueKey('confirm-staff-cancellation'),
           onPressed: () {
-            if (controller.text.trim().isNotEmpty) {
-              Navigator.pop(dialogContext, controller.text.trim());
+            final value = enteredReason.trim();
+            if (value.isNotEmpty) {
+              Navigator.pop(dialogContext, value);
             }
           },
-          style: FilledButton.styleFrom(backgroundColor: _red),
+          style: FilledButton.styleFrom(
+            backgroundColor: _red,
+            foregroundColor: Colors.white,
+          ),
           child: const Text('Cancel appointment'),
         ),
       ],
     ),
   );
-  controller.dispose();
   if (reason == null) return;
-  if (item.source != null) {
-    AppointmentStore.instance.cancelWithDetails(
-      item.source!,
-      reason: reason,
-      initiatedBy: CancellationInitiator.staff,
-    );
-    StaffOperationsStore.instance.update(item, status: item.source!.status);
-  } else {
-    StaffOperationsStore.instance.update(item, status: 'Cancelled');
-  }
-  if (context.mounted) {
-    _notice(
-      context,
-      'Appointment cancelled. Slot released and audit recorded.',
-    );
+
+  final previousStatus = item.status;
+  final source = item.source;
+  final previousSourceStatus = source?.status;
+  final previousCancellation = source?.cancellation;
+  try {
+    if (source != null) {
+      final cancellation = AppointmentStore.instance.cancelWithDetails(
+        source,
+        reason: reason,
+        initiatedBy: CancellationInitiator.staff,
+      );
+      if (cancellation == null) {
+        if (context.mounted) {
+          _notice(
+            context,
+            'This appointment can no longer be cancelled. Refresh and review its current status.',
+          );
+        }
+        return;
+      }
+      StaffOperationsStore.instance.update(item, status: source.status);
+    } else {
+      StaffOperationsStore.instance.update(item, status: 'Cancelled');
+    }
+
+    if (DatabaseSync.instance.active) {
+      await DatabaseSync.instance.flushOrThrow();
+    }
+    if (context.mounted) {
+      _notice(
+        context,
+        'Appointment cancelled. Slot released and owner notified.',
+      );
+    }
+  } on ClinicApiException catch (error) {
+    item.status = previousStatus;
+    if (source != null) {
+      source
+        ..status = previousSourceStatus!
+        ..cancellation = previousCancellation;
+      AppointmentStore.instance.databaseChanged();
+    }
+    StaffOperationsStore.instance.databaseChanged();
+    if (DatabaseSync.instance.active) {
+      await DatabaseSync.instance.flush();
+    }
+    if (context.mounted) {
+      _notice(context, 'Could not cancel appointment: ${error.message}');
+    }
   }
 }
 

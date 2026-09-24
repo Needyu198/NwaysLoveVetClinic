@@ -80,6 +80,25 @@ class NwayLoveVetClinicApp extends StatelessWidget {
         ),
         // Internal Apple system-family name for SF Pro Rounded.
         fontFamily: '.SF NS Rounded',
+        // Calendar/time-picker actions and dialog secondary actions inherit
+        // this high-contrast color. This keeps Cancel, OK, Keep, and logout
+        // dismissal buttons readable instead of mint-on-white.
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: const Color(0xFF0B5F45),
+            textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+        datePickerTheme: const DatePickerThemeData(
+          headerBackgroundColor: Color(0xFFC5F7E3),
+          headerForegroundColor: Color(0xFF17211E),
+        ),
+        timePickerTheme: const TimePickerThemeData(
+          backgroundColor: Colors.white,
+          dialHandColor: Color(0xFF147D5B),
+          hourMinuteTextColor: Color(0xFF17211E),
+          dayPeriodTextColor: Color(0xFF17211E),
+        ),
         useMaterial3: true,
       ),
       initialRoute: LoginPage.routeName,

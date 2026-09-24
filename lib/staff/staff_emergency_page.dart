@@ -316,10 +316,14 @@ class _EmergencyCard extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: () =>
-                        _notice(context, 'Calling ${request.phone}…'),
+                    key: ValueKey('staff-emergency-call-${request.id}'),
+                    onPressed: () => _callEmergencyOwner(context, request),
                     icon: const Icon(Icons.call_outlined, size: 18),
                     label: const Text('Call owner'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _ink,
+                      side: const BorderSide(color: _green),
+                    ),
                   ),
                   if (request.status == EmergencyStatus.submitted)
                     FilledButton(
@@ -357,5 +361,23 @@ class _EmergencyCard extends StatelessWidget {
         ),
       ],
     ),
+  );
+}
+
+Future<void> _callEmergencyOwner(
+  BuildContext context,
+  EmergencyRequest request,
+) async {
+  if (request.phone.trim().isEmpty) {
+    _notice(context, 'No owner phone number is available.');
+    return;
+  }
+  final opened = await openClinicPhoneApp(request.phone);
+  if (!context.mounted) return;
+  _notice(
+    context,
+    opened
+        ? 'Opening the phone app for ${request.contactPerson}.'
+        : 'This device could not open the phone app.',
   );
 }

@@ -1,6 +1,8 @@
 part of 'staff_portal.dart';
 
 class StaffOperationsStore extends ChangeNotifier {
+  void databaseChanged() => notifyListeners();
+
   void connectDatabase() {
     DatabaseSync.instance.bind(
       'walk_in_appointments',

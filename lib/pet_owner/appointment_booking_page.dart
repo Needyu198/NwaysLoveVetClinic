@@ -1237,6 +1237,22 @@ class AppointmentDetailsPage extends StatelessWidget {
                           ),
                           icon: const Icon(Icons.event_busy_outlined),
                           label: const Text('View Cancellation'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _BookingColors.green,
+                            backgroundColor: Colors.white,
+                            side: const BorderSide(
+                              color: _BookingColors.green,
+                              width: 1.5,
+                            ),
+                            minimumSize: const Size.fromHeight(52),
+                            textStyle: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
                         )
                       else if (eligibility.allowed)
                         OutlinedButton.icon(
@@ -1317,18 +1333,25 @@ class _BookingCancellationPageState extends State<BookingCancellationPage> {
     );
     return Scaffold(
       backgroundColor: _BookingColors.page,
-      appBar: AppBar(
-        title: Text(cancellation == null ? 'Cancel Booking' : 'Cancellation'),
-        backgroundColor: _BookingColors.mint,
-        surfaceTintColor: Colors.transparent,
+      body: SafeArea(
+        child: Column(
+          children: [
+            PetOwnerPageHeader(
+              title: cancellation == null ? 'Cancel Booking' : 'Cancellation',
+              logoKey: const ValueKey('cancellation-page-logo'),
+            ),
+            Expanded(
+              child: cancellation != null
+                  ? _confirmation(cancellation)
+                  : !eligibility.allowed
+                  ? _ineligible(eligibility)
+                  : _showSummary
+                  ? _summary()
+                  : _reasonSelection(),
+            ),
+          ],
+        ),
       ),
-      body: cancellation != null
-          ? _confirmation(cancellation)
-          : !eligibility.allowed
-          ? _ineligible(eligibility)
-          : _showSummary
-          ? _summary()
-          : _reasonSelection(),
     );
   }
 
@@ -1347,6 +1370,12 @@ class _BookingCancellationPageState extends State<BookingCancellationPage> {
       const SizedBox(height: 8),
       Card(
         color: Colors.white,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: const BorderSide(color: Color(0xFFD8E7E1)),
+        ),
         child: RadioGroup<String>(
           groupValue: _reason,
           onChanged: (value) => setState(() => _reason = value),
@@ -1371,7 +1400,11 @@ class _BookingCancellationPageState extends State<BookingCancellationPage> {
           onChanged: (_) => setState(() {}),
           decoration: const InputDecoration(
             labelText: 'Please explain *',
-            border: OutlineInputBorder(),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(17)),
+            ),
           ),
         ),
       ],
@@ -1381,7 +1414,15 @@ class _BookingCancellationPageState extends State<BookingCancellationPage> {
         onPressed: _reasonIsValid
             ? () => setState(() => _showSummary = true)
             : null,
-        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+        style: FilledButton.styleFrom(
+          backgroundColor: _BookingColors.green,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(52),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
         child: const Text('Review Cancellation'),
       ),
     ],
@@ -1418,12 +1459,23 @@ class _BookingCancellationPageState extends State<BookingCancellationPage> {
         onPressed: _confirmCancellation,
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFFB3261E),
+          foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(52),
+          textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         child: const Text('Confirm Cancellation'),
       ),
       TextButton(
+        key: const ValueKey('back-to-cancellation-reasons'),
         onPressed: () => setState(() => _showSummary = false),
+        style: TextButton.styleFrom(
+          foregroundColor: _BookingColors.ink,
+          minimumSize: const Size.fromHeight(48),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+        ),
         child: const Text('Back'),
       ),
     ],
@@ -1439,7 +1491,17 @@ class _BookingCancellationPageState extends State<BookingCancellationPage> {
         ),
         actions: [
           TextButton(
+            key: const ValueKey('keep-booking'),
             onPressed: () => Navigator.of(dialogContext).pop(false),
+            style: TextButton.styleFrom(
+              foregroundColor: _BookingColors.ink,
+              backgroundColor: const Color(0xFFE8FFF5),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             child: const Text('Keep Booking'),
           ),
           FilledButton(
@@ -1447,6 +1509,7 @@ class _BookingCancellationPageState extends State<BookingCancellationPage> {
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFB3261E),
+              foregroundColor: Colors.white,
             ),
             child: const Text('Yes, Cancel Booking'),
           ),
@@ -1517,13 +1580,34 @@ class _BookingCancellationPageState extends State<BookingCancellationPage> {
       FilledButton(
         key: const ValueKey('view-cancellation-history'),
         onPressed: () => Navigator.of(context).pushNamed('/history'),
+        style: FilledButton.styleFrom(
+          backgroundColor: _BookingColors.green,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(52),
+          textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
         child: const Text('View Cancellation in History'),
       ),
+      const SizedBox(height: 10),
       OutlinedButton(
+        key: const ValueKey('back-to-my-appointments'),
         onPressed: () => Navigator.of(context).popUntil(
           (route) =>
               route.isFirst ||
               route.settings.name == MyAppointmentsPage.routeName,
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _BookingColors.green,
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: _BookingColors.green, width: 1.5),
+          minimumSize: const Size.fromHeight(52),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         child: const Text('Back to My Appointments'),
       ),

@@ -30,6 +30,73 @@ class _StaffProfilePageState extends State<StaffProfilePage> {
     );
   }
 
+  Future<void> _updatePhoto() async {
+    final profile = StaffProfileStore.instance;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(sheetContext, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(sheetContext, 'camera'),
+            ),
+            if (profile.photoPath != null)
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded, color: _red),
+                title: const Text(
+                  'Remove photo',
+                  style: TextStyle(color: _red),
+                ),
+                onTap: () => Navigator.pop(sheetContext, 'remove'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+
+    String? photoPath = profile.photoPath;
+    if (action == 'remove') {
+      photoPath = null;
+    } else {
+      try {
+        final picked = await ImagePicker().pickImage(
+          source: action == 'camera' ? ImageSource.camera : ImageSource.gallery,
+          maxWidth: 1024,
+          maxHeight: 1024,
+          imageQuality: 82,
+        );
+        if (picked == null || !mounted) return;
+        final bytes = await picked.readAsBytes();
+        if (bytes.length > 2 * 1024 * 1024) {
+          throw Exception('Photo too large');
+        }
+        photoPath = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      } on Exception {
+        if (mounted) _notice(context, 'Could not update the profile photo.');
+        return;
+      }
+    }
+
+    profile.save(
+      name: profile.name,
+      phone: profile.phone,
+      email: profile.email,
+      shift: profile.shift,
+      onShift: profile.onShift,
+      photoPath: photoPath,
+    );
+    if (mounted) _notice(context, 'Profile photo updated.');
+  }
+
   @override
   Widget build(BuildContext context) => _StaffScaffold(
     title: 'Staff Profile',
@@ -59,9 +126,13 @@ class _StaffProfilePageState extends State<StaffProfilePage> {
             Center(child: _ShiftBadge(onShift: profile.onShift)),
             TextButton.icon(
               key: const ValueKey('staff-update-photo'),
-              onPressed: _openEditor,
+              onPressed: _updatePhoto,
               icon: const Icon(Icons.camera_alt_outlined, size: 18),
               label: const Text('Update photo'),
+              style: TextButton.styleFrom(
+                foregroundColor: _green,
+                textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              ),
             ),
             const SizedBox(height: 20),
             _InfoCard(

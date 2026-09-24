@@ -46,7 +46,12 @@ class PetOwnerPageHeader extends StatelessWidget {
           if (showBackButton)
             IconButton(
               onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_ios_new_rounded),
+              color: const Color(0xFF17211E),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white.withValues(alpha: 0.72),
+                foregroundColor: const Color(0xFF17211E),
+              ),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 21),
               tooltip: 'Back',
             ),
           Expanded(

@@ -86,6 +86,21 @@ void main() {
     expect(find.text('Log in'), findsOneWidget);
   });
 
+  testWidgets('shared calendar and dialog actions use visible text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const NwayLoveVetClinicApp());
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(
+      app.theme?.textButtonTheme.style?.foregroundColor?.resolve({}),
+      const Color(0xFF0B5F45),
+    );
+    expect(
+      app.theme?.datePickerTheme.headerForegroundColor,
+      const Color(0xFF17211E),
+    );
+  });
+
   testWidgets('login button opens sign in panel', (WidgetTester tester) async {
     await tester.pumpWidget(
       const NwayLoveVetClinicApp(
@@ -1164,6 +1179,117 @@ void main() {
     expect(find.text('Bruno'), findsNothing);
   });
 
+  testWidgets('staff can cancel an owner booking with a recorded reason', (
+    WidgetTester tester,
+  ) async {
+    AppointmentStore.instance.clear();
+    addTearDown(AppointmentStore.instance.clear);
+    ClinicDirectory.instance.replaceForTesting({
+      'doctor-photo': {
+        'id': 'doctor-photo',
+        'name': 'Dr. Photo Profile',
+        'role': 'doctor',
+        'specialty': 'General medicine',
+        'available': true,
+        'photoUrl':
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      },
+    });
+    addTearDown(() => ClinicDirectory.instance.replaceForTesting({}));
+    final booking = BookedAppointment(
+      id: 'STAFF-CANCEL-1',
+      createdAt: DateTime.now(),
+      pet: const BookingPet(
+        name: 'Milo',
+        species: 'Cat',
+        breed: 'Siamese',
+        age: '3 years',
+        icon: Icons.pets,
+        color: Colors.orange,
+      ),
+      service: const BookingService(
+        name: 'General Checkup',
+        description: 'Routine examination',
+        icon: Icons.health_and_safety,
+        homeVisit: false,
+        doctors: ['Dr. Aye Chan'],
+      ),
+      veterinarian: 'Dr. Aye Chan',
+      date: DateTime.now().add(const Duration(days: 2)),
+      time: '10:00 AM',
+      symptoms: 'Low appetite',
+      reason: 'Checkup',
+      notes: '',
+      address: '',
+      status: 'Confirmed',
+      ownerName: 'Nandar Moe',
+      ownerPhone: '09 770 123 882',
+    );
+    AppointmentStore.instance.add(booking);
+    final staffAppointment = StaffAppointment.fromBooking(booking);
+
+    await tester.pumpWidget(
+      MaterialApp(home: StaffAppointmentDetailsPage(item: staffAppointment)),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('staff-appointment-details-logo')),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Assign Doctor'),
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Assign Doctor'));
+    await tester.pumpAndSettle();
+    final doctorPhoto = find.byKey(
+      const ValueKey('appointment-doctor-photo-doctor-photo'),
+    );
+    expect(doctorPhoto, findsOneWidget);
+    expect(
+      find.descendant(of: doctorPhoto, matching: find.byType(Image)),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('appointment-doctor-doctor-photo')),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Cancel Appointment'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+
+    await tester.tap(find.text('Cancel Appointment'));
+    await tester.pumpAndSettle();
+    final cancellationReason = tester.widget<TextField>(
+      find.byKey(const ValueKey('staff-cancellation-reason')),
+    );
+    expect(
+      cancellationReason.decoration?.labelStyle?.color,
+      const Color(0xFF17201D),
+    );
+    final keepAppointment = tester.widget<TextButton>(
+      find.byKey(const ValueKey('keep-staff-appointment')),
+    );
+    expect(
+      keepAppointment.style?.foregroundColor?.resolve({}),
+      const Color(0xFF17201D),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('staff-cancellation-reason')),
+      'Doctor unavailable',
+    );
+    await tester.tap(find.byKey(const ValueKey('confirm-staff-cancellation')));
+    await tester.pumpAndSettle();
+
+    expect(booking.status, 'Cancelled');
+    expect(booking.cancellation?.reason, 'Doctor unavailable');
+    expect(booking.cancellation?.initiatedBy, CancellationInitiator.staff);
+    expect(staffAppointment.status, 'Cancelled');
+  });
+
   testWidgets('staff assigns a doctor to a home visit end to end', (
     WidgetTester tester,
   ) async {
@@ -1232,6 +1358,11 @@ void main() {
     expect(find.text('Detail'), findsOneWidget);
     expect(find.textContaining('Rapid Test'), findsOneWidget);
     expect(find.byKey(const ValueKey('home-visit-open-map')), findsOneWidget);
+    expect(find.text('No. 5, Yangon'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('staff-home-visit-owner-address')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('staff-home-visit-summary-pet-photo-Bella')),
       findsOneWidget,
@@ -1241,6 +1372,10 @@ void main() {
     // which commits the assignment and returns to the list.
     await tester.tap(find.byKey(const ValueKey('assign-home-visit-doctor')));
     await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('home-visit-doctor-photo-Dr. Cindy Lynn')),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const ValueKey('pick-doctor-Dr. Cindy Lynn')));
     await tester.pumpAndSettle();
 
@@ -1372,6 +1507,10 @@ void main() {
       find.byKey(const ValueKey('staff-emergency-pet-photo-Rocky')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('staff-emergency-call-STAFF-EMG-1')),
+      findsOneWidget,
+    );
 
     // Start review, then assign & accept.
     await tester.tap(
@@ -1458,6 +1597,13 @@ void main() {
     expect(find.byKey(const ValueKey('staff-profile')), findsOneWidget);
     expect(find.text('Mya Thu'), findsOneWidget);
 
+    await tester.tap(find.byKey(const ValueKey('staff-update-photo')));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose from gallery'), findsOneWidget);
+    expect(find.text('Take a photo'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Choose from gallery'))).pop();
+    await tester.pumpAndSettle();
+
     await tester.scrollUntilVisible(
       find.text('Edit Profile'),
       200,
@@ -1514,10 +1660,49 @@ void main() {
     }
 
     expect(find.byKey(const ValueKey('generated-product-id')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('inventory-field-icon-item-name')),
+      findsOneWidget,
+    );
     await fill('Item Name', 'Cat Litter 5kg');
+    await tester.scrollUntilVisible(
+      find.text('Category'),
+      160,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.byKey(const ValueKey('inventory-field-icon-category')),
+      findsOneWidget,
+    );
     await fill('Subcategory', 'Cat Litter');
+    expect(
+      find.byKey(const ValueKey('inventory-field-icon-subcategory')),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Pet Type'),
+      160,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.byKey(const ValueKey('inventory-field-icon-pet-type')),
+      findsOneWidget,
+    );
     await fill('Brand', 'Clean Paws');
+    expect(
+      find.byKey(const ValueKey('inventory-field-icon-brand')),
+      findsOneWidget,
+    );
+    await fill('Description', 'Low-dust litter for cats');
+    expect(
+      find.byKey(const ValueKey('inventory-field-icon-description')),
+      findsOneWidget,
+    );
     await fill('Price', '3000');
+    expect(
+      find.byKey(const ValueKey('inventory-field-icon-price')),
+      findsOneWidget,
+    );
 
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('save-inventory-item')),
@@ -2006,6 +2191,20 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Cancel Booking'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('cancellation-page-logo')),
+      findsOneWidget,
+    );
+    final cancelPageBackButton = tester.widget<IconButton>(
+      find.ancestor(
+        of: find.byTooltip('Back'),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(
+      cancelPageBackButton.style?.foregroundColor?.resolve({}),
+      const Color(0xFF17211E),
+    );
     expect(find.text('Cancellation policy'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('cancellation-reason-Other')));
     await tester.pump();
@@ -2037,9 +2236,23 @@ void main() {
       find.text('MMK 0 — No payment collected; no refund required'),
       findsOneWidget,
     );
+    final summaryBack = tester.widget<TextButton>(
+      find.byKey(const ValueKey('back-to-cancellation-reasons')),
+    );
+    expect(
+      summaryBack.style?.foregroundColor?.resolve({}),
+      const Color(0xFF17211E),
+    );
     await tester.tap(find.byKey(const ValueKey('confirm-cancellation')));
     await tester.pumpAndSettle();
     expect(find.text('Final Confirmation'), findsOneWidget);
+    final keepBooking = tester.widget<TextButton>(
+      find.byKey(const ValueKey('keep-booking')),
+    );
+    expect(
+      keepBooking.style?.foregroundColor?.resolve({}),
+      const Color(0xFF17211E),
+    );
     await tester.tap(find.byKey(const ValueKey('yes-cancel-booking')));
     await tester.pumpAndSettle();
     expect(appointment.status, 'Cancelled');
@@ -2050,9 +2263,15 @@ void main() {
     );
     expect(find.text('Booking Cancelled'), findsOneWidget);
     expect(find.textContaining('Cancellation ID: CAN-'), findsOneWidget);
+    final backToAppointments = tester.widget<OutlinedButton>(
+      find.byKey(const ValueKey('back-to-my-appointments')),
+    );
+    expect(
+      backToAppointments.style?.foregroundColor?.resolve({}),
+      const Color(0xFF20B978),
+    );
     expect(
       AppointmentStore.instance.isSlotAvailable(
-        veterinarian: appointment.veterinarian,
         date: appointment.date,
         time: appointment.time,
       ),
@@ -2060,6 +2279,83 @@ void main() {
     );
     expect(QueueStore.instance.existingEntryFor(appointment), isNull);
   });
+
+  testWidgets(
+    'cancelled appointment actions have visible text and clinic logo',
+    (tester) async {
+      final appointment = BookedAppointment(
+        id: 'CANCELLED-DETAIL-1',
+        createdAt: DateTime.now(),
+        pet: const BookingPet(
+          name: 'Max',
+          species: 'Dog',
+          breed: 'Golden Retriever',
+          age: '2 years',
+          icon: Icons.pets,
+          color: Colors.blue,
+        ),
+        service: const BookingService(
+          name: 'General Checkup',
+          description: 'Routine examination',
+          icon: Icons.health_and_safety,
+          homeVisit: false,
+          doctors: ['Dr. Aye Chan'],
+        ),
+        veterinarian: 'Dr. Aye Chan',
+        date: DateTime.now().add(const Duration(days: 2)),
+        time: '10:00 AM',
+        symptoms: 'Low appetite',
+        reason: 'Checkup',
+        notes: '',
+        address: '',
+        status: 'Cancelled',
+        cancellation: BookingCancellation(
+          id: 'CAN-DETAIL-1',
+          reason: 'Schedule conflict',
+          additionalReason: '',
+          cancelledAt: DateTime.now(),
+          cancellationFee: 0,
+          refundAmount: 0,
+          refundStatus: RefundStatus.notApplicable,
+          initiatedBy: CancellationInitiator.owner,
+          notificationsSent: true,
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: AppointmentDetailsPage(appointment: appointment)),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('view-cancellation')),
+        300,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+
+      final viewCancellation = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey('view-cancellation')),
+      );
+      expect(
+        viewCancellation.style?.foregroundColor?.resolve({}),
+        const Color(0xFF20B978),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('view-cancellation')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('cancellation-page-logo')),
+        findsOneWidget,
+      );
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('back-to-my-appointments')),
+        300,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Back to My Appointments'), findsOneWidget);
+    },
+  );
 
   test(
     'cancellation rules prevent duplicates and started cancellations',

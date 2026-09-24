@@ -652,6 +652,16 @@ function installApi(app, pool) {
               ownersToSuspend.add(ownerId);
             }
           }
+          if (newlyCancelled && !cancelledByOwner) {
+            const petName = String(value.pet?.name || 'Your pet');
+            const reason = String(value.cancellation?.reason || '').trim();
+            const title = 'Appointment cancelled by clinic';
+            const message = reason
+              ? `${petName}'s appointment was cancelled by the clinic. Reason: ${reason}`
+              : `${petName}'s appointment was cancelled by the clinic.`;
+            await saveOwnerNotification(client, ownerId, title, message);
+            postNotifications.push({ ownerId, title, message });
+          }
         }
         if (existing) {
           saved.push((await client.query(`UPDATE ${req.params.table} SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1 RETURNING id,owner_id,data,version`, [item.id, item.data])).rows[0]);
