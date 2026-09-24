@@ -63,6 +63,8 @@ test('sends one appointment push and stores it in the owner feed', async () => {
   assert.deepEqual(result, { checked: 1, sent: 1 });
   assert.equal(database.state.candidateParams[1], 'Asia/Bangkok');
   assert.match(database.state.candidateSql, /INTERVAL '30 minutes'/);
+  assert.match(database.state.candidateSql, /jsonb_extract_path_text/);
+  assert.doesNotMatch(database.state.candidateSql, /->/);
   assert.equal(database.state.notifications.length, 1);
   assert.equal(database.state.notifications[0].title, 'Appointment in 30 minutes');
   assert.match(database.state.notifications[0].message, /Milo.*10:00 AM/);

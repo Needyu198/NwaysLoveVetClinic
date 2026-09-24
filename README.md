@@ -49,6 +49,11 @@ Firebase service-account JSON. The owner must sign in once on the phone and
 allow notifications so its device token is registered. The backend must remain
 running for the reminder scheduler to check upcoming appointments.
 
+Android supports these remote reminders with the included Firebase setup. iOS
+remote push notifications require a paid Apple Developer team with the Push
+Notifications capability and an APNs key connected in Firebase; a free Apple
+Personal Team cannot sign an app containing the `aps-environment` entitlement.
+
 Binding to `0.0.0.0` makes the API reachable through the Mac's LAN address, but
 it does not publish the Mac to the internet. To use the app from any network,
 deploy the backend and PostgreSQL using `deploy/README.md`, expose only the API

@@ -18,26 +18,40 @@ async function runAppointmentReminders(
 ) {
   const candidates = (
     await database.query(
-      `SELECT a.id, a.owner_id, a.data->'value' AS appointment,
+      `SELECT a.id, a.owner_id,
+          jsonb_extract_path(a.data::jsonb, 'value') AS appointment,
           slot.start_at
        FROM appointments a
        CROSS JOIN LATERAL (
          SELECT to_timestamp(
-           substring(a.data->'value'->>'date' from 1 for 10) || ' ' ||
-             a.data->'value'->>'time',
+           substring(jsonb_extract_path_text(a.data::jsonb, 'value', 'date') from 1 for 10) || ' ' ||
+             jsonb_extract_path_text(a.data::jsonb, 'value', 'time'),
            'YYYY-MM-DD HH12:MI AM'
          )::timestamp AT TIME ZONE $2 AS start_at
        ) slot
        LEFT JOIN LATERAL (
-         SELECT data->'value' AS preferences
+         SELECT jsonb_extract_path(data::jsonb, 'value') AS preferences
          FROM notification_settings
          WHERE owner_id=a.owner_id
          ORDER BY updated_at DESC LIMIT 1
        ) settings ON TRUE
-       WHERE a.data->'value'->>'status' IN ('Pending','Confirmed')
-         AND a.data->'value'->'cancellation' IS NULL
-         AND COALESCE((settings.preferences->>'enabled')::boolean, TRUE)
-         AND COALESCE((settings.preferences->>'appointments')::boolean, TRUE)
+       WHERE jsonb_extract_path_text(a.data::jsonb, 'value', 'status') IN ('Pending','Confirmed')
+         AND jsonb_extract_path_text(
+           a.data::jsonb,
+           'value',
+           'cancellation'
+         ) IS NULL
+         AND COALESCE(
+           jsonb_extract_path_text(settings.preferences::jsonb, 'enabled')::boolean,
+           TRUE
+         )
+         AND COALESCE(
+           jsonb_extract_path_text(
+             settings.preferences::jsonb,
+             'appointments'
+           )::boolean,
+           TRUE
+         )
          AND slot.start_at > $1::timestamptz
          AND slot.start_at <= $1::timestamptz + INTERVAL '30 minutes'
        ORDER BY slot.start_at
