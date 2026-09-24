@@ -42,6 +42,13 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
     let directory = await request('/data/clinic_directory',tokens.ownerA);
     let staffDirectoryEntry = directory.records.find(r=>r.data.value.id==='staff');
     assert.equal(staffDirectoryEntry.data.value.available,true);
+    const doctorProfile = {id:'doctor-profile',version:0,data:{key:'profile',value:{name:'Dr. Updated Name',specialty:'Surgery',acceptingAppointments:true}}};
+    assert.equal((await request('/data/doctor_profiles/sync',tokens.doctor,{changes:[doctorProfile]})).status,200);
+    assert.equal((await database.query("SELECT full_name FROM app_accounts WHERE id='doctor'")).rows[0].full_name,'Dr. Updated Name');
+    directory = await request('/data/clinic_directory',tokens.ownerA);
+    const doctorDirectoryEntry = directory.records.find(r=>r.data.value.id==='doctor');
+    assert.equal(doctorDirectoryEntry.data.value.name,'Dr. Updated Name');
+    assert.equal(doctorDirectoryEntry.data.value.specialty,'Surgery');
     const staffProfile = {id:'staff-profile',version:0,data:{key:'staff:profile',value:{name:'Clinic Staff',shift:'Evening',onShift:false}}};
     assert.equal((await request('/data/staff_profiles/sync',tokens.staff,{changes:[staffProfile]})).status,200);
     directory = await request('/data/clinic_directory',tokens.ownerA);

@@ -501,7 +501,11 @@ function installApi(app, pool) {
       const result = await pool.query(`SELECT a.id, a.id AS owner_id, 1 AS version,
         jsonb_build_object('key',a.id,'value',jsonb_build_object(
           'id',a.id,
-          'name',COALESCE(NULLIF(a.full_name, ''),a.username),
+          'name',COALESCE(
+            NULLIF(dp.data->'value'->>'name',''),
+            NULLIF(a.full_name, ''),
+            a.username
+          ),
           'role',a.role,
           'photoUrl',COALESCE(dp.data->'value'->>'photoUrl',sp.data->'value'->>'photoPath'),
           'specialty',COALESCE(dp.data->'value'->>'specialty',sp.data->'value'->>'shift'),
@@ -559,6 +563,20 @@ function installApi(app, pool) {
         if (!item.data || typeof item.data !== 'object' || Array.isArray(item.data)) throw fail(400, 'Invalid record data.');
         if (typeof item.data.key !== 'string' || !item.data.key || !item.data.value || typeof item.data.value !== 'object' || Array.isArray(item.data.value)) throw fail(400, 'Invalid record data.');
         if (existing && existing.data.key !== item.data.key) throw fail(400, 'Record key cannot change.');
+        // Keep the account identity in step with the doctor's public profile.
+        // The clinic directory prefers the profile value, while full_name is
+        // its fallback and is also returned with future login sessions.
+        if (req.params.table === 'doctor_profiles') {
+          const profileName = typeof item.data.value.name === 'string'
+            ? item.data.value.name.trim()
+            : '';
+          if (!profileName || profileName.length > 200) throw fail(400, 'A valid doctor name is required.');
+          item.data.value.name = profileName;
+          await client.query(
+            "UPDATE app_accounts SET full_name=$2 WHERE id=$1 AND role='doctor'",
+            [req.session.account_id, profileName],
+          );
+        }
         let ownerId = existing?.owner_id || req.session.account_id;
         if (!existing && p.scope === 'owner' && req.session.role !== 'petOwner' && item.ownerId) {
           const target = await client.query("SELECT id FROM app_accounts WHERE id=$1 AND role='petOwner'", [item.ownerId]);

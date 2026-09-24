@@ -115,6 +115,43 @@ void main() {
     expect(find.text('Book'), findsOneWidget);
   });
 
+  testWidgets('Clinic doctor card refreshes to the updated profile name', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    ClinicDirectory.instance.replaceForTesting({
+      'doctor-1': {
+        'id': 'doctor-1',
+        'name': 'Dr. Previous Name',
+        'role': 'doctor',
+        'specialty': 'General Veterinarian',
+        'available': true,
+      },
+    });
+
+    await tester.pumpWidget(const MaterialApp(home: PetOwnerClinicPage()));
+    await tester.pumpAndSettle();
+    expect(find.text('Dr. Previous Name'), findsOneWidget);
+
+    ClinicDirectory.instance.replaceForTesting({
+      'doctor-1': {
+        'id': 'doctor-1',
+        'name': 'Dr. Updated Name',
+        'role': 'doctor',
+        'specialty': 'General Veterinarian',
+        'available': true,
+      },
+    });
+    await tester.pump();
+
+    expect(find.text('Dr. Updated Name'), findsOneWidget);
+    expect(find.text('Dr. Previous Name'), findsNothing);
+  });
+
   testWidgets('Pet care uses owner pets, photos, options, and staff data', (
     tester,
   ) async {
