@@ -472,6 +472,12 @@ class MedicalEntryDetailsPage extends StatelessWidget {
                   ? 'View Prescription'
                   : 'View Document',
             ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _profileGreen,
+              side: const BorderSide(color: _profileGreen),
+              minimumSize: const Size.fromHeight(50),
+              textStyle: const TextStyle(fontWeight: FontWeight.w800),
+            ),
           ),
         ],
         if (record.category == MedicalRecordCategory.treatment &&

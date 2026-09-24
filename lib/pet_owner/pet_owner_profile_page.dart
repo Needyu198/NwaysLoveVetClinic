@@ -466,6 +466,10 @@ class _MyPetsSection extends StatelessWidget {
       ).push(MaterialPageRoute<void>(builder: (_) => const AddPetPage())),
       icon: const Icon(Icons.add_rounded),
       label: const Text('Add Pet'),
+      style: TextButton.styleFrom(
+        foregroundColor: PetOwnerProfileStyles.ink,
+        textStyle: PetOwnerProfileStyles.actionLabel,
+      ),
     ),
     children: [
       for (var i = 0; i < pets.length; i++)
@@ -532,6 +536,10 @@ class _UpcomingAppointmentsSection extends StatelessWidget {
               key: const ValueKey('view-all-appointments'),
               onPressed: () =>
                   Navigator.of(context).pushNamed(MyAppointmentsPage.routeName),
+              style: TextButton.styleFrom(
+                foregroundColor: PetOwnerProfileStyles.ink,
+                textStyle: PetOwnerProfileStyles.actionLabel,
+              ),
               child: const Text('View All'),
             ),
       children: upcoming.isEmpty

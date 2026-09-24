@@ -709,6 +709,11 @@ class _ServiceList extends StatelessWidget {
     return SizedBox(
       height: 150,
       child: ListView.separated(
+        key: ValueKey(
+          services.any((service) => service.title == 'Booking')
+              ? 'clinic-primary-services'
+              : 'clinic-secondary-services',
+        ),
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 24),
         physics: const BouncingScrollPhysics(),
@@ -734,6 +739,8 @@ class _ServiceItem extends StatelessWidget {
             ? const ValueKey('clinic-booking-category')
             : service.title == 'Queue'
             ? const ValueKey('clinic-queue-category')
+            : service.title == 'Pet Care Services'
+            ? const ValueKey('clinic-pet-care-category')
             : service.title == 'Home Visit'
             ? const ValueKey('clinic-home-visit-category')
             : service.title == 'Medical Services'

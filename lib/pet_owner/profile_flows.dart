@@ -472,6 +472,12 @@ class _EditOwnerProfilePageState extends State<EditOwnerProfilePage> {
                               key: const ValueKey('change-owner-photo'),
                               onPressed: _choosePhoto,
                               icon: const Icon(Icons.add_a_photo_outlined),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF126B4D),
+                                textStyle: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
                               label: Text(
                                 (_photoSource != null &&
                                         _photoSource!.startsWith('data:'))
@@ -484,6 +490,12 @@ class _EditOwnerProfilePageState extends State<EditOwnerProfilePage> {
                               TextButton(
                                 onPressed: () =>
                                     setState(() => _photoSource = null),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFFB3261E),
+                                  textStyle: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                                 child: const Text('Remove Photo'),
                               ),
                           ],
@@ -866,6 +878,12 @@ class ClinicLocationPage extends StatelessWidget {
                     onPressed: () => _confirmLocationCall(context),
                     icon: const Icon(Icons.call_outlined),
                     label: const Text('Call Clinic'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF126B4D),
+                      side: const BorderSide(color: Color(0xFF126B4D)),
+                      minimumSize: const Size.fromHeight(50),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ),
                 ],
               ),
@@ -1039,6 +1057,12 @@ class _AddPetPageState extends State<AddPetPage> {
                             key: const ValueKey('add-pet-photo'),
                             onPressed: _choosePetPhoto,
                             icon: const Icon(Icons.add_a_photo_outlined),
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFF126B4D),
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                             label: Text(
                               _hasPhoto ? 'Change Photo' : 'Add Photo',
                             ),

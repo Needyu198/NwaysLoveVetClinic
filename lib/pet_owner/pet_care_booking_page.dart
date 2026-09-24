@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../data/clinic_api.dart';
 import '../data/clinic_directory.dart';
 import 'pet_owner_page_header.dart';
+import 'pet_image.dart';
 import 'profile_flows.dart';
 import 'profile_pet_avatar.dart';
 
@@ -998,6 +999,7 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
                   selected: _providerId == provider.id,
                   icon: Icons.badge_outlined,
                   color: _CareColors.green,
+                  leading: _CareProviderAvatar(provider: provider),
                   title: provider.name,
                   subtitle: ClinicApi.instance.token == null
                       ? 'Pet care provider • Available this week'
@@ -1175,6 +1177,12 @@ class _ServiceConfirmation extends StatelessWidget {
                   onPressed: () => Navigator.of(context).popUntil(
                     (route) =>
                         route.settings.name == PetCareServicesPage.routeName,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _CareColors.green,
+                    side: const BorderSide(color: _CareColors.green),
+                    minimumSize: const Size.fromHeight(50),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                   child: const Text('Back to Services'),
                 ),
@@ -1532,6 +1540,36 @@ class _SelectTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CareProviderAvatar extends StatelessWidget {
+  const _CareProviderAvatar({required this.provider});
+
+  final ClinicPerson provider;
+
+  @override
+  Widget build(BuildContext context) {
+    final source = provider.photoUrl;
+    final bytes = source == null ? null : PetPhoto.decodeDataUri(source);
+    return CircleAvatar(
+      key: ValueKey('care-provider-photo-${provider.id}'),
+      radius: 24,
+      backgroundColor: _CareColors.mint,
+      backgroundImage: bytes == null ? null : MemoryImage(bytes),
+      child: bytes == null
+          ? Text(
+              provider.name.trim().isEmpty
+                  ? '?'
+                  : provider.name.trim().characters.first.toUpperCase(),
+              style: const TextStyle(
+                color: _CareColors.green,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            )
+          : null,
     );
   }
 }

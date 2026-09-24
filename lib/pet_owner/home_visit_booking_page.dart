@@ -353,14 +353,11 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
     'Other',
   ];
 
-  static const _savedAddress =
-      'No. 18, Chindwin Street, Popba Thiri Township, Nay Pyi Taw';
-
   final _symptoms = TextEditingController();
   final _customReason = TextEditingController();
-  final _address = TextEditingController(text: _savedAddress);
-  final _contactPerson = TextEditingController(text: 'Nee Yu');
-  final _phone = TextEditingController(text: '09-5312717');
+  late final TextEditingController _address;
+  late final TextEditingController _contactPerson;
+  late final TextEditingController _phone;
 
   int _step = 0;
   HomeVisitPet? _pet;
@@ -380,6 +377,18 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
   }
 
   static const _availableTimes = ['12:00 PM', '1:00 PM', '2:00 PM'];
+
+  String get _savedAddress => OwnerProfileStore.instance.profile.address.trim();
+
+  @override
+  void initState() {
+    super.initState();
+    final owner = OwnerProfileStore.instance.profile;
+    _address = TextEditingController(text: owner.address.trim());
+    _contactPerson = TextEditingController(text: owner.fullName.trim());
+    _phone = TextEditingController(text: owner.phone.trim());
+    _useSavedAddress = owner.address.trim().isNotEmpty;
+  }
 
   @override
   void dispose() {
@@ -976,6 +985,12 @@ class _HomeVisitConfirmation extends StatelessWidget {
                   onPressed: () => Navigator.of(context).popUntil(
                     (route) =>
                         route.settings.name == HomeVisitBookingPage.routeName,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _VisitColors.green,
+                    side: const BorderSide(color: _VisitColors.green),
+                    minimumSize: const Size.fromHeight(50),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                   child: const Text('Back'),
                 ),

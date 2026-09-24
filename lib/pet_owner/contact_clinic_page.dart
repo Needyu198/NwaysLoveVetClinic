@@ -69,24 +69,6 @@ class ContactClinicPage extends StatelessWidget {
                         onTap: () => _confirmCall(context),
                       ),
                       _ContactMethodCard(
-                        key: const ValueKey('contact-chat'),
-                        icon: Icons.chat_bubble_outline_rounded,
-                        title: 'Chat',
-                        subtitle: 'Send a message in the app',
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const ClinicConversationPage(),
-                          ),
-                        ),
-                      ),
-                      _ContactMethodCard(
-                        key: const ValueKey('contact-email'),
-                        icon: Icons.email_outlined,
-                        title: 'Email',
-                        subtitle: 'For non-urgent questions',
-                        onTap: () => _showEmail(context),
-                      ),
-                      _ContactMethodCard(
                         key: const ValueKey('contact-directions'),
                         icon: Icons.directions_outlined,
                         title: 'Directions',
@@ -123,7 +105,7 @@ class ContactClinicPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         const Text(
-                          'Chat and email are not emergency channels. Call the clinic or submit an Emergency Service request.',
+                          'Call the clinic or submit an Emergency Service request immediately.',
                           style: TextStyle(height: 1.35),
                         ),
                         const SizedBox(height: 12),
@@ -792,29 +774,6 @@ Future<void> _confirmCall(BuildContext context) async {
     ),
   );
 }
-
-Future<void> _showEmail(BuildContext context) => showDialog<void>(
-  context: context,
-  builder: (dialogContext) => AlertDialog(
-    title: const Text('Email Clinic'),
-    content: const Text(
-      'For non-urgent inquiries:\n\n${ContactClinicPage.email}',
-    ),
-    actions: [
-      TextButton(
-        onPressed: () {
-          Clipboard.setData(const ClipboardData(text: ContactClinicPage.email));
-          Navigator.of(dialogContext).pop();
-        },
-        child: const Text('Copy Email'),
-      ),
-      FilledButton(
-        onPressed: () => Navigator.of(dialogContext).pop(),
-        child: const Text('Done'),
-      ),
-    ],
-  ),
-);
 
 Future<void> _showDirections(BuildContext context) => showDialog<void>(
   context: context,

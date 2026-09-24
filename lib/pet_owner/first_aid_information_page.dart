@@ -301,6 +301,14 @@ class _FirstAidGuidePageState extends State<FirstAidGuidePage> {
                           onPressed: () => _confirmClinicCall(context),
                           icon: const Icon(Icons.call_outlined),
                           label: const Text('Call Clinic'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _firstAidDark,
+                            side: const BorderSide(color: _firstAidDark),
+                            minimumSize: const Size.fromHeight(50),
+                            textStyle: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -310,6 +318,14 @@ class _FirstAidGuidePageState extends State<FirstAidGuidePage> {
                           onPressed: () => _showDirections(context),
                           icon: const Icon(Icons.directions_outlined),
                           label: const Text('Directions'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _firstAidDark,
+                            side: const BorderSide(color: _firstAidDark),
+                            minimumSize: const Size.fromHeight(50),
+                            textStyle: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
                       ),
                     ],

@@ -144,8 +144,11 @@ void main() {
     );
     ClinicDirectory.instance.replaceForTesting({
       'staff-mya': {
+        'id': 'staff-mya',
         'name': 'Mya Thu',
         'role': 'staff',
+        'photoUrl':
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lZkAAAAASUVORK5CYII=',
         'specialty': 'Morning • 8:00 AM–4:00 PM',
         'available': true,
       },
@@ -185,6 +188,14 @@ void main() {
     expect(
       find.byKey(const ValueKey('care-provider-staff-mya')),
       findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<CircleAvatar>(
+            find.byKey(const ValueKey('care-provider-photo-staff-mya')),
+          )
+          .backgroundImage,
+      isA<MemoryImage>(),
     );
     await tester.tap(find.byKey(const ValueKey('care-provider-staff-mya')));
     await tester.pump();
