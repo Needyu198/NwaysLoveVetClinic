@@ -36,6 +36,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       if (_statusFilter != null && user.status != _statusFilter) return false;
       if (query.isEmpty) return true;
       return user.name.toLowerCase().contains(query) ||
+          user.username.toLowerCase().contains(query) ||
           user.email.toLowerCase().contains(query) ||
           user.phone.toLowerCase().contains(query) ||
           user.id.toLowerCase().contains(query);
@@ -73,7 +74,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       controller: _search,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
-                        hintText: 'Search name, email, phone or ID',
+                        hintText: 'Search name, username, email, phone or ID',
                         prefixIcon: const Icon(Icons.search_rounded),
                         filled: true,
                         fillColor: _adminSoftMint,
@@ -258,6 +259,7 @@ class AdminUserDetailPage extends StatelessWidget {
                     _AdminInfoCard(
                       rows: [
                         ('User ID', user.id),
+                        ('Username', user.username),
                         ('Email', user.email),
                         ('Phone', user.phone),
                         ('Role', user.role.label),
@@ -339,6 +341,7 @@ class AdminAddUserPage extends StatefulWidget {
 class _AdminAddUserPageState extends State<AdminAddUserPage> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
+  final _username = TextEditingController();
   final _email = TextEditingController();
   final _phone = TextEditingController();
   final _password = TextEditingController();
@@ -359,6 +362,7 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
   @override
   void dispose() {
     _name.dispose();
+    _username.dispose();
     _email.dispose();
     _phone.dispose();
     _password.dispose();
@@ -391,6 +395,19 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
                     validator: (v) => (v == null || v.trim().isEmpty)
                         ? 'Name is required'
                         : null,
+                  ),
+                  const SizedBox(height: 14),
+                  _field(
+                    controller: _username,
+                    key: const ValueKey('admin-user-username'),
+                    label: 'Username',
+                    icon: Icons.alternate_email_rounded,
+                    validator: (v) {
+                      final value = v?.trim() ?? '';
+                      return RegExp(r'^[A-Za-z0-9._-]{3,64}$').hasMatch(value)
+                          ? null
+                          : 'Use 3–64 letters, numbers, dots, dashes or underscores';
+                    },
                   ),
                   const SizedBox(height: 14),
                   _field(
@@ -558,13 +575,25 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final store = UserAccountStore.instance;
+    if (store.usernameExists(_username.text)) {
+      _adminNotice(context, 'An account with this username already exists.');
+      return;
+    }
     if (store.emailExists(_email.text)) {
       _adminNotice(context, 'An account with this email already exists.');
+      return;
+    }
+    if (store.phoneExists(_phone.text)) {
+      _adminNotice(
+        context,
+        'An account with this phone number already exists.',
+      );
       return;
     }
     setState(() => _saving = true);
     final user = store.addUser(
       name: _name.text.trim(),
+      username: _username.text.trim().toLowerCase(),
       email: _email.text.trim().toLowerCase(),
       phone: _phone.text.trim(),
       role: _role,
@@ -584,7 +613,7 @@ class _AdminAddUserPageState extends State<AdminAddUserPage> {
     _adminNotice(
       context,
       'Account created as Pending. Activate it to allow sign-in with the '
-      'email and password.',
+      'username, email, or phone number and password.',
     );
     Navigator.of(context).pop();
   }

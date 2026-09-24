@@ -13,23 +13,28 @@ class FakeClient {
       const account = this.accounts.get(params[0]);
       return { rows: account ? [{ id: account.id }] : [] };
     }
-    if (sql.includes('SELECT 1 FROM app_accounts WHERE LOWER(username)=$1')) {
+    if (sql.includes('SELECT id FROM app_accounts WHERE id<>$1')) {
       const found = [...this.accounts.values()].some(
-        account => account.username.toLowerCase() === params[0],
+        account => account.id !== params[0] && (
+          [account.username, account.email].filter(Boolean).map(value => value.toLowerCase()).includes(params[1]) ||
+          [account.username, account.email].filter(Boolean).map(value => value.toLowerCase()).includes(params[2]) ||
+          String(account.phone || '').replace(/[^0-9]/g, '') === params[3]
+        ),
       );
-      return { rows: found ? [{ exists: 1 }] : [] };
+      return { rows: found ? [{ id: 'conflict' }] : [] };
     }
     if (sql.startsWith('INSERT INTO app_accounts')) {
-      const [id, username, password_hash, full_name, role, active] = params;
+      const [id, username, email, phone, password_hash, full_name, role, active] = params;
       this.accounts.set(id, {
-        id, username, password_hash, full_name, role, active,
+        id, username, email, phone, password_hash, full_name, role, active,
       });
       return { rows: [] };
     }
-    if (sql.startsWith('UPDATE app_accounts SET full_name=')) {
+    if (sql.startsWith('UPDATE app_accounts SET username=')) {
       const account = this.accounts.get(params[0]);
       Object.assign(account, {
-        full_name: params[1], role: params[2], active: params[3],
+        username: params[1], email: params[2], phone: params[3],
+        full_name: params[4], role: params[5], active: params[6],
       });
       return { rows: [] };
     }
@@ -40,16 +45,17 @@ class FakeClient {
 test('admin-created users receive hashed database logins for every assignable role', async () => {
   const database = new FakeClient();
   const created = [];
-  for (const [role, databaseRole] of [
-    ['owner', 'petOwner'],
-    ['doctor', 'doctor'],
-    ['staff', 'staff'],
+  for (const [role, databaseRole, phone] of [
+    ['owner', 'petOwner', '0912345671'],
+    ['doctor', 'doctor', '0912345672'],
+    ['staff', 'staff', '0912345673'],
   ]) {
     const value = {
       id: `new-${role}`,
       name: `New ${role}`,
+      username: `new.${role}`,
       email: `${role}@clinic.test`,
-      phone: '0912345678',
+      phone,
       role,
       status: 'pending',
       lastActive: 'Never',
@@ -60,6 +66,9 @@ test('admin-created users receive hashed database logins for every assignable ro
     assert.equal(value.password, undefined);
     const account = database.accounts.get(value.id);
     assert.equal(account.role, databaseRole);
+    assert.equal(account.username, `new.${role}`);
+    assert.equal(account.email, `${role}@clinic.test`);
+    assert.equal(account.phone, phone);
     assert.equal(account.active, false);
     assert.equal(await bcrypt.compare('Secure@123', account.password_hash), true);
     created.push(value);
@@ -78,6 +87,7 @@ test('admin-created users receive hashed database logins for every assignable ro
   const duplicate = {
     id: 'duplicate',
     name: 'Duplicate',
+    username: 'different.staff',
     email: 'DOCTOR@CLINIC.TEST',
     phone: '0912345678',
     role: 'staff',

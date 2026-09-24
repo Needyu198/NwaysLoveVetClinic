@@ -5,6 +5,40 @@ const { broadcastChange } = require('./realtime');
 const { sendToAccount } = require('./messaging');
 const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 const fail = (status, message) => Object.assign(new Error(message), { status });
+const normalizedPhone = value => String(value || '').replace(/[^0-9]/g, '');
+const clinicDateToday = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: process.env.CLINIC_TIME_ZONE || 'Asia/Bangkok',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+};
+const queueServiceGroupForAppointment = appointment => {
+  const name = String(appointment?.service?.name || appointment?.service || '').toLowerCase();
+  return ['pet care','grooming','bathing','boarding','day care','overnight stay','nail clipping','ear cleaning','anal gland cleaning']
+    .some(value => name.includes(value)) ? 'petCareService' : 'medicalService';
+};
+async function findAccountByIdentifier(database, identifier) {
+  const normalized = String(identifier || '').trim().toLowerCase();
+  const phoneDigits = /^[+()\d\s.-]+$/.test(normalized)
+    ? normalizedPhone(normalized)
+    : '';
+  const phone = phoneDigits.length >= 6 ? phoneDigits : '';
+  const matches = (await database.query(
+    `SELECT * FROM app_accounts WHERE active=TRUE AND (
+      LOWER(username)=$1 OR LOWER(COALESCE(email,''))=$1 OR
+      ($2<>'' AND regexp_replace(COALESCE(phone,''),'[^0-9]','','g')=$2)) LIMIT 2`,
+    [normalized, phone],
+  )).rows;
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) return null;
+  const old = (await database.query(
+    'SELECT * FROM pet_owners WHERE LOWER(username) = $1',
+    [normalized],
+  )).rows[0];
+  return old ? { ...old, id: `owner-${old.id}`, role: 'petOwner' } : null;
+}
 async function syncUserDirectoryAccount(client, value, existing, sessionAccountId) {
   const roles = {owner:'petOwner',doctor:'doctor',staff:'staff',admin:'systemAdmin'};
   if (!roles[value.role] || !['pending','active','suspended'].includes(value.status)) throw fail(400, 'Invalid user role or status.');
@@ -14,21 +48,37 @@ async function syncUserDirectoryAccount(client, value, existing, sessionAccountI
   // Use it for the bcrypt hash, then remove it from directory JSON.
   const newPassword = typeof value.password === 'string' ? value.password : '';
   delete value.password;
-  const account = (await client.query('SELECT id FROM app_accounts WHERE id=$1', [value.id])).rows[0];
-  if (account) {
-    await client.query('UPDATE app_accounts SET full_name=$2,role=$3,active=$4 WHERE id=$1', [value.id,value.name,roles[value.role],value.status==='active']);
-    return;
-  }
   if (typeof value.name !== 'string' || !value.name.trim() || value.name.length > 200) throw fail(400, 'A valid full name is required.');
   if (typeof value.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email) || value.email.length > 254) throw fail(400, 'A valid email is required.');
   if (typeof value.phone !== 'string' || value.phone.trim().length < 6 || value.phone.length > 40) throw fail(400, 'A valid phone number is required.');
+  const email = value.email.trim().toLowerCase();
+  const username = String(value.username || email.split('@')[0]).trim().toLowerCase();
+  const phone = value.phone.trim();
+  const phoneKey = normalizedPhone(phone);
+  if (!/^[a-z0-9._-]{3,64}$/.test(username)) throw fail(400, 'Username must be 3–64 letters, numbers, dots, dashes, or underscores.');
+  if (phoneKey.length < 6) throw fail(400, 'A valid phone number is required.');
+  value.username = username;
+  value.email = email;
+  value.phone = phone;
+  const clash = (await client.query(
+    `SELECT id FROM app_accounts WHERE id<>$1 AND (
+      LOWER(username) IN ($2,$3) OR LOWER(COALESCE(email,'')) IN ($2,$3) OR
+      regexp_replace(COALESCE(phone,''),'[^0-9]','','g')=$4) LIMIT 1`,
+    [value.id, username, email, phoneKey],
+  )).rows[0];
+  if (clash) throw fail(409, 'An account with this username, email, or phone number already exists.');
+  const account = (await client.query('SELECT id FROM app_accounts WHERE id=$1', [value.id])).rows[0];
+  if (account) {
+    await client.query(
+      'UPDATE app_accounts SET username=$2,email=$3,phone=$4,full_name=$5,role=$6,active=$7 WHERE id=$1',
+      [value.id,username,email,phone,value.name,roles[value.role],value.status==='active'],
+    );
+    return;
+  }
   if (newPassword.length < 8 || newPassword.length > 1024) throw fail(400, 'A password of at least 8 characters is required for a new account.');
-  const username = value.email.trim().toLowerCase();
-  const clash = (await client.query('SELECT 1 FROM app_accounts WHERE LOWER(username)=$1', [username])).rows[0];
-  if (clash) throw fail(409, 'An account with this email already exists.');
   await client.query(
-    'INSERT INTO app_accounts(id,username,password_hash,full_name,role,active) VALUES($1,$2,$3,$4,$5,$6)',
-    [value.id, username, await bcrypt.hash(newPassword, 12), value.name, roles[value.role], value.status==='active'],
+    'INSERT INTO app_accounts(id,username,email,phone,password_hash,full_name,role,active) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+    [value.id,username,email,phone,await bcrypt.hash(newPassword, 12),value.name,roles[value.role],value.status==='active'],
   );
 }
 function installApi(app, pool) {
@@ -42,15 +92,11 @@ function installApi(app, pool) {
     const username = String(req.body.username || '').trim().toLowerCase();
     const password = String(req.body.password || '');
     if (!username || !password || username.length > 254 || password.length > 1024) throw fail(400, 'Username and password required.');
-    let account = (await pool.query('SELECT * FROM app_accounts WHERE username = $1 AND active = TRUE', [username])).rows[0];
-    if (!account) {
-      const old = (await pool.query('SELECT * FROM pet_owners WHERE username = $1', [username])).rows[0];
-      if (old) account = { ...old, id: `owner-${old.id}`, role: 'petOwner' };
-    }
+    const account = await findAccountByIdentifier(pool, username);
     if (!account || !(await bcrypt.compare(password, account.password_hash))) throw fail(401, 'Invalid username or password.');
     const token = crypto.randomBytes(32).toString('hex');
     await pool.query("INSERT INTO app_sessions(token_hash, account_id, role, expires_at) VALUES($1,$2,$3,NOW() + INTERVAL '12 hours')", [hash(token), account.id, account.role]);
-    res.json({ token, account: { id: account.id, username: account.username, fullName: account.full_name, role: account.role } });
+    res.json({ token, account: { id: account.id, username: account.username, email: account.email, phone: account.phone, fullName: account.full_name, role: account.role } });
   }));
   app.use(['/data', '/reports', '/queue', '/auth/logout', '/auth/change-password', '/devices'], async (req, res, next) => {
     try {
@@ -142,18 +188,21 @@ function installApi(app, pool) {
   // complete clinic queue. Position/ETA are deliberately not owner-writable.
   app.get('/queue/my', wrap(async (req, res) => {
     if (req.session.role !== 'petOwner') throw fail(403, 'Pet owner access required.');
+    const today = clinicDateToday();
     const rows = (await pool.query(`SELECT id,owner_id,data,version FROM queue_entries
       WHERE (data->'value'->>'status') NOT IN ('completed','missed','cancelled')
-      ORDER BY (data->'value'->>'clinicDate'),
+        AND data->'value'->>'clinicDate'=$1
+      ORDER BY COALESCE(data->'value'->>'serviceGroup','medicalService'),
         CASE data->'value'->>'priority' WHEN 'urgent' THEN 0 ELSE 1 END,
-        (data->'value'->>'sequence')::int, created_at`)).rows;
+        (data->'value'->>'sequence')::int, created_at`, [today])).rows;
     let activeAhead = 0;
-    let currentDate = null;
+    let currentGroup = null;
     const records = [];
     for (const row of rows) {
-      const clinicDate = row.data.value.clinicDate;
-      if (clinicDate !== currentDate) {
-        currentDate = clinicDate;
+      const serviceGroup = row.data.value.serviceGroup ||
+        queueServiceGroupForAppointment(row.data.value.appointment);
+      if (serviceGroup !== currentGroup) {
+        currentGroup = serviceGroup;
         activeAhead = 0;
       }
       const status = row.data.value.status;
@@ -165,6 +214,7 @@ function installApi(app, pool) {
             ...row.data,
             value: {
               ...row.data.value,
+              serviceGroup,
               position: waiting ? activeAhead + 1 : 0,
               petsAhead: waiting ? activeAhead : 0,
               estimatedWaitMinutes: waiting ? activeAhead * 10 : 0,
@@ -202,14 +252,17 @@ function installApi(app, pool) {
       const existing = (await client.query(
         `SELECT id,owner_id,data,version FROM queue_entries
          WHERE owner_id=$1 AND (data->'value'->>'appointmentId'=$2 OR data->'value'->'appointment'->>'id'=$2)
+           AND data->'value'->>'clinicDate'=$3
          ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
-        [appointmentRow.owner_id, appointmentId],
+        [appointmentRow.owner_id, appointmentId, clinicDateToday()],
       )).rows[0];
       if (existing && !terminalQueueStatuses.has(existing.data.value.status)) {
         await client.query('COMMIT');
         return res.json({ record: existing, created: false });
       }
       const clinicDate = String(appointment.date || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+      if (clinicDate !== clinicDateToday()) throw fail(409, "Only today's appointments can join the live queue.");
+      const serviceGroup = queueServiceGroupForAppointment(appointment);
       const counter = (await client.query(
         `INSERT INTO queue_daily_counters(clinic_date,last_number) VALUES($1,1)
          ON CONFLICT(clinic_date) DO UPDATE SET last_number=queue_daily_counters.last_number+1
@@ -228,6 +281,7 @@ function installApi(app, pool) {
         clinicDate,
         sequence: counter,
         queueNumber,
+        serviceGroup,
         priority: requestedPriority,
         status: 'waiting',
         checkedInAt: now,
@@ -285,9 +339,10 @@ function installApi(app, pool) {
       await client.query('BEGIN');
       const ticketRows = (await client.query(
         `SELECT * FROM queue_entries
-         WHERE data->'value'->>'appointmentId'=$1 OR data->'value'->'appointment'->>'id'=$1
+         WHERE (data->'value'->>'appointmentId'=$1 OR data->'value'->'appointment'->>'id'=$1)
+           AND data->'value'->>'clinicDate'=$2
          ORDER BY created_at DESC FOR UPDATE`,
-        [appointmentId],
+        [appointmentId, clinicDateToday()],
       )).rows;
       if (ticketRows.length !== 1) throw fail(ticketRows.length ? 409 : 404, 'Queue ticket not found or is not unique.');
       const ticket = ticketRows[0];
@@ -398,8 +453,9 @@ function installApi(app, pool) {
     if (req.session.role !== 'petOwner') throw fail(403, 'Pet owner access required.');
     const ticket = (await pool.query(
       `SELECT * FROM queue_entries WHERE owner_id=$1 AND data->'value'->>'appointmentId'=$2
+       AND data->'value'->>'clinicDate'=$3
        ORDER BY created_at DESC LIMIT 1`,
-      [req.session.account_id, req.params.appointmentId],
+      [req.session.account_id, req.params.appointmentId, clinicDateToday()],
     )).rows[0];
     if (!ticket || ticket.data.value.status !== 'called') throw fail(409, 'Only a called queue ticket can be acknowledged.');
     const value = { ...ticket.data.value, ownerAcknowledgedAt: new Date().toISOString(), version: ticket.version + 1 };
@@ -552,4 +608,4 @@ function installApi(app, pool) {
     finally { client.release(); }
   }));
 }
-module.exports = { installApi, syncUserDirectoryAccount };
+module.exports = { installApi, syncUserDirectoryAccount, findAccountByIdentifier };

@@ -184,11 +184,12 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                 _AddField(
                   controller: _name,
                   label: 'Item Name',
-                  icon: Icons.label_outline_rounded,
+                  iconAsset: _InventoryFieldIcons.itemName,
                   validator: _required,
                 ),
                 _AddDropdown(
                   label: 'Category',
+                  iconAsset: _InventoryFieldIcons.category,
                   value: _category,
                   items: StaffOperationsStore.inventoryCategories,
                   onChanged: (v) => setState(() => _category = v),
@@ -196,11 +197,12 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                 _AddField(
                   controller: _subcategory,
                   label: 'Subcategory',
-                  icon: Icons.account_tree_outlined,
+                  iconAsset: _InventoryFieldIcons.subcategory,
                   validator: _required,
                 ),
                 _AddDropdown(
                   label: 'Pet Type',
+                  iconAsset: _InventoryFieldIcons.petType,
                   value: _petType,
                   items: const ['Dog', 'Cat', 'All Pets'],
                   onChanged: (value) => setState(() => _petType = value),
@@ -208,13 +210,13 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                 _AddField(
                   controller: _brand,
                   label: 'Brand',
-                  icon: Icons.business_outlined,
+                  iconAsset: _InventoryFieldIcons.brand,
                   validator: _required,
                 ),
                 _AddField(
                   controller: _description,
                   label: 'Description',
-                  icon: Icons.notes_rounded,
+                  iconAsset: _InventoryFieldIcons.description,
                   maxLines: 4,
                 ),
                 const SizedBox(height: 8),
@@ -227,7 +229,7 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                 _AddField(
                   controller: _selling,
                   label: 'Price',
-                  icon: Icons.sell_outlined,
+                  iconAsset: _InventoryFieldIcons.price,
                   keyboardType: TextInputType.number,
                   validator: _positiveIntValidator,
                 ),
@@ -275,7 +277,7 @@ class _AddField extends StatelessWidget {
   const _AddField({
     required this.controller,
     required this.label,
-    required this.icon,
+    required this.iconAsset,
     this.keyboardType,
     this.validator,
     this.maxLines = 1,
@@ -283,7 +285,7 @@ class _AddField extends StatelessWidget {
 
   final TextEditingController controller;
   final String label;
-  final IconData icon;
+  final String iconAsset;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
   final int maxLines;
@@ -296,10 +298,50 @@ class _AddField extends StatelessWidget {
       keyboardType: keyboardType,
       validator: validator,
       maxLines: maxLines,
-      decoration: _input(label, icon),
+      decoration: _inventoryInput(label, iconAsset),
     ),
   );
 }
+
+abstract final class _InventoryFieldIcons {
+  static const _root = 'assets/photos/icon';
+  static const itemName = '$_root/inventory_item_name.png';
+  static const category = '$_root/inventory_category.png';
+  static const subcategory = '$_root/inventory_subcategory.png';
+  static const petType = '$_root/inventory_pet_type.png';
+  static const brand = '$_root/inventory_brand.png';
+  static const description = '$_root/inventory_description.png';
+  static const price = '$_root/inventory_price.png';
+}
+
+InputDecoration _inventoryInput(String label, String iconAsset) =>
+    InputDecoration(
+      labelText: label,
+      prefixIcon: Center(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Image.asset(
+          iconAsset,
+          key: ValueKey('inventory-field-icon-${label.toLowerCase().replaceAll(' ', '-')}'),
+          width: 24,
+          height: 24,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+          excludeFromSemantics: true,
+        ),
+      ),
+      prefixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: const BorderSide(color: _border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: const BorderSide(color: _border),
+      ),
+    );
 
 class _GeneratedProductId extends StatelessWidget {
   const _GeneratedProductId({required this.value});
@@ -412,12 +454,14 @@ Widget _buildProductImage(String data) {
 class _AddDropdown extends StatelessWidget {
   const _AddDropdown({
     required this.label,
+    required this.iconAsset,
     required this.value,
     required this.items,
     required this.onChanged,
   });
 
   final String label;
+  final String iconAsset;
   final String value;
   final List<String> items;
   final ValueChanged<String> onChanged;
@@ -427,7 +471,7 @@ class _AddDropdown extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 12),
     child: DropdownButtonFormField<String>(
       initialValue: value,
-      decoration: _input(label, Icons.category_outlined),
+      decoration: _inventoryInput(label, iconAsset),
       items: items
           .map((v) => DropdownMenuItem(value: v, child: Text(v)))
           .toList(),

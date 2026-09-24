@@ -35,6 +35,13 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('pet-products-header')),
+        matching: find.byTooltip('Back'),
+      ),
+      findsNothing,
+    );
     expect(find.byKey(const ValueKey('pet-products-logo')), findsOneWidget);
     expect(find.byKey(const ValueKey('pet-products-search')), findsOneWidget);
   });

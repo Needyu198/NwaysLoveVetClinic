@@ -114,8 +114,12 @@ class ClinicApi {
     // affect the backend login result.
     scheduleMicrotask(() async {
       try {
+        final canonicalIdentifier =
+            this.account?['email'] as String? ??
+            this.account?['username'] as String? ??
+            username;
         await FirebaseService.instance.signInOrRegister(
-          email: FirebaseService.emailForIdentifier(username),
+          email: FirebaseService.emailForIdentifier(canonicalIdentifier),
           password: password,
         );
       } catch (e) {

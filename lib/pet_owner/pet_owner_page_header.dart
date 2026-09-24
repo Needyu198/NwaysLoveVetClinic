@@ -11,6 +11,7 @@ class PetOwnerPageHeader extends StatelessWidget {
   const PetOwnerPageHeader({
     required this.title,
     this.onBack,
+    this.showBackButton = true,
     this.actions,
     this.logoKey,
     this.onLogoTap,
@@ -24,6 +25,9 @@ class PetOwnerPageHeader extends StatelessWidget {
   /// Called when the back button is tapped. Defaults to popping the route.
   final VoidCallback? onBack;
 
+  /// Whether to show the leading back button.
+  final bool showBackButton;
+
   /// Optional trailing actions placed before the logo (e.g. history icon).
   final List<Widget>? actions;
   final Key? logoKey;
@@ -32,18 +36,19 @@ class PetOwnerPageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(6, 8, 16, 16),
+      padding: EdgeInsets.fromLTRB(showBackButton ? 6 : 20, 8, 16, 16),
       decoration: const BoxDecoration(
         color: mint,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
       child: Row(
         children: [
-          IconButton(
-            onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded),
-            tooltip: 'Back',
-          ),
+          if (showBackButton)
+            IconButton(
+              onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
+              tooltip: 'Back',
+            ),
           Expanded(
             child: Text(
               title,

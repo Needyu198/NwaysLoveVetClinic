@@ -22,6 +22,38 @@ class _QueueBody extends StatefulWidget {
 
 class _QueueBodyState extends State<_QueueBody> {
   String _filter = 'All';
+  QueueServiceGroup _serviceGroup = QueueServiceGroup.medicalService;
+  Timer? _dayRolloverTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleDayRollover();
+  }
+
+  void _scheduleDayRollover() {
+    _dayRolloverTimer?.cancel();
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    _dayRolloverTimer = Timer(
+      tomorrow.difference(now) + const Duration(seconds: 1),
+      () {
+        if (!mounted) return;
+        setState(() {
+          _filter = 'All';
+          _serviceGroup = QueueServiceGroup.medicalService;
+        });
+        unawaited(QueueStore.instance.refreshLive());
+        _scheduleDayRollover();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _dayRolloverTimer?.cancel();
+    super.dispose();
+  }
 
   // Chip label -> matcher. 'Consulting' maps to the 'In Consultation' status.
   static const _filters = [
@@ -57,6 +89,8 @@ class _QueueBodyState extends State<_QueueBody> {
                     .where(
                       (a) =>
                           a.queueNumber.isNotEmpty &&
+                          DateUtils.isSameDay(a.date, DateTime.now()) &&
+                          a.queueServiceGroup == _serviceGroup &&
                           !const {
                             'Completed',
                             'Missed',
@@ -72,6 +106,42 @@ class _QueueBodyState extends State<_QueueBody> {
             final entries = all.where((a) => _matches(a, _filter)).toList();
             return Column(
               children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 2),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.today_rounded, size: 18, color: _green),
+                      const SizedBox(width: 7),
+                      Text(
+                        'Today • ${_shortDate(DateTime.now())}',
+                        key: const ValueKey('staff-queue-date'),
+                        style: const TextStyle(
+                          color: _muted,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  height: 48,
+                  child: ListView.separated(
+                    key: const ValueKey('staff-queue-service-groups'),
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
+                    itemCount: QueueServiceGroup.values.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      final group = QueueServiceGroup.values[index];
+                      return _QueueFilterChip(
+                        label: group.label,
+                        selected: _serviceGroup == group,
+                        keyPrefix: 'staff-queue-group',
+                        onTap: () => setState(() => _serviceGroup = group),
+                      );
+                    },
+                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 6, 18, 6),
                   child: SizedBox(
@@ -159,11 +229,13 @@ class _QueueFilterChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.keyPrefix = 'staff-queue-filter',
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final String keyPrefix;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -171,7 +243,7 @@ class _QueueFilterChip extends StatelessWidget {
     borderRadius: BorderRadius.circular(20),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
-      key: ValueKey('staff-queue-filter-$label'),
+      key: ValueKey('$keyPrefix-$label'),
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),

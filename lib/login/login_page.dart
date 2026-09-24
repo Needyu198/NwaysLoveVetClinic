@@ -276,7 +276,8 @@ class _SignInFormState extends State<SignInForm> {
 
     if (username.isEmpty || password.isEmpty) {
       setState(() {
-        _errorMessage = 'Enter your username and password.';
+        _errorMessage =
+            'Enter your email, username, or phone number and password.';
       });
       return;
     }

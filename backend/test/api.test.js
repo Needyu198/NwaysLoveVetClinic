@@ -85,7 +85,7 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
     // Queue tickets are clinic-owned, receive atomic daily numbers, expose a
     // derived owner position, and enforce versioned lifecycle transitions.
     const appointmentValue = {
-      id:'queue-appointment', date:'2026-09-22T09:00:00.000Z', time:'09:00 AM',
+      id:'queue-appointment', date:new Date().toISOString(), time:'09:00 AM',
       status:'Confirmed', veterinarian:'Dr. Queue', pet:{id:'pet-a',name:'Max'},
       service:{name:'Checkup',homeVisit:false},
     };
@@ -102,6 +102,7 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
     });
     assert.equal(checkedIn.status,201);
     assert.equal(checkedIn.record.data.value.queueNumber,'Q001');
+    assert.equal(checkedIn.record.data.value.serviceGroup,'medicalService');
     assert.equal(checkedIn.record.data.value.status,'waiting');
     const myQueue = await request('/queue/my',tokens.ownerA);
     assert.equal(myQueue.records[0].data.value.position,1);
@@ -130,9 +131,9 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
     // Administrator provisioning creates both the directory row and a real,
     // hashed login for every assignable role. Pending users cannot sign in.
     const provisioned = [];
-    for (const [role,accountRole] of [['owner','petOwner'],['doctor','doctor'],['staff','staff']]) {
+    for (const [index,[role,accountRole]] of [['owner','petOwner'],['doctor','doctor'],['staff','staff']].entries()) {
       const id = `created-${role}`;
-      const value = {id,name:`Created ${role}`,email:`created-${role}@clinic.test`,phone:'0912345678',role,status:'pending',lastActive:'Never',createdOn:new Date().toISOString(),password:'Created@123'};
+      const value = {id,name:`Created ${role}`,username:`created.${role}`,email:`created-${role}@clinic.test`,phone:`091234567${index}`,role,status:'pending',lastActive:'Never',createdOn:new Date().toISOString(),password:'Created@123'};
       const created = await request('/data/user_directory/sync',tokens.admin,{changes:[{id:`directory-${role}`,version:0,data:{key:id,value}}]});
       assert.equal(created.status,200,`provision ${role}`);
       assert.equal(created.records[0].data.value.password,undefined);
@@ -143,14 +144,17 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
       assert.equal((await request('/auth/login',null,{username:value.email.toUpperCase(),password:'Created@123'})).status,401);
       provisioned.push(created.records[0]);
     }
-    // Activation updates the same login and permits case-insensitive email sign-in.
+    // Activation updates the same login and permits username, case-insensitive
+    // email, and normalized phone-number sign-in for one registered account.
     const doctorRecord = provisioned[1];
     doctorRecord.data.value.status = 'active';
     result = await request('/data/user_directory/sync',tokens.admin,{changes:[{id:doctorRecord.id,version:doctorRecord.version,data:doctorRecord.data}]});
     assert.equal(result.status,200);
     assert.equal((await request('/auth/login',null,{username:'CREATED-DOCTOR@CLINIC.TEST',password:'Created@123'})).status,200);
+    assert.equal((await request('/auth/login',null,{username:'CREATED.DOCTOR',password:'Created@123'})).status,200);
+    assert.equal((await request('/auth/login',null,{username:'091-234-5671',password:'Created@123'})).status,200);
     // Email uniqueness is enforced by the database-backed account table.
-    const duplicate = {id:'created-duplicate',name:'Duplicate',email:'CREATED-DOCTOR@CLINIC.TEST',phone:'0912345678',role:'staff',status:'pending',lastActive:'Never',createdOn:new Date().toISOString(),password:'Created@123'};
+    const duplicate = {id:'created-duplicate',name:'Duplicate',username:'different.staff',email:'CREATED-DOCTOR@CLINIC.TEST',phone:'0999999999',role:'staff',status:'pending',lastActive:'Never',createdOn:new Date().toISOString(),password:'Created@123'};
     assert.equal((await request('/data/user_directory/sync',tokens.admin,{changes:[{id:'directory-duplicate',version:0,data:{key:duplicate.id,value:duplicate}}]})).status,409);
     // Exercise every named feature table with a permitted writer.
     for (const [table,p] of Object.entries(resources)) {

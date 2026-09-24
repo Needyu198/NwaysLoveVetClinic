@@ -93,6 +93,7 @@ class _PetProductsPageState extends State<PetProductsPage> {
                 PetOwnerPageHeader(
                   key: const ValueKey('pet-products-header'),
                   title: 'Products',
+                  showBackButton: false,
                   logoKey: const ValueKey('pet-products-logo'),
                   onLogoTap: () => Navigator.of(
                     context,
@@ -293,13 +294,27 @@ class ProductDetailsPage extends StatelessWidget {
                         horizontal: 18,
                         vertical: 12,
                       ),
-                      child: Text(
-                        product.name,
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      child: Row(
+                        children: [
+                          Image.asset(
+                            PetOwnerHomePage.logoAsset,
+                            key: const ValueKey('pet-product-detail-logo'),
+                            width: 28,
+                            height: 28,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              product.name,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     Padding(

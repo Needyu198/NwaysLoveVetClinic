@@ -12,7 +12,6 @@ class StaffInventoryPage extends StatefulWidget {
 class _StaffInventoryPageState extends State<StaffInventoryPage> {
   String _query = '';
   String _category = 'All';
-  String _stockFilter = 'All';
 
   bool _matches(InventoryItem item) {
     final q = _query.trim().toLowerCase();
@@ -22,13 +21,7 @@ class _StaffInventoryPageState extends State<StaffInventoryPage> {
     final matchesCategory =
         _category == 'All' ||
         _normalizeInventoryCategory(item.category) == _category;
-    final matchesStock = switch (_stockFilter) {
-      'In Stock' => !item.isLowStock,
-      'Low Stock' => item.isLowStock && !item.isOutOfStock,
-      'Out of Stock' => item.isOutOfStock,
-      _ => true,
-    };
-    return matchesSearch && matchesCategory && matchesStock;
+    return matchesSearch && matchesCategory;
   }
 
   @override
@@ -39,11 +32,6 @@ class _StaffInventoryPageState extends State<StaffInventoryPage> {
       builder: (context, _) {
         final all = StaffOperationsStore.instance.activeInventory;
         final items = all.where(_matches).toList();
-        final lowCount = all.where((i) => i.isLowStock).length;
-        final expiredCount = all.where((i) => i.isExpired).length;
-        final nearExpiry = all
-            .where((i) => i.isNearExpiry && !i.isExpired)
-            .length;
         return Column(
           children: [
             const _InventoryHeader(),
@@ -83,62 +71,9 @@ class _StaffInventoryPageState extends State<StaffInventoryPage> {
                 ],
               ),
             ),
-            if (lowCount > 0 || expiredCount > 0 || nearExpiry > 0)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _InventoryAlert(
-                        label: 'Low / Out',
-                        value: '$lowCount',
-                        icon: Icons.inventory_2_outlined,
-                        color: const Color(0xFFFFE3A8),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _InventoryAlert(
-                        label: 'Near expiry',
-                        value: '$nearExpiry',
-                        icon: Icons.schedule_rounded,
-                        color: const Color(0xFFFFE0B2),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _InventoryAlert(
-                        label: 'Expired',
-                        value: '$expiredCount',
-                        icon: Icons.warning_amber_rounded,
-                        color: const Color(0xFFFFC7C9),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             _InventoryCategoryStrip(
               selected: _category,
               onChanged: (category) => setState(() => _category = category),
-            ),
-            SizedBox(
-              height: 50,
-              child: ListView.separated(
-                key: const ValueKey('staff-inventory-stock-filters'),
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
-                itemCount: _inventoryStockFilters.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
-                  final stock = _inventoryStockFilters[index];
-                  return _InventoryFilterChip(
-                    key: ValueKey('staff-inventory-stock-$stock'),
-                    label: stock,
-                    selected: _stockFilter == stock,
-                    onTap: () => setState(() => _stockFilter = stock),
-                  );
-                },
-              ),
             ),
             Expanded(
               child: items.isEmpty
@@ -172,8 +107,6 @@ class _StaffInventoryPageState extends State<StaffInventoryPage> {
     ),
   );
 }
-
-const _inventoryStockFilters = ['All', 'In Stock', 'Low Stock', 'Out of Stock'];
 
 class _InventoryCategoryStrip extends StatelessWidget {
   const _InventoryCategoryStrip({
@@ -257,43 +190,6 @@ class _InventoryCategoryStrip extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Matches the Live Queue filter bar: mint pills with a yellow active state.
-class _InventoryFilterChip extends StatelessWidget {
-  const _InventoryFilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    super.key,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: selected ? const Color(0xFFF5C518) : _mint,
-    borderRadius: BorderRadius.circular(20),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 15,
-              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
 }
 
 class _InventoryHeader extends StatelessWidget {
@@ -398,45 +294,6 @@ class _InventoryActionPill extends StatelessWidget {
       child: content,
     );
   }
-}
-
-class _InventoryAlert extends StatelessWidget {
-  const _InventoryAlert({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: color,
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Row(
-      children: [
-        Icon(icon, size: 20),
-        const SizedBox(width: 7),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(width: 5),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-          ),
-        ),
-      ],
-    ),
-  );
 }
 
 class _InventoryGridCard extends StatelessWidget {

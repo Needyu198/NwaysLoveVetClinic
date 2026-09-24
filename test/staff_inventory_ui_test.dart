@@ -12,7 +12,7 @@ void main() {
     StaffOperationsStore.instance.notifyChanged();
   });
 
-  testWidgets('inventory shows saved item photos and queue-style filters', (
+  testWidgets('inventory shows saved item photos and category filters', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(440, 956);
@@ -65,7 +65,7 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('staff-inventory-stock-filters')),
-      findsOneWidget,
+      findsNothing,
     );
 
     await tester.enterText(
@@ -90,6 +90,12 @@ void main() {
       find.descendant(of: detailImage, matching: find.byType(Image)),
       findsOneWidget,
     );
+    final detailLogo = tester.widget<Image>(
+      find.byKey(const ValueKey('staff-product-detail-logo')),
+    );
+    expect(detailLogo.width, 28);
+    expect(detailLogo.height, 28);
+    expect(detailLogo.fit, BoxFit.contain);
     expect(find.byIcon(Icons.inventory_2_outlined), findsNothing);
     expect(find.byKey(const ValueKey('stock-in-$itemId')), findsOneWidget);
     expect(find.byKey(const ValueKey('stock-out-$itemId')), findsOneWidget);
@@ -127,6 +133,21 @@ void main() {
     expect(find.text('Pet Type'), findsOneWidget);
     expect(find.text('Brand'), findsOneWidget);
     expect(find.text('Description'), findsOneWidget);
+    for (final field in const [
+      'item-name',
+      'category',
+      'subcategory',
+      'pet-type',
+      'brand',
+      'description',
+    ]) {
+      final icon = tester.widget<Image>(
+        find.byKey(ValueKey('inventory-field-icon-$field')),
+      );
+      expect(icon.width, 24);
+      expect(icon.height, 24);
+      expect(icon.fit, BoxFit.contain);
+    }
 
     await tester.tap(find.text('Food'));
     await tester.pumpAndSettle();
@@ -153,5 +174,11 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -260));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(TextFormField, 'Price'), findsOneWidget);
+    final priceIcon = tester.widget<Image>(
+      find.byKey(const ValueKey('inventory-field-icon-price')),
+    );
+    expect(priceIcon.width, 24);
+    expect(priceIcon.height, 24);
+    expect(priceIcon.fit, BoxFit.contain);
   });
 }

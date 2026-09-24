@@ -331,6 +331,38 @@ enum QueueStatus {
   cancelled,
 }
 
+enum QueueServiceGroup { medicalService, petCareService, walkInService }
+
+extension QueueServiceGroupLabel on QueueServiceGroup {
+  String get label => switch (this) {
+    QueueServiceGroup.medicalService => 'Medical Service',
+    QueueServiceGroup.petCareService => 'Pet Care Service',
+    QueueServiceGroup.walkInService => 'Walk-in Service',
+  };
+}
+
+QueueServiceGroup queueServiceGroupForName(
+  String serviceName, {
+  bool walkIn = false,
+}) {
+  if (walkIn) return QueueServiceGroup.walkInService;
+  final normalized = serviceName.trim().toLowerCase();
+  if (const {
+    'pet care',
+    'grooming',
+    'bathing',
+    'boarding',
+    'day care',
+    'overnight stay',
+    'nail clipping',
+    'ear cleaning',
+    'anal gland cleaning',
+  }.any(normalized.contains)) {
+    return QueueServiceGroup.petCareService;
+  }
+  return QueueServiceGroup.medicalService;
+}
+
 class QueueEntry {
   Map<String, dynamic> toDb() => {
     'appointmentId': appointment.id,
@@ -340,6 +372,7 @@ class QueueEntry {
     'clinicDate': clinicDate.toIso8601String(),
     'sequence': sequence,
     'queueNumber': queueNumber,
+    'serviceGroup': serviceGroup.name,
     'priority': priority,
     'status': status.name,
     'position': position,
@@ -381,6 +414,15 @@ class QueueEntry {
           ) ??
           0,
       queueNumber: data['queueNumber'] as String,
+      serviceGroup: data['serviceGroup'] == null
+          ? queueServiceGroupForName(
+              (data['appointment'] as Map)['service'] is Map
+                  ? ((data['appointment'] as Map)['service'] as Map)['name']
+                            as String? ??
+                        ''
+                  : '',
+            )
+          : QueueServiceGroup.values.byName(data['serviceGroup'] as String),
       priority: data['priority'] as String? ?? 'normal',
       status: rawStatus == 'almostTurn'
           ? QueueStatus.waiting
@@ -415,6 +457,7 @@ class QueueEntry {
   QueueEntry({
     required this.appointment,
     required this.queueNumber,
+    QueueServiceGroup? serviceGroup,
     this.ownerId = '',
     this.petId = '',
     DateTime? clinicDate,
@@ -436,6 +479,8 @@ class QueueEntry {
     this.ownerAcknowledgedAt,
     this.version = 1,
   }) : clinicDate = clinicDate ?? appointment.date,
+       serviceGroup =
+           serviceGroup ?? queueServiceGroupForName(appointment.service.name),
        checkedInAt = checkedInAt ?? DateTime.now(),
        assignedDoctor = assignedDoctor ?? appointment.veterinarian;
 
@@ -445,6 +490,7 @@ class QueueEntry {
   final DateTime clinicDate;
   final int sequence;
   final String queueNumber;
+  final QueueServiceGroup serviceGroup;
   final String priority;
   QueueStatus status;
   int position;
@@ -501,11 +547,22 @@ class QueueStore extends ChangeNotifier {
   String? refreshError;
   bool refreshing = false;
 
-  List<QueueEntry> get active =>
-      List.unmodifiable(_entries.where((entry) => !entry.isTerminal));
+  List<QueueEntry> get active => List.unmodifiable(
+    _entries.where(
+      (entry) =>
+          !entry.isTerminal &&
+          DateUtils.isSameDay(entry.clinicDate, DateTime.now()),
+    ),
+  );
 
   List<QueueEntry> get history => List.unmodifiable(
-    _entries.where((entry) => entry.isTerminal).toList()
+    _entries
+        .where(
+          (entry) =>
+              entry.isTerminal ||
+              !DateUtils.isSameDay(entry.clinicDate, DateTime.now()),
+        )
+        .toList()
       ..sort((a, b) => b.checkedInAt.compareTo(a.checkedInAt)),
   );
 
@@ -520,11 +577,13 @@ class QueueStore extends ChangeNotifier {
     BookedAppointment appointment, {
     String priority = 'normal',
   }) async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    if (!DateUtils.isSameDay(appointment.date, today)) return null;
     final existing = existingEntryFor(appointment);
     if (existing != null && !existing.isTerminal) return existing;
     if (ClinicApi.instance.token == null) {
       final todayEntries = _entries.where(
-        (entry) => DateUtils.isSameDay(entry.clinicDate, appointment.date),
+        (entry) => DateUtils.isSameDay(entry.clinicDate, today),
       );
       final sequence =
           todayEntries.fold<int>(
@@ -539,9 +598,10 @@ class QueueStore extends ChangeNotifier {
         petId: appointment.pet.id.isNotEmpty
             ? appointment.pet.id
             : '${ClinicApi.instance.accountId}:${appointment.pet.name}',
-        clinicDate: appointment.date,
+        clinicDate: today,
         sequence: sequence,
         queueNumber: 'Q${sequence.toString().padLeft(3, '0')}',
+        serviceGroup: queueServiceGroupForName(appointment.service.name),
         priority: priority,
       );
       _entries.add(entry);
@@ -661,8 +721,11 @@ class QueueStore extends ChangeNotifier {
   }
 
   QueueEntry? existingEntryFor(BookedAppointment appointment) {
+    final today = DateTime.now();
     return _entries.cast<QueueEntry?>().firstWhere(
-      (entry) => entry?.appointment.id == appointment.id,
+      (entry) =>
+          entry?.appointment.id == appointment.id &&
+          DateUtils.isSameDay(entry!.clinicDate, today),
       orElse: () => null,
     );
   }
@@ -736,19 +799,29 @@ class QueueStore extends ChangeNotifier {
   }
 
   void _recalculateLocalPositions() {
-    final waiting =
-        _entries.where((entry) => entry.status == QueueStatus.waiting).toList()
-          ..sort((a, b) {
-            if (a.priority != b.priority) {
-              return a.priority == 'urgent' ? -1 : 1;
-            }
-            return a.sequence.compareTo(b.sequence);
-          });
-    for (var index = 0; index < waiting.length; index++) {
-      waiting[index]
-        ..position = index + 1
-        ..petsAhead = index
-        ..estimatedWaitMinutes = index * 10;
+    final today = DateTime.now();
+    for (final group in QueueServiceGroup.values) {
+      final waiting =
+          _entries
+              .where(
+                (entry) =>
+                    entry.status == QueueStatus.waiting &&
+                    entry.serviceGroup == group &&
+                    DateUtils.isSameDay(entry.clinicDate, today),
+              )
+              .toList()
+            ..sort((a, b) {
+              if (a.priority != b.priority) {
+                return a.priority == 'urgent' ? -1 : 1;
+              }
+              return a.sequence.compareTo(b.sequence);
+            });
+      for (var index = 0; index < waiting.length; index++) {
+        waiting[index]
+          ..position = index + 1
+          ..petsAhead = index
+          ..estimatedWaitMinutes = index * 10;
+      }
     }
   }
 

@@ -503,6 +503,13 @@ class StaffOperationsStore extends ChangeNotifier {
     required bool urgent,
   }) {
     final timestamp = DateTime.now();
+    final dailyWalkInCount = _demo
+        .where(
+          (item) =>
+              item.id.startsWith('WALK-') &&
+              DateUtils.isSameDay(item.date, timestamp),
+        )
+        .length;
     _demo.add(
       StaffAppointment(
         id: 'WALK-${timestamp.microsecondsSinceEpoch}',
@@ -517,7 +524,7 @@ class StaffOperationsStore extends ChangeNotifier {
         reason: reason,
         status: 'Waiting',
         priority: urgent ? 'Urgent' : 'Normal',
-        queueNumber: urgent ? 'E${_demo.length + 1}' : 'Q${13 + _demo.length}',
+        queueNumber: 'W${(dailyWalkInCount + 1).toString().padLeft(3, '0')}',
       ),
     );
     notifyListeners();
@@ -616,6 +623,9 @@ class StaffAppointment {
   final String priority;
   String queueNumber;
   final BookedAppointment? source;
+
+  QueueServiceGroup get queueServiceGroup =>
+      queueServiceGroupForName(service, walkIn: id.startsWith('WALK-'));
 }
 
 class StaffPayment {

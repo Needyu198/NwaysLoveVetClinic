@@ -149,6 +149,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('2/3'), findsOneWidget);
+    final detailLogo = tester.widget<Image>(
+      find.byKey(const ValueKey('pet-product-detail-logo')),
+    );
+    expect(detailLogo.width, 28);
+    expect(detailLogo.height, 28);
+    expect(detailLogo.fit, BoxFit.contain);
     expect(find.byKey(const ValueKey('product-detail-price')), findsOneWidget);
     expect(find.byKey(const ValueKey('product-detail-stock')), findsNothing);
     expect(find.byKey(const ValueKey('product-detail-facts')), findsOneWidget);

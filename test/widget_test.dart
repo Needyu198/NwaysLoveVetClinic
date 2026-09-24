@@ -139,6 +139,12 @@ void main() {
 
     expect(find.text('My Pets'), findsWidgets);
     expect(find.text('Reminders'), findsOneWidget);
+    final homeLogo = tester.widget<Image>(
+      find.byKey(const ValueKey('owner-home-logo')),
+    );
+    expect(homeLogo.width, 94);
+    expect(homeLogo.height, 94);
+    expect(homeLogo.fit, BoxFit.contain);
 
     await tester.scrollUntilVisible(
       find.text('Appointments'),
@@ -1394,6 +1400,28 @@ void main() {
 
     expect(find.text('Live Queue'), findsOneWidget);
     expect(find.byKey(const ValueKey('staff-queue')), findsOneWidget);
+    expect(find.byKey(const ValueKey('staff-queue-date')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('staff-queue-group-Medical Service')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('staff-queue-group-Pet Care Service')),
+      findsOneWidget,
+    );
+    final queueGroupList = find.descendant(
+      of: find.byKey(const ValueKey('staff-queue-service-groups')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('staff-queue-group-Walk-in Service')),
+      180,
+      scrollable: queueGroupList,
+    );
+    expect(
+      find.byKey(const ValueKey('staff-queue-group-Walk-in Service')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('staff-queue-filter-All')),
       findsOneWidget,
@@ -2439,9 +2467,9 @@ void main() {
     expect(find.text('Appointment Details'), findsOneWidget);
     expect(find.textContaining('after staff check-in'), findsOneWidget);
 
-    await QueueStore.instance.checkIn(
-      AppointmentStore.instance.appointments.first,
-    );
+    final appointment = AppointmentStore.instance.appointments.first;
+    appointment.date = DateTime.now();
+    await QueueStore.instance.checkIn(appointment);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Open My Queue'));
     await tester.pumpAndSettle();

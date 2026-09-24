@@ -101,6 +101,10 @@ void main() {
         'New Staff Member',
       );
       await tester.enterText(
+        find.byKey(const ValueKey('admin-user-username')),
+        'new.staff',
+      );
+      await tester.enterText(
         find.byKey(const ValueKey('admin-user-email')),
         'New.Staff@Clinic.Test',
       );
@@ -126,11 +130,13 @@ void main() {
 
       expect(find.text('Open add user'), findsOneWidget);
       expect(provisionedValue, isNotNull);
+      expect(provisionedValue!['username'], 'new.staff');
       expect(provisionedValue!['email'], 'new.staff@clinic.test');
       expect(provisionedValue!['role'], 'staff');
       expect(provisionedValue!['status'], 'pending');
       expect(provisionedValue!['password'], 'Secure@123');
       final saved = UserAccountStore.instance.users.single;
+      expect(saved.username, 'new.staff');
       expect(saved.email, 'new.staff@clinic.test');
       expect(saved.password, isEmpty);
       await DatabaseSync.instance.stop();

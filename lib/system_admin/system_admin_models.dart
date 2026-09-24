@@ -41,6 +41,7 @@ class AdminUser {
   Map<String, dynamic> toDb() => {
     'id': id,
     'name': name,
+    'username': username,
     'email': email,
     'phone': phone,
     'role': role.name,
@@ -56,6 +57,7 @@ class AdminUser {
     final value = AdminUser(
       id: data['id'] as String,
       name: data['name'] as String,
+      username: data['username'] as String?,
       email: data['email'] as String,
       phone: data['phone'] as String,
       role: AdminUserRole.values.byName(data['role'] as String),
@@ -69,6 +71,7 @@ class AdminUser {
   AdminUser({
     required this.id,
     required this.name,
+    String? username,
     required this.email,
     required this.phone,
     required this.role,
@@ -76,10 +79,12 @@ class AdminUser {
     this.lastActive = 'Today',
     this.password = '',
     DateTime? createdOn,
-  }) : createdOn = createdOn ?? DateTime.now();
+  }) : username = (username ?? email.split('@').first).trim().toLowerCase(),
+       createdOn = createdOn ?? DateTime.now();
 
   final String id;
   String name;
+  String username;
   String email;
   String phone;
   AdminUserRole role;
@@ -217,8 +222,23 @@ class UserAccountStore extends ChangeNotifier {
     return _users.any((user) => user.email.trim().toLowerCase() == normalized);
   }
 
+  bool usernameExists(String username) {
+    final normalized = username.trim().toLowerCase();
+    return _users.any(
+      (user) => user.username.trim().toLowerCase() == normalized,
+    );
+  }
+
+  bool phoneExists(String phone) {
+    final normalized = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    return _users.any(
+      (user) => user.phone.replaceAll(RegExp(r'[^0-9]'), '') == normalized,
+    );
+  }
+
   AdminUser addUser({
     required String name,
+    required String username,
     required String email,
     required String phone,
     required AdminUserRole role,
@@ -233,6 +253,7 @@ class UserAccountStore extends ChangeNotifier {
     final user = AdminUser(
       id: '$prefix-${DateTime.now().microsecondsSinceEpoch}',
       name: name,
+      username: username,
       email: email,
       phone: phone,
       role: role,

@@ -294,20 +294,12 @@ class _HeroPetSection extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.46),
-                      borderRadius: BorderRadius.circular(26),
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.all(7),
-                      child: Image(
-                        image: AssetImage(PetOwnerHomePage.logoAsset),
-                        width: 94,
-                        height: 94,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
+                  const Image(
+                    key: ValueKey('owner-home-logo'),
+                    image: AssetImage(PetOwnerHomePage.logoAsset),
+                    width: 94,
+                    height: 94,
+                    fit: BoxFit.contain,
                   ),
                   const Spacer(),
                   const _NotificationBell(),
