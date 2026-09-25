@@ -7,6 +7,7 @@ void main() {
   testWidgets('Book Appointment home visit uses the owner profile address', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     tester.view.physicalSize = const Size(440, 956);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -49,15 +50,14 @@ void main() {
     await tester.tap(find.text('Enter Appointment Details'));
     await tester.pump();
 
-    final addressField = find.descendant(
-      of: find.byKey(const ValueKey('appointment-address')),
-      matching: find.byType(TextField),
-    );
-    expect(addressField, findsOneWidget);
-    expect(tester.widget<TextField>(addressField).readOnly, isTrue);
+    final addressCard = find.byKey(const ValueKey('appointment-address'));
+    expect(addressCard, findsOneWidget);
     expect(
-      tester.widget<TextField>(addressField).controller?.text,
-      'No. 24, Thazin Street, Zabuthiri, Nay Pyi Taw',
+      find.descendant(
+        of: addressCard,
+        matching: find.text('No. 24, Thazin Street, Zabuthiri, Nay Pyi Taw'),
+      ),
+      findsOneWidget,
     );
 
     OwnerProfileStore.instance.update(
@@ -72,9 +72,13 @@ void main() {
     );
     await tester.pump();
     expect(
-      tester.widget<TextField>(addressField).controller?.text,
-      'No. 88, Yaza Thingaha Road, Nay Pyi Taw',
+      find.descendant(
+        of: addressCard,
+        matching: find.text('No. 88, Yaza Thingaha Road, Nay Pyi Taw'),
+      ),
+      findsOneWidget,
     );
+    expect(tester.takeException(), isNull);
 
     await tester.enterText(
       find.byKey(const ValueKey('appointment-symptoms')),
@@ -92,5 +96,6 @@ void main() {
     );
 
     await tester.pumpWidget(const SizedBox());
+    semantics.dispose();
   });
 }

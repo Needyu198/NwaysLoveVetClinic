@@ -2297,24 +2297,9 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
   final _symptomsController = TextEditingController();
   final _reasonController = TextEditingController();
   final _notesController = TextEditingController();
-  final _addressController = TextEditingController();
 
   String get _ownerProfileAddress =>
       OwnerProfileStore.instance.profile.address.trim();
-
-  void _syncOwnerProfileAddress() {
-    final address = _ownerProfileAddress;
-    if (_addressController.text == address) return;
-    _addressController.value = TextEditingValue(
-      text: address,
-      selection: TextSelection.collapsed(offset: address.length),
-    );
-  }
-
-  void _ownerProfileChanged() {
-    _syncOwnerProfileAddress();
-    if (mounted) setState(() {});
-  }
 
   int _step = 0;
   BookingPet? _pet;
@@ -2354,8 +2339,6 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
   @override
   void initState() {
     super.initState();
-    _syncOwnerProfileAddress();
-    OwnerProfileStore.instance.addListener(_ownerProfileChanged);
     final initialPetName = widget.initialPetName;
     if (initialPetName != null) {
       for (final pet in _pets) {
@@ -2379,12 +2362,10 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
 
   @override
   void dispose() {
-    OwnerProfileStore.instance.removeListener(_ownerProfileChanged);
     _holdTimer?.cancel();
     _symptomsController.dispose();
     _reasonController.dispose();
     _notesController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
@@ -2513,7 +2494,6 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
               selected: _service == service,
               onTap: () => setState(() {
                 _service = service;
-                if (service.homeVisit) _syncOwnerProfileAddress();
                 _veterinarian = null;
                 _date = null;
                 _clearHeldTime();
@@ -2821,14 +2801,12 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
           ),
           if (_service!.homeVisit) ...[
             const SizedBox(height: 16),
-            _BookingTextField(
-              key: const ValueKey('appointment-address'),
-              controller: _addressController,
-              label: 'Confirmed Address',
-              hint: 'Add an address to your owner profile first',
-              maxLines: 3,
-              prefixIcon: Icons.location_on_rounded,
-              readOnly: true,
+            AnimatedBuilder(
+              animation: OwnerProfileStore.instance,
+              builder: (context, _) => _ConfirmedAddressCard(
+                key: const ValueKey('appointment-address'),
+                address: _ownerProfileAddress,
+              ),
             ),
             const SizedBox(height: 12),
             const _NoticeBox(
@@ -2851,20 +2829,22 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       onAction: _confirmBooking,
       child: Column(
         children: [
-          _SummaryCard(
-            rows: [
-              ('Pet', '${_pet!.name} • ${_pet!.species}'),
-              ('Service', _service!.name),
-              ('Veterinarian', _veterinarian!),
-              ('Date', _longDate(_date!)),
-              ('Time', '$_time (1 hour)'),
-              ('Symptoms', _symptomsController.text.trim()),
-              ('Reason', _reasonController.text.trim()),
-              if (_notesController.text.trim().isNotEmpty)
-                ('Notes', _notesController.text.trim()),
-              if (_service!.homeVisit)
-                ('Address', _addressController.text.trim()),
-            ],
+          AnimatedBuilder(
+            animation: OwnerProfileStore.instance,
+            builder: (context, _) => _SummaryCard(
+              rows: [
+                ('Pet', '${_pet!.name} • ${_pet!.species}'),
+                ('Service', _service!.name),
+                ('Veterinarian', _veterinarian!),
+                ('Date', _longDate(_date!)),
+                ('Time', '$_time (1 hour)'),
+                ('Symptoms', _symptomsController.text.trim()),
+                ('Reason', _reasonController.text.trim()),
+                if (_notesController.text.trim().isNotEmpty)
+                  ('Notes', _notesController.text.trim()),
+                if (_service!.homeVisit) ('Address', _ownerProfileAddress),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           _NoticeBox(
@@ -2926,7 +2906,6 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
   }
 
   void _validateDetails() {
-    if (_service?.homeVisit ?? false) _syncOwnerProfileAddress();
     if (_holdSeconds == 0 || _time == null) {
       setState(
         () => _error = 'Your time-slot hold expired. Select a time again.',
@@ -2939,8 +2918,11 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       setState(() => _error = 'Symptoms and appointment reason are required.');
       return;
     }
-    if (_service!.homeVisit && _addressController.text.trim().isEmpty) {
-      setState(() => _error = 'Confirm the address for the Home Visit.');
+    if (_service!.homeVisit && _ownerProfileAddress.isEmpty) {
+      setState(
+        () => _error =
+            'Add your address to your pet owner profile before booking a Home Visit.',
+      );
       return;
     }
     _next();
@@ -2960,8 +2942,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       return;
     }
     if (_service!.homeVisit) {
-      _syncOwnerProfileAddress();
-      if (_addressController.text.trim().isEmpty) {
+      if (_ownerProfileAddress.isEmpty) {
         setState(() {
           _error =
               'Add your address to your pet owner profile before booking a Home Visit.';
@@ -3007,7 +2988,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       symptoms: _symptomsController.text.trim(),
       reason: _reasonController.text.trim(),
       notes: _notesController.text.trim(),
-      address: _addressController.text.trim(),
+      address: _service!.homeVisit ? _ownerProfileAddress : '',
       status: 'Confirmed',
       ownerName: OwnerProfileStore.instance.profile.fullName,
       ownerPhone: OwnerProfileStore.instance.profile.phone,
@@ -3315,14 +3296,64 @@ class _BookingContextCard extends StatelessWidget {
   }
 }
 
+class _ConfirmedAddressCard extends StatelessWidget {
+  const _ConfirmedAddressCard({required this.address, super.key});
+
+  final String address;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAddress = address.isNotEmpty;
+    return Semantics(
+      label: 'Confirmed home visit address',
+      readOnly: true,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: const Color(0xFFD8E7E1)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.location_on_rounded, color: _BookingColors.green),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Confirmed Address', style: _BookingText.section),
+                  const SizedBox(height: 6),
+                  Text(
+                    hasAddress
+                        ? address
+                        : 'Add an address to your owner profile first',
+                    style: TextStyle(
+                      color: hasAddress
+                          ? _BookingColors.ink
+                          : _BookingColors.muted,
+                      fontSize: 15,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _BookingTextField extends StatelessWidget {
   const _BookingTextField({
     required this.controller,
     required this.label,
     required this.hint,
     required this.maxLines,
-    this.prefixIcon,
-    this.readOnly = false,
     super.key,
   });
 
@@ -3330,8 +3361,6 @@ class _BookingTextField extends StatelessWidget {
   final String label;
   final String hint;
   final int maxLines;
-  final IconData? prefixIcon;
-  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -3342,11 +3371,9 @@ class _BookingTextField extends StatelessWidget {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
-          readOnly: readOnly,
           maxLines: maxLines,
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: prefixIcon == null ? null : Icon(prefixIcon),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(

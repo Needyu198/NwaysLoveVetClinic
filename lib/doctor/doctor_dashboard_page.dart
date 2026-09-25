@@ -122,38 +122,40 @@ class DoctorDashboardPage extends StatelessWidget {
                   const SizedBox(height: 4),
                   const Text('Quick Menu', style: DoctorStyles.heroSection),
                   const SizedBox(height: 16),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: _DashboardMenuButton(
-                          key: const ValueKey('doctor-write-post'),
-                          icon: Icons.edit_note_rounded,
-                          label: 'Write a post',
-                          description: 'Share advice with pet owners',
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const DoctorCreatePostPage(),
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _DashboardMenuButton(
+                            key: const ValueKey('doctor-write-post'),
+                            icon: Icons.edit_note_rounded,
+                            label: 'Write a post',
+                            description: 'Share advice with pet owners',
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const DoctorCreatePostPage(),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _DashboardMenuButton(
-                          key: const ValueKey('doctor-manage-posts'),
-                          icon: Icons.dashboard_customize_rounded,
-                          label: 'Manage posts',
-                          description: 'Edit, schedule, or archive',
-                          filled: false,
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const DoctorPostsManagerPage(),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _DashboardMenuButton(
+                            key: const ValueKey('doctor-manage-posts'),
+                            icon: Icons.dashboard_customize_rounded,
+                            label: 'Manage posts',
+                            description: 'Edit, schedule, or archive',
+                            filled: false,
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const DoctorPostsManagerPage(),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 26),
                   Row(
@@ -397,7 +399,6 @@ class _DashboardMenuButton extends StatelessWidget {
         onTap: onPressed,
         borderRadius: BorderRadius.circular(22),
         child: Container(
-          height: 132,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
@@ -406,6 +407,7 @@ class _DashboardMenuButton extends StatelessWidget {
                 : Border.all(color: DoctorStyles.border, width: 1.4),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
@@ -417,7 +419,7 @@ class _DashboardMenuButton extends StatelessWidget {
                 ),
                 child: Icon(icon, color: DoctorStyles.green, size: 24),
               ),
-              const Spacer(),
+              const SizedBox(height: 12),
               Text(
                 label,
                 style: const TextStyle(
