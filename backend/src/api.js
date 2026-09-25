@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { resources } = require('./resources');
 const { broadcastChange } = require('./realtime');
 const { sendToAccount } = require('./messaging');
+const { resetEmailConfigured, sendPasswordResetEmail } = require('./passwordResetEmail');
 const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 const fail = (status, message) => Object.assign(new Error(message), { status });
 // Booking policy: at most this many active bookings per veterinarian/date/time
@@ -11,6 +12,14 @@ const fail = (status, message) => Object.assign(new Error(message), { status });
 const APPOINTMENT_SLOT_CAPACITY = Math.max(1, Number(process.env.APPOINTMENT_SLOT_CAPACITY) || 2);
 const APPOINTMENT_CANCELLATION_SUSPEND_THRESHOLD = Math.max(1, Number(process.env.APPOINTMENT_CANCELLATION_SUSPEND_THRESHOLD) || 3);
 const normalizedPhone = value => String(value || '').replace(/[^0-9]/g, '');
+const PASSWORD_RESET_GENERIC_MESSAGE = 'If an active account matches those details, a verification code has been sent to its registered email.';
+const passwordResetIdentifier = value => String(value || '').trim().toLowerCase();
+const passwordResetCodeHash = (account, code) => hash(`${account.id}:${code}:${account.password_hash}`);
+const secureHashEquals = (left, right) => {
+  const a = Buffer.from(String(left || ''), 'hex');
+  const b = Buffer.from(String(right || ''), 'hex');
+  return a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b);
+};
 const duplicateProtectedBookingTables = new Set(['appointments', 'home_visits', 'pet_care_bookings']);
 const normalizedBookingText = value => String(value || '').trim().toLowerCase();
 const bookingPetStableId = value => {
@@ -110,7 +119,10 @@ async function syncUserDirectoryAccount(client, value, existing, sessionAccountI
     [value.id,username,email,phone,await bcrypt.hash(newPassword, 12),value.name,roles[value.role],value.status==='active'],
   );
 }
-function installApi(app, pool) {
+function installApi(app, pool, options = {}) {
+  const deliverPasswordResetEmail = options.sendPasswordResetEmail || sendPasswordResetEmail;
+  const passwordResetDeliveryConfigured = options.passwordResetEmailConfigured ??
+    (options.sendPasswordResetEmail ? true : resetEmailConfigured());
   const wrap = fn => async (req, res) => {
     try { await fn(req, res); } catch (e) {
       if (!e.status) console.error('Database request failed:', e.code || e.message);
@@ -126,6 +138,138 @@ function installApi(app, pool) {
     const token = crypto.randomBytes(32).toString('hex');
     await pool.query("INSERT INTO app_sessions(token_hash, account_id, role, expires_at) VALUES($1,$2,$3,NOW() + INTERVAL '12 hours')", [hash(token), account.id, account.role]);
     res.json({ token, account: { id: account.id, username: account.username, email: account.email, phone: account.phone, fullName: account.full_name, role: account.role } });
+  }));
+  app.post('/auth/forgot-password', wrap(async (req, res) => {
+    if (!passwordResetDeliveryConfigured) {
+      throw fail(503, 'Password recovery email is not configured. Please contact the clinic.');
+    }
+    const identifier = passwordResetIdentifier(req.body.identifier);
+    if (!identifier || identifier.length > 254) throw fail(400, 'Enter your registered email, username, or phone number.');
+    const identifierHash = hash(identifier);
+    const ipHash = hash(String(req.ip || req.socket?.remoteAddress || 'unknown'));
+    const client = await pool.connect();
+    let account;
+    let code;
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`password-reset:${identifierHash}`]);
+      const limits = (await client.query(
+        `SELECT
+          COUNT(*) FILTER (WHERE identifier_hash=$1)::int AS identifier_count,
+          COUNT(*) FILTER (WHERE ip_hash=$2)::int AS ip_count
+         FROM password_reset_audit
+         WHERE event='request' AND created_at>NOW()-INTERVAL '15 minutes'`,
+        [identifierHash, ipHash],
+      )).rows[0];
+      if (limits.identifier_count >= 3 || limits.ip_count >= 10) {
+        await client.query('COMMIT');
+        return res.json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
+      }
+      account = await findAccountByIdentifier(client, identifier);
+      await client.query(
+        `INSERT INTO password_reset_audit(event,identifier_hash,account_id,ip_hash)
+         VALUES('request',$1,$2,$3)`,
+        [identifierHash, account?.id || null, ipHash],
+      );
+      if (account?.email) {
+        code = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
+        await client.query(
+          `INSERT INTO password_reset_codes(account_id,code_hash,expires_at,attempts,consumed_at,requested_at)
+           VALUES($1,$2,NOW()+INTERVAL '10 minutes',0,NULL,NOW())
+           ON CONFLICT(account_id) DO UPDATE SET
+             code_hash=EXCLUDED.code_hash,expires_at=EXCLUDED.expires_at,
+             attempts=0,consumed_at=NULL,requested_at=NOW()`,
+          [account.id, passwordResetCodeHash(account, code)],
+        );
+      }
+      await client.query("DELETE FROM password_reset_codes WHERE expires_at<NOW()-INTERVAL '1 day'");
+      await client.query("DELETE FROM password_reset_audit WHERE created_at<NOW()-INTERVAL '90 days'");
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    if (account?.email && code) {
+      Promise.resolve().then(() => deliverPasswordResetEmail({
+        to: account.email,
+        name: account.full_name,
+        code,
+      })).catch(async error => {
+        console.error('Password reset email failed:', error.message);
+        try {
+          await pool.query(
+            `INSERT INTO password_reset_audit(event,identifier_hash,account_id,ip_hash)
+             VALUES('delivery_failed',$1,$2,$3)`,
+            [identifierHash, account.id, ipHash],
+          );
+        } catch (_) { /* audit failure must not expose account existence */ }
+      });
+    }
+    res.json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
+  }));
+  app.post('/auth/reset-password', wrap(async (req, res) => {
+    const identifier = passwordResetIdentifier(req.body.identifier);
+    const code = String(req.body.code || '').trim();
+    const newPassword = String(req.body.newPassword || '');
+    if (!identifier || identifier.length > 254) throw fail(400, 'Enter your registered account identifier.');
+    if (!/^\d{6}$/.test(code)) throw fail(400, 'Enter the six-digit verification code.');
+    if (newPassword.length < 8 || newPassword.length > 1024) throw fail(400, 'New password must be at least 8 characters.');
+    const identifierHash = hash(identifier);
+    const ipHash = hash(String(req.ip || req.socket?.remoteAddress || 'unknown'));
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const account = await findAccountByIdentifier(client, identifier);
+      if (!account) {
+        await client.query(
+          `INSERT INTO password_reset_audit(event,identifier_hash,account_id,ip_hash)
+           VALUES('verification_failed',$1,NULL,$2)`,
+          [identifierHash, ipHash],
+        );
+        await client.query('COMMIT');
+        throw fail(400, 'Invalid or expired verification code.');
+      }
+      const reset = (await client.query(
+        'SELECT * FROM password_reset_codes WHERE account_id=$1 FOR UPDATE',
+        [account.id],
+      )).rows[0];
+      const valid = reset && !reset.consumed_at && reset.attempts < 5 &&
+        new Date(reset.expires_at).getTime() > Date.now() &&
+        secureHashEquals(reset.code_hash, passwordResetCodeHash(account, code));
+      if (!valid) {
+        if (reset && !reset.consumed_at) {
+          await client.query(
+            'UPDATE password_reset_codes SET attempts=attempts+1 WHERE account_id=$1',
+            [account.id],
+          );
+        }
+        await client.query(
+          `INSERT INTO password_reset_audit(event,identifier_hash,account_id,ip_hash)
+           VALUES('verification_failed',$1,$2,$3)`,
+          [identifierHash, account.id, ipHash],
+        );
+        await client.query('COMMIT');
+        throw fail(400, 'Invalid or expired verification code.');
+      }
+      const newHash = await bcrypt.hash(newPassword, 12);
+      await client.query('UPDATE app_accounts SET password_hash=$2 WHERE id=$1', [account.id, newHash]);
+      await client.query('UPDATE password_reset_codes SET consumed_at=NOW() WHERE account_id=$1', [account.id]);
+      await client.query('DELETE FROM app_sessions WHERE account_id=$1', [account.id]);
+      await client.query(
+        `INSERT INTO password_reset_audit(event,identifier_hash,account_id,ip_hash)
+         VALUES('completed',$1,$2,$3)`,
+        [identifierHash, account.id, ipHash],
+      );
+      await client.query('COMMIT');
+      res.json({ ok: true });
+    } catch (error) {
+      try { await client.query('ROLLBACK'); } catch (_) { /* transaction may already be committed */ }
+      throw error;
+    } finally {
+      client.release();
+    }
   }));
   app.use(['/data', '/reports', '/queue', '/auth/logout', '/auth/change-password', '/devices'], async (req, res, next) => {
     try {

@@ -157,4 +157,24 @@ class ClinicApi {
       'newPassword': newPassword,
     });
   }
+
+  Future<String> requestPasswordReset(String identifier) async {
+    final data = await request('POST', '/auth/forgot-password', {
+      'identifier': identifier,
+    });
+    return data['message'] as String? ??
+        'If an active account matches those details, a verification code has been sent.';
+  }
+
+  Future<void> resetPassword({
+    required String identifier,
+    required String code,
+    required String newPassword,
+  }) async {
+    await request('POST', '/auth/reset-password', {
+      'identifier': identifier,
+      'code': code,
+      'newPassword': newPassword,
+    });
+  }
 }

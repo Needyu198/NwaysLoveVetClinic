@@ -48,6 +48,26 @@ async function ensureDatabaseSchema(database = pool, schema = dbSchema) {
       token_hash TEXT PRIMARY KEY, account_id TEXT NOT NULL,
       role TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    await client.query(`CREATE TABLE IF NOT EXISTS password_reset_codes (
+      account_id TEXT PRIMARY KEY,
+      code_hash TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      consumed_at TIMESTAMPTZ,
+      requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    await client.query(`CREATE INDEX IF NOT EXISTS password_reset_codes_expiry_idx
+      ON password_reset_codes(expires_at)`);
+    await client.query(`CREATE TABLE IF NOT EXISTS password_reset_audit (
+      id BIGSERIAL PRIMARY KEY,
+      event TEXT NOT NULL,
+      identifier_hash TEXT NOT NULL,
+      account_id TEXT,
+      ip_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    await client.query(`CREATE INDEX IF NOT EXISTS password_reset_audit_identifier_idx
+      ON password_reset_audit(identifier_hash,created_at)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS password_reset_audit_ip_idx
+      ON password_reset_audit(ip_hash,created_at)`);
     // Device tokens for Firebase Cloud Messaging push delivery.
     await client.query(`CREATE TABLE IF NOT EXISTS device_tokens (
       token TEXT PRIMARY KEY, account_id TEXT NOT NULL,

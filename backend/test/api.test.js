@@ -21,11 +21,14 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
     await ensureDatabaseSchema(database, schema); // migration is repeatable
     const password = await bcrypt.hash('integration-only-password', 4);
     for (const [id,role] of [['ownerA','petOwner'],['ownerB','petOwner'],['staff','staff'],['doctor','doctor'],['doctorB','doctor'],['admin','systemAdmin']]) {
-      await database.query('INSERT INTO app_accounts(id,username,password_hash,role) VALUES($1,$2,$3,$4)',[id,id.toLowerCase(),password,role]);
+      await database.query('INSERT INTO app_accounts(id,username,email,password_hash,role) VALUES($1,$2,$3,$4,$5)',[id,id.toLowerCase(),`${id.toLowerCase()}@clinic.test`,password,role]);
     }
     const app = express();
     app.use(express.json());
-    installApi(app, database);
+    const resetEmails = [];
+    installApi(app, database, {
+      sendPasswordResetEmail: async message => resetEmails.push(message),
+    });
     server = await new Promise(resolve => {const s=app.listen(0,'127.0.0.1',()=>resolve(s));});
     const base = `http://127.0.0.1:${server.address().port}`;
     async function request(path, token, body) {
@@ -37,6 +40,29 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
       const result = await request('/auth/login',null,{username:id,password:'integration-only-password'});
       assert.equal(result.status,200);tokens[id]=result.token;
     }
+    const resetRequested = await request('/auth/forgot-password',null,{identifier:'OWNERa'});
+    assert.equal(resetRequested.status,200);
+    assert.match(resetRequested.message,/if an active account matches/i);
+    for (let index=0; index<20 && resetEmails.length===0; index++) {
+      await new Promise(resolve=>setTimeout(resolve,5));
+    }
+    assert.equal(resetEmails.length,1);
+    assert.equal(resetEmails[0].to,'ownera@clinic.test');
+    assert.match(resetEmails[0].code,/^\d{6}$/);
+    const resetCompleted = await request('/auth/reset-password',null,{
+      identifier:'ownera',code:resetEmails[0].code,newPassword:'Reset@123',
+    });
+    assert.equal(resetCompleted.status,200);
+    assert.equal((await request('/auth/login',null,{username:'ownerA',password:'integration-only-password'})).status,401);
+    const relogin = await request('/auth/login',null,{username:'ownerA',password:'Reset@123'});
+    assert.equal(relogin.status,200);
+    tokens.ownerA = relogin.token;
+    assert.equal((await request('/auth/reset-password',null,{
+      identifier:'ownera',code:resetEmails[0].code,newPassword:'Another@123',
+    })).status,400);
+    const unknownReset = await request('/auth/forgot-password',null,{identifier:'missing@clinic.test'});
+    assert.equal(unknownReset.status,200);
+    assert.equal(resetEmails.length,1);
     // Active staff are immediately available to owner-facing pet-care
     // provider selection, then follow their persisted on-shift status.
     let directory = await request('/data/clinic_directory',tokens.ownerA);

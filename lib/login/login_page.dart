@@ -7,6 +7,7 @@ import '../pet_owner/pet_owner_home_page.dart';
 import '../system_admin/system_admin_portal.dart';
 import '../staff/staff_portal.dart';
 import 'account_auth_api.dart';
+import 'forgot_password_page.dart';
 import 'doctor_auth_api.dart';
 import 'pet_owner_auth_api.dart';
 import 'system_admin_auth_api.dart';
@@ -441,7 +442,18 @@ class _SignInFormState extends State<SignInForm> {
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton(
-            onPressed: () {},
+            key: const ValueKey('forgot-password'),
+            onPressed: () {
+              final navigator = Navigator.of(context, rootNavigator: true);
+              final identifier = _contactController.text.trim();
+              Navigator.of(context).pop();
+              navigator.push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      ForgotPasswordPage(initialIdentifier: identifier),
+                ),
+              );
+            },
             style: TextButton.styleFrom(
               foregroundColor: LoginPage.textColor,
               padding: EdgeInsets.zero,

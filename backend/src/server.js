@@ -12,6 +12,9 @@ const {
 } = require("./appointmentReminders");
 
 const app = express();
+// Render terminates HTTPS at one trusted reverse proxy. This preserves the
+// real client IP used by password-reset rate limiting.
+app.set('trust proxy', 1);
 const port = Number(process.env.PORT || 5050);
 // Listen on every network interface by default so phones and other clinic
 // devices can reach the API. Internet access still requires a public HTTPS
