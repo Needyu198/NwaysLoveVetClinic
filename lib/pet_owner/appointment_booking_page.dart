@@ -2299,6 +2299,23 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
   final _notesController = TextEditingController();
   final _addressController = TextEditingController();
 
+  String get _ownerProfileAddress =>
+      OwnerProfileStore.instance.profile.address.trim();
+
+  void _syncOwnerProfileAddress() {
+    final address = _ownerProfileAddress;
+    if (_addressController.text == address) return;
+    _addressController.value = TextEditingValue(
+      text: address,
+      selection: TextSelection.collapsed(offset: address.length),
+    );
+  }
+
+  void _ownerProfileChanged() {
+    _syncOwnerProfileAddress();
+    if (mounted) setState(() {});
+  }
+
   int _step = 0;
   BookingPet? _pet;
   BookingService? _service;
@@ -2337,6 +2354,8 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
   @override
   void initState() {
     super.initState();
+    _syncOwnerProfileAddress();
+    OwnerProfileStore.instance.addListener(_ownerProfileChanged);
     final initialPetName = widget.initialPetName;
     if (initialPetName != null) {
       for (final pet in _pets) {
@@ -2360,6 +2379,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
 
   @override
   void dispose() {
+    OwnerProfileStore.instance.removeListener(_ownerProfileChanged);
     _holdTimer?.cancel();
     _symptomsController.dispose();
     _reasonController.dispose();
@@ -2493,6 +2513,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
               selected: _service == service,
               onTap: () => setState(() {
                 _service = service;
+                if (service.homeVisit) _syncOwnerProfileAddress();
                 _veterinarian = null;
                 _date = null;
                 _clearHeldTime();
@@ -2803,16 +2824,17 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
             _BookingTextField(
               key: const ValueKey('appointment-address'),
               controller: _addressController,
-              label: 'Confirmed home address *',
-              hint: 'House, street, township, and contact details',
+              label: 'Confirmed Address',
+              hint: 'Add an address to your owner profile first',
               maxLines: 3,
               prefixIcon: Icons.location_on_rounded,
+              readOnly: true,
             ),
             const SizedBox(height: 12),
             const _NoticeBox(
               icon: Icons.verified_user_rounded,
               text:
-                  'The address is required for a Home Visit. Your selected slot is within 12:00 PM–3:00 PM.',
+                  'This address comes from your pet owner profile. Update your profile address if it needs to be changed.',
             ),
           ],
         ],
@@ -2904,6 +2926,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
   }
 
   void _validateDetails() {
+    if (_service?.homeVisit ?? false) _syncOwnerProfileAddress();
     if (_holdSeconds == 0 || _time == null) {
       setState(
         () => _error = 'Your time-slot hold expired. Select a time again.',
@@ -2935,6 +2958,17 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       setState(() => _error = 'That time has passed. Select a later slot.');
       _goToStep(4);
       return;
+    }
+    if (_service!.homeVisit) {
+      _syncOwnerProfileAddress();
+      if (_addressController.text.trim().isEmpty) {
+        setState(() {
+          _error =
+              'Add your address to your pet owner profile before booking a Home Visit.';
+          _step = 5;
+        });
+        return;
+      }
     }
 
     if (AppointmentStore.instance.hasDuplicateBooking(
@@ -3288,6 +3322,7 @@ class _BookingTextField extends StatelessWidget {
     required this.hint,
     required this.maxLines,
     this.prefixIcon,
+    this.readOnly = false,
     super.key,
   });
 
@@ -3296,6 +3331,7 @@ class _BookingTextField extends StatelessWidget {
   final String hint;
   final int maxLines;
   final IconData? prefixIcon;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -3306,6 +3342,7 @@ class _BookingTextField extends StatelessWidget {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
+          readOnly: readOnly,
           maxLines: maxLines,
           decoration: InputDecoration(
             hintText: hint,
