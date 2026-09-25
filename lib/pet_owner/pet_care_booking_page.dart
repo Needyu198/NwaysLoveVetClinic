@@ -8,6 +8,7 @@ import '../data/clinic_directory.dart';
 import 'appointment_booking_page.dart';
 import 'booking_slot_time.dart';
 import 'pet_owner_page_header.dart';
+import 'pet_owner_selection_card.dart';
 import 'pet_image.dart';
 import 'profile_flows.dart';
 import 'profile_pet_avatar.dart';
@@ -768,25 +769,12 @@ class _PetCareServiceDetailsPageState extends State<PetCareServiceDetailsPage> {
                   const Text('Select a service', style: _CareText.section),
                   const SizedBox(height: 10),
                   for (final option in widget.service.options) ...[
-                    InkWell(
-                      key: ValueKey('care-option-${option.name}'),
-                      onTap: () => setState(() => _selectedOption = option),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: _selectedOption == option
-                              ? _CareColors.mint
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _selectedOption == option
-                                ? _CareColors.green
-                                : const Color(0xFFD7E4DF),
-                            width: _selectedOption == option ? 2 : 1,
-                          ),
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: PetOwnerSelectionCard(
+                        key: ValueKey('care-option-${option.name}'),
+                        selected: _selectedOption == option,
+                        onTap: () => setState(() => _selectedOption = option),
                         child: Row(
                           children: [
                             Expanded(
@@ -801,14 +789,6 @@ class _PetCareServiceDetailsPageState extends State<PetCareServiceDetailsPage> {
                                   ),
                                 ],
                               ),
-                            ),
-                            Icon(
-                              _selectedOption == option
-                                  ? Icons.check_circle_rounded
-                                  : Icons.circle_outlined,
-                              color: _selectedOption == option
-                                  ? _CareColors.green
-                                  : _CareColors.muted,
                             ),
                           ],
                         ),
@@ -1727,51 +1707,31 @@ class _SelectTile extends StatelessWidget {
   final Widget? leading;
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? _CareColors.mint : Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected ? _CareColors.green : const Color(0xFFD7E4DF),
-              width: selected ? 2 : 1,
+  Widget build(BuildContext context) => PetOwnerSelectionCard(
+    selected: selected,
+    onTap: onTap,
+    child: Row(
+      children: [
+        leading ??
+            CircleAvatar(
+              backgroundColor: color.withValues(alpha: 0.14),
+              foregroundColor: color,
+              child: Icon(icon),
             ),
-          ),
-          child: Row(
+        const SizedBox(width: 13),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              leading ??
-                  CircleAvatar(
-                    backgroundColor: color.withValues(alpha: 0.14),
-                    foregroundColor: color,
-                    child: Icon(icon),
-                  ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: _CareText.cardTitle),
-                    const SizedBox(height: 4),
-                    Text(subtitle, style: _CareText.body),
-                  ],
-                ),
-              ),
-              Icon(
-                selected ? Icons.check_circle : Icons.circle_outlined,
-                color: selected ? _CareColors.green : _CareColors.muted,
-              ),
+              Text(title, style: _CareText.cardTitle),
+              const SizedBox(height: 4),
+              Text(subtitle, style: _CareText.body),
             ],
           ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }
 
 class _CareProviderAvatar extends StatelessWidget {

@@ -7,6 +7,7 @@ import 'appointment_booking_page.dart';
 import 'clinic_phone.dart';
 import 'contact_clinic_page.dart';
 import 'pet_owner_page_header.dart';
+import 'pet_owner_selection_card.dart';
 import 'profile_pet_avatar.dart';
 
 class EmergencyServicePage extends StatefulWidget {
@@ -1028,46 +1029,26 @@ class _EmergencySelectTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? _EmergencyColors.lightRed : Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected ? _EmergencyColors.red : const Color(0xFFE3D7D7),
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Row(
+  Widget build(BuildContext context) => PetOwnerSelectionCard(
+    selected: selected,
+    onTap: onTap,
+    child: Row(
+      children: [
+        leading,
+        const SizedBox(width: 13),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              leading,
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: _EmergencyText.cardTitle),
-                    const SizedBox(height: 4),
-                    Text(subtitle, style: _EmergencyText.body),
-                  ],
-                ),
-              ),
-              Icon(
-                selected ? Icons.check_circle : Icons.circle_outlined,
-                color: selected ? _EmergencyColors.red : _EmergencyColors.muted,
-              ),
+              Text(title, style: _EmergencyText.cardTitle),
+              const SizedBox(height: 4),
+              Text(subtitle, style: _EmergencyText.body),
             ],
           ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }
 
 class _EmergencyDetailsPanel extends StatelessWidget {

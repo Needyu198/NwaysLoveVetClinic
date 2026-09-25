@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'pet_owner_page_header.dart';
+import 'pet_owner_selection_card.dart';
 import 'pet_image.dart';
 import 'profile_pet_avatar.dart';
 import 'booking_slot_time.dart';
@@ -1385,51 +1386,31 @@ class _VisitSelectTile extends StatelessWidget {
   final Widget? leading;
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? _VisitColors.mint : Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected ? _VisitColors.green : const Color(0xFFD7E4DF),
-              width: selected ? 2 : 1,
+  Widget build(BuildContext context) => PetOwnerSelectionCard(
+    selected: selected,
+    onTap: onTap,
+    child: Row(
+      children: [
+        leading ??
+            CircleAvatar(
+              backgroundColor: color.withValues(alpha: 0.14),
+              foregroundColor: color,
+              child: Icon(icon),
             ),
-          ),
-          child: Row(
+        const SizedBox(width: 13),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              leading ??
-                  CircleAvatar(
-                    backgroundColor: color.withValues(alpha: 0.14),
-                    foregroundColor: color,
-                    child: Icon(icon),
-                  ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: _VisitText.cardTitle),
-                    const SizedBox(height: 4),
-                    Text(subtitle, style: _VisitText.body),
-                  ],
-                ),
-              ),
-              Icon(
-                selected ? Icons.check_circle : Icons.circle_outlined,
-                color: selected ? _VisitColors.green : _VisitColors.muted,
-              ),
+              Text(title, style: _VisitText.cardTitle),
+              const SizedBox(height: 4),
+              Text(subtitle, style: _VisitText.body),
             ],
           ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }
 
 class _VisitField extends StatelessWidget {

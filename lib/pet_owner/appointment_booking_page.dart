@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import 'pet_owner_home_page.dart';
 import 'pet_owner_page_header.dart';
+import 'pet_owner_selection_card.dart';
 import 'booking_slot_time.dart';
 import 'pet_care_booking_page.dart';
 import 'pet_image.dart';
@@ -3193,68 +3194,12 @@ class _SelectionCard extends StatelessWidget {
   final bool showSelectionIndicator;
 
   @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: Material(
-        color: selected ? const Color(0xFFE8FFF5) : Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: selected
-                    ? _BookingColors.green
-                    : const Color(0xFFDDE9E4),
-                width: selected ? 2.3 : 1.2,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0C0B2F25),
-                  blurRadius: 12,
-                  offset: Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(
-                    right: showSelectionIndicator ? 32 : 0,
-                  ),
-                  child: child,
-                ),
-                if (showSelectionIndicator)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 160),
-                      child: Icon(
-                        selected
-                            ? Icons.check_circle_rounded
-                            : Icons.circle_outlined,
-                        key: ValueKey(selected),
-                        color: selected
-                            ? _BookingColors.green
-                            : _BookingColors.muted,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => PetOwnerSelectionCard(
+    selected: selected,
+    onTap: onTap,
+    showSelectionIndicator: showSelectionIndicator,
+    child: child,
+  );
 }
 
 class _SelectedPetStrip extends StatelessWidget {
