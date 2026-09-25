@@ -8,6 +8,7 @@ import 'package:senior_project/data/database_stores.dart';
 import 'package:senior_project/data/database_sync.dart';
 import 'package:senior_project/pet_owner/appointment_booking_page.dart';
 import 'package:senior_project/pet_owner/owner_shared_stores.dart';
+import 'package:senior_project/pet_owner/pet_care_booking_page.dart';
 import 'package:senior_project/staff/staff_portal.dart';
 
 void main() {
@@ -151,7 +152,7 @@ void main() {
           doctors: ['Dr Test'],
         ),
         veterinarian: 'Dr Test',
-        date: DateTime(2027, 1, 1),
+        date: DateUtils.dateOnly(DateTime.now()),
         time: '10:00 AM',
         symptoms: 'None',
         reason: 'Checkup',
@@ -186,6 +187,39 @@ void main() {
       expect(sync.error, isNull);
       expect(database['appointments']!.length, 1);
       expect(database['queue_entries']!.length, 1);
+      PetCareBookingStore.instance.add(
+        PetCareBooking(
+          id: 'care-database-test',
+          service: const PetCareService(
+            name: 'Grooming',
+            description: 'Pet grooming service',
+            price: '12000 MMK',
+            duration: '60 minutes',
+            availability: 'Available',
+            requirements: 'Vaccinations current',
+            icon: Icons.content_cut,
+            providers: ['Test Provider'],
+            options: [ServicePriceOption('Shaving', '12000 MMK')],
+          ),
+          option: 'Shaving',
+          pet: const CarePet(
+            name: 'Max',
+            breed: 'Retriever',
+            age: '2 years',
+            health: 'Vaccinations current',
+            color: Colors.blue,
+            petKey: 'pet-max',
+          ),
+          provider: 'Test Provider',
+          providerId: 'staff-test',
+          date: DateTime(2027, 1, 1),
+          time: '10:00 AM',
+          location: "Nway's Love Vet Clinic",
+          linkedAppointmentId: booking.id,
+        ),
+      );
+      await sync.flush();
+      expect(database['pet_care_bookings']!.length, 1);
       await sync.refresh();
       final restored = AppointmentStore.instance.appointments.single;
       expect(restored.pet.name, 'Milo');
@@ -195,6 +229,10 @@ void main() {
         isTrue,
       );
       expect(ReminderStore.instance.reminders.single.title, 'Follow-up');
+      expect(
+        PetCareBookingStore.instance.bookings.single.linkedAppointmentId,
+        booking.id,
+      );
       expect(StaffOperationsStore.instance.inventory.single.quantity, 10);
       failWrites = true;
       AppointmentStore.instance.reschedule(

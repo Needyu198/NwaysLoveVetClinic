@@ -23,6 +23,7 @@ class RealtimeClient extends ChangeNotifier {
 
   static const queueTables = {
     'appointments',
+    'pet_care_bookings',
     'queue_entries',
     'walk_in_appointments',
     'doctor_appointment_state',

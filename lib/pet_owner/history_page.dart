@@ -479,8 +479,8 @@ class _HistoryPageState extends State<HistoryPage> {
           subtitle: booking.provider,
           date: booking.date,
           time: booking.time,
-          status: _petCareStatus(booking.status),
-          completed: booking.status == PetCareStatus.completed,
+          status: _petCareStatus(booking.displayStatus),
+          completed: booking.displayStatus == PetCareStatus.completed,
           source: booking,
           details: {
             'Booking ID': '#${booking.id}',
@@ -490,7 +490,7 @@ class _HistoryPageState extends State<HistoryPage> {
             'Provider': booking.provider,
             'Price': booking.service.price,
             'Location': booking.location,
-            'Status': _petCareStatus(booking.status),
+            'Status': _petCareStatus(booking.displayStatus),
           },
         ),
       );
@@ -1065,6 +1065,7 @@ String _petCareStatus(PetCareStatus status) => switch (status) {
   PetCareStatus.checkedIn => 'Checked In',
   PetCareStatus.inProgress => 'In Progress',
   PetCareStatus.completed => 'Completed',
+  PetCareStatus.cancelled => 'Cancelled',
 };
 
 String _homeVisitStatus(HomeVisitStatus status) => switch (status) {

@@ -348,7 +348,12 @@ class StaffAppointmentDetailsPage extends StatelessWidget {
                     ('Reason', item.reason),
                     ('Date', _shortDate(item.date)),
                     ('Time', item.time),
-                    ('Doctor', item.doctor),
+                    (
+                      item.queueServiceGroup == QueueServiceGroup.petCareService
+                          ? 'Provider'
+                          : 'Doctor',
+                      item.doctor,
+                    ),
                     if (item.queueNumber.isNotEmpty)
                       ('Queue', item.queueNumber),
                   ],
@@ -385,7 +390,8 @@ class StaffAppointmentDetailsPage extends StatelessWidget {
                       );
                     },
                   ),
-                if (const {'Pending', 'Confirmed'}.contains(item.status))
+                if (const {'Pending', 'Confirmed'}.contains(item.status) &&
+                    item.queueServiceGroup != QueueServiceGroup.petCareService)
                   _ActionButton(
                     label: 'Assign Doctor',
                     icon: Icons.medical_services_outlined,
@@ -438,6 +444,36 @@ class StaffAppointmentDetailsPage extends StatelessWidget {
                     icon: Icons.format_list_numbered_rounded,
                     onTap: () =>
                         _push(context, const StaffQueueStandalonePage()),
+                  ),
+                if (item.status == 'In Consultation' &&
+                    item.queueServiceGroup == QueueServiceGroup.petCareService)
+                  _ActionButton(
+                    label: 'Complete Service',
+                    icon: Icons.task_alt_rounded,
+                    onTap: () async {
+                      final source = item.source;
+                      final entry = source == null
+                          ? null
+                          : QueueStore.instance.existingEntryFor(source);
+                      try {
+                        if (entry != null) {
+                          await QueueStore.instance.transition(
+                            entry,
+                            QueueStatus.completed,
+                          );
+                        } else {
+                          StaffOperationsStore.instance.update(
+                            item,
+                            status: 'Completed',
+                          );
+                        }
+                        if (context.mounted) {
+                          _notice(context, 'Pet Care service completed.');
+                        }
+                      } on ClinicApiException catch (error) {
+                        if (context.mounted) _notice(context, error.message);
+                      }
+                    },
                   ),
               ],
             ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../data/clinic_api.dart';
 import '../data/clinic_directory.dart';
+import 'appointment_booking_page.dart';
 import 'pet_owner_page_header.dart';
 import 'pet_image.dart';
 import 'profile_flows.dart';
@@ -80,7 +81,10 @@ class MyServiceBookingsPage extends StatelessWidget {
             ),
             Expanded(
               child: AnimatedBuilder(
-                animation: PetCareBookingStore.instance,
+                animation: Listenable.merge([
+                  PetCareBookingStore.instance,
+                  AppointmentStore.instance,
+                ]),
                 builder: (context, _) {
                   final bookings = PetCareBookingStore.instance.bookings;
                   if (bookings.isEmpty) {
@@ -150,13 +154,41 @@ class PetCareBookingStore extends ChangeNotifier {
     );
   }
 
-  PetCareBookingStore._();
+  PetCareBookingStore._() {
+    AppointmentStore.instance.addListener(_syncLinkedAppointmentStatuses);
+  }
 
   static final instance = PetCareBookingStore._();
 
   final List<PetCareBooking> _bookings = [];
 
   List<PetCareBooking> get bookings => List.unmodifiable(_bookings.reversed);
+
+  void _syncLinkedAppointmentStatuses() {
+    var changed = false;
+    for (final booking in _bookings) {
+      final linked = booking.linkedAppointment;
+      if (linked == null) continue;
+      final linkedStatus = booking.linkedAppointmentStatus!;
+      if (booking.status != linkedStatus) {
+        booking.status = linkedStatus;
+        changed = true;
+      }
+      if (!DateUtils.isSameDay(booking.date, linked.date)) {
+        booking.date = linked.date;
+        changed = true;
+      }
+      if (booking.time != linked.time) {
+        booking.time = linked.time;
+        changed = true;
+      }
+      if (booking.provider != linked.veterinarian) {
+        booking.provider = linked.veterinarian;
+        changed = true;
+      }
+    }
+    if (changed) notifyListeners();
+  }
 
   bool isSlotAvailable({
     required String provider,
@@ -173,7 +205,7 @@ class PetCareBookingStore extends ChangeNotifier {
               : booking.provider == provider) &&
           DateUtils.isSameDay(booking.date, date) &&
           booking.time == time &&
-          booking.status != PetCareStatus.completed,
+          booking.isActive,
     );
   }
 
@@ -184,7 +216,7 @@ class PetCareBookingStore extends ChangeNotifier {
   }) {
     return _bookings.any(
       (booking) =>
-          booking.status != PetCareStatus.completed &&
+          booking.isActive &&
           _sameCarePet(booking.pet, pet) &&
           DateUtils.isSameDay(booking.date, date) &&
           booking.time == time,
@@ -228,7 +260,7 @@ class PetCareBookingStore extends ChangeNotifier {
   }
 }
 
-enum PetCareStatus { confirmed, checkedIn, inProgress, completed }
+enum PetCareStatus { confirmed, checkedIn, inProgress, completed, cancelled }
 
 class PetCareBooking {
   Map<String, dynamic> toDb() => {
@@ -241,6 +273,7 @@ class PetCareBooking {
     'date': date.toIso8601String(),
     'time': time,
     'location': location,
+    'linkedAppointmentId': linkedAppointmentId,
     'status': status.name,
     'rating': rating,
     'review': review,
@@ -258,6 +291,7 @@ class PetCareBooking {
       date: DateTime.parse(data['date'] as String),
       time: data['time'] as String,
       location: data['location'] as String,
+      linkedAppointmentId: data['linkedAppointmentId'] as String? ?? '',
       status: PetCareStatus.values.byName(data['status'] as String),
     );
     value.rating = data['rating'] as int;
@@ -275,6 +309,7 @@ class PetCareBooking {
     required this.date,
     required this.time,
     required this.location,
+    this.linkedAppointmentId = '',
     this.status = PetCareStatus.confirmed,
   });
 
@@ -282,14 +317,81 @@ class PetCareBooking {
   final PetCareService service;
   final String option;
   final CarePet pet;
-  final String provider;
+  String provider;
   final String providerId;
-  final DateTime date;
-  final String time;
+  DateTime date;
+  String time;
   final String location;
+  final String linkedAppointmentId;
   PetCareStatus status;
   int rating = 0;
   String review = '';
+
+  BookedAppointment? get linkedAppointment {
+    if (linkedAppointmentId.isEmpty) return null;
+    for (final appointment in AppointmentStore.instance.appointments) {
+      if (appointment.id == linkedAppointmentId) return appointment;
+    }
+    return null;
+  }
+
+  PetCareStatus? get linkedAppointmentStatus {
+    final value = linkedAppointment?.status.trim().toLowerCase();
+    if (value == null) return null;
+    return switch (value) {
+      'checked in' ||
+      'waiting' ||
+      'called' ||
+      'arrived' => PetCareStatus.checkedIn,
+      'in consultation' || 'in progress' => PetCareStatus.inProgress,
+      'completed' => PetCareStatus.completed,
+      'cancelled' || 'missed' => PetCareStatus.cancelled,
+      _ => PetCareStatus.confirmed,
+    };
+  }
+
+  bool get isActive {
+    final current = linkedAppointmentStatus ?? status;
+    return current != PetCareStatus.completed &&
+        current != PetCareStatus.cancelled;
+  }
+
+  PetCareStatus get displayStatus => linkedAppointmentStatus ?? status;
+
+  BookedAppointment toMainAppointment({
+    required String ownerName,
+    required String ownerPhone,
+    String species = 'Pet',
+  }) => BookedAppointment(
+    id: linkedAppointmentId.isEmpty ? id : linkedAppointmentId,
+    createdAt: DateTime.now(),
+    pet: BookingPet(
+      id: pet.petKey,
+      name: pet.name,
+      species: species,
+      breed: pet.breed,
+      age: pet.age,
+      icon: Icons.pets_rounded,
+      color: pet.color,
+    ),
+    service: BookingService(
+      name: service.name,
+      description: service.description,
+      icon: service.icon,
+      homeVisit: false,
+      doctors: [provider],
+    ),
+    veterinarian: provider,
+    date: date,
+    time: time,
+    symptoms: 'Pet care service',
+    reason: option.isEmpty ? service.name : option,
+    notes: '${service.price} • $location',
+    address: location,
+    status: 'Confirmed',
+    ownerName: ownerName,
+    ownerPhone: ownerPhone,
+  );
 }
 
 class PetCareService {
@@ -859,19 +961,42 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
   }
 
   Future<void> _confirm() async {
-    if (_pet != null &&
-        _date != null &&
-        _time != null &&
-        PetCareBookingStore.instance.hasDuplicateBooking(
+    final bookingId = 'CARE${DateTime.now().microsecondsSinceEpoch}';
+    final booking = PetCareBooking(
+      id: bookingId,
+      service: widget.service,
+      option: _selectedOption.name,
+      pet: _pet!,
+      provider: _providerName!,
+      providerId: _providerId ?? '',
+      date: _date!,
+      time: _time!,
+      location: "Nway's Love Vet Clinic",
+      linkedAppointmentId: bookingId,
+    );
+    final profilePet = ProfilePetStore.instance.byKey(_pet!.petKey);
+    final owner = OwnerProfileStore.instance.profile;
+    final appointment = booking.toMainAppointment(
+      ownerName: owner.fullName,
+      ownerPhone: owner.phone,
+      species: profilePet?.type ?? 'Pet',
+    );
+
+    if (PetCareBookingStore.instance.hasDuplicateBooking(
           pet: _pet!,
           date: _date!,
           time: _time!,
+        ) ||
+        AppointmentStore.instance.hasDuplicateBooking(
+          pet: appointment.pet,
+          date: appointment.date,
+          time: appointment.time,
         )) {
       setState(() {
         _step = 2;
         _time = null;
         _error =
-            '${_pet!.name} already has an active pet-care booking at this date and time.';
+            '${_pet!.name} already has an active appointment at this date and time.';
       });
       return;
     }
@@ -880,6 +1005,10 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
         !PetCareBookingStore.instance.isSlotAvailable(
           provider: _providerName!,
           providerId: _providerId,
+          date: _date!,
+          time: _time!,
+        ) ||
+        !AppointmentStore.instance.isSlotAvailable(
           date: _date!,
           time: _time!,
         )) {
@@ -891,30 +1020,21 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
       return;
     }
 
-    final booking = PetCareBooking(
-      id: 'CARE${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
-      service: widget.service,
-      option: _selectedOption.name,
-      pet: _pet!,
-      provider: _providerName!,
-      providerId: _providerId ?? '',
-      date: _date!,
-      time: _time!,
-      location: "Nway's Love Vet Clinic",
-    );
+    AppointmentStore.instance.add(appointment);
     PetCareBookingStore.instance.add(booking);
     if (DatabaseSync.instance.active) {
       try {
         await DatabaseSync.instance.flushOrThrow();
       } catch (error) {
         PetCareBookingStore.instance.remove(booking);
+        AppointmentStore.instance.remove(appointment);
         await DatabaseSync.instance.flush();
         if (!mounted) return;
         setState(() {
           _step = 2;
           _time = null;
           _error = error.toString().contains('already has an active booking')
-              ? '${_pet!.name} already has an active pet-care booking at this date and time.'
+              ? '${_pet!.name} already has an active appointment at this date and time.'
               : 'The service booking could not be saved. Please retry.';
         });
         return;
@@ -1293,7 +1413,7 @@ class _ServiceBookingCard extends StatelessWidget {
               Expanded(
                 child: Text(booking.service.name, style: _CareText.cardTitle),
               ),
-              _StatusBadge(status: booking.status),
+              _StatusBadge(status: booking.displayStatus),
             ],
           ),
           const SizedBox(height: 10),
@@ -1762,6 +1882,7 @@ class _StatusBadge extends StatelessWidget {
       PetCareStatus.checkedIn => 'Checked In',
       PetCareStatus.inProgress => 'In Progress',
       PetCareStatus.completed => 'Completed',
+      PetCareStatus.cancelled => 'Cancelled',
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

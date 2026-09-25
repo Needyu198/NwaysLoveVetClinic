@@ -42,7 +42,38 @@ const bookingTime = value => String(value?.time || '').trim();
 const activeBooking = (table, value) => {
   const status = normalizedBookingText(value?.status);
   if (table === 'appointments') return status !== 'cancelled';
-  return status !== 'completed';
+  return !['completed', 'cancelled', 'missed'].includes(status);
+};
+const petCareStatusForAppointment = status => {
+  const value = normalizedBookingText(status);
+  if (['checked in', 'waiting', 'called', 'arrived'].includes(value)) return 'checkedIn';
+  if (['in consultation', 'in progress'].includes(value)) return 'inProgress';
+  if (value === 'completed') return 'completed';
+  if (['cancelled', 'missed'].includes(value)) return 'cancelled';
+  return 'confirmed';
+};
+const syncLinkedPetCareAppointment = async (client, appointment) => {
+  const appointmentId = String(appointment?.id || '');
+  if (!appointmentId) return;
+  await client.query(
+    `UPDATE pet_care_bookings
+     SET data=jsonb_set(
+       jsonb_set(
+         jsonb_set(
+           jsonb_set(data,'{value,status}',to_jsonb($2::text),true),
+           '{value,date}',to_jsonb($3::text),true),
+         '{value,time}',to_jsonb($4::text),true),
+       '{value,provider}',to_jsonb($5::text),true),
+         version=version+1,updated_at=NOW()
+     WHERE data->'value'->>'linkedAppointmentId'=$1`,
+    [
+      appointmentId,
+      petCareStatusForAppointment(appointment.status),
+      String(appointment.date || ''),
+      String(appointment.time || ''),
+      String(appointment.veterinarian || ''),
+    ],
+  );
 };
 const clinicDateToday = () => {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -479,6 +510,7 @@ function installApi(app, pool, options = {}) {
       const appointmentData = structuredClone(appointmentRow.data);
       appointmentData.value.status = 'Checked In';
       await client.query('UPDATE appointments SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1', [appointmentRow.id, appointmentData]);
+      await syncLinkedPetCareAppointment(client, appointmentData.value);
       const notification = await saveOwnerNotification(
         client,
         appointmentRow.owner_id,
@@ -487,6 +519,7 @@ function installApi(app, pool, options = {}) {
       );
       await client.query('COMMIT');
       broadcastChange('appointments', { ownerId: appointmentRow.owner_id });
+      broadcastChange('pet_care_bookings', { ownerId: appointmentRow.owner_id });
       broadcastChange('queue_entries', { ownerId: appointmentRow.owner_id });
       broadcastChange('owner_notifications', { ownerId: appointmentRow.owner_id });
       await sendToAccount(pool, appointmentRow.owner_id, {
@@ -533,17 +566,20 @@ function installApi(app, pool, options = {}) {
       if (nextStatus !== current && nextStatus === 'inConsultation') value.consultationStartedAt = now;
       if (nextStatus !== current && nextStatus === 'completed') {
         value.completedAt = now;
+        const requiresMedicalRecord = value.serviceGroup !== 'petCareService';
         value.medicalRecordId = req.body.medicalRecordId || value.medicalRecordId || null;
-        if (!value.medicalRecordId) throw fail(400, 'Complete the medical record before completing the queue ticket.');
-        const medicalRecord = (await client.query(
-          `SELECT 1 FROM medical_records
-           WHERE data->'value'->>'id'=$1
-             AND data->'value'->>'appointmentId'=$2
-             AND data->'value'->>'finalized'='true'
-           LIMIT 1`,
-          [value.medicalRecordId, appointmentId],
-        )).rows[0];
-        if (!medicalRecord) throw fail(409, 'The finalized medical record must be saved before completing this queue ticket.');
+        if (requiresMedicalRecord) {
+          if (!value.medicalRecordId) throw fail(400, 'Complete the medical record before completing the queue ticket.');
+          const medicalRecord = (await client.query(
+            `SELECT 1 FROM medical_records
+             WHERE data->'value'->>'id'=$1
+               AND data->'value'->>'appointmentId'=$2
+               AND data->'value'->>'finalized'='true'
+             LIMIT 1`,
+            [value.medicalRecordId, appointmentId],
+          )).rows[0];
+          if (!medicalRecord) throw fail(409, 'The finalized medical record must be saved before completing the queue ticket.');
+        }
       }
       if (typeof req.body.room === 'string') value.room = req.body.room.trim().slice(0, 100);
       if (typeof req.body.delayReason === 'string') value.delayReason = req.body.delayReason.trim().slice(0, 500);
@@ -569,6 +605,7 @@ function installApi(app, pool, options = {}) {
           appointmentData.value.veterinarian = value.assignedDoctor;
         }
         await client.query('UPDATE appointments SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1', [appointmentRow.id, appointmentData]);
+        await syncLinkedPetCareAppointment(client, appointmentData.value);
       }
       const petName = String(value.appointment?.pet?.name || 'Your pet');
       let notification = null;
@@ -606,6 +643,7 @@ function installApi(app, pool, options = {}) {
       }
       await client.query('COMMIT');
       broadcastChange('appointments', { ownerId: ticket.owner_id });
+      broadcastChange('pet_care_bookings', { ownerId: ticket.owner_id });
       broadcastChange('queue_entries', { ownerId: ticket.owner_id });
       if (notification) {
         broadcastChange('owner_notifications', { ownerId: ticket.owner_id });
@@ -807,6 +845,47 @@ function installApi(app, pool, options = {}) {
             });
             if (duplicate) {
               throw fail(409, 'This pet already has an active booking at that date and time.');
+            }
+          }
+        }
+        if (req.params.table === 'pet_care_bookings') {
+          const value = item.data.value || {};
+          const previous = existing?.data?.value || {};
+          const date = bookingDate(value);
+          const time = bookingTime(value);
+          const providerId = normalizedBookingText(value.providerId);
+          const providerName = normalizedBookingText(value.provider);
+          const providerChanged = existing && (
+            normalizedBookingText(previous.providerId) !== providerId ||
+            normalizedBookingText(previous.provider) !== providerName
+          );
+          const shouldCheckProvider = activeBooking(req.params.table, value) &&
+            date && time && (providerId || providerName) && (
+              !existing || !activeBooking(req.params.table, previous) ||
+              bookingDate(previous) !== date || bookingTime(previous) !== time ||
+              providerChanged
+            );
+          if (shouldCheckProvider) {
+            const providerKey = providerId || providerName;
+            await client.query(
+              'SELECT pg_advisory_xact_lock(hashtext($1))',
+              [`pet-care-provider:${providerKey}:${date}:${time}`],
+            );
+            const candidates = (await client.query(
+              `SELECT data FROM pet_care_bookings
+               WHERE id<>$1 AND LEFT(data->'value'->>'date',10)=$2
+                 AND data->'value'->>'time'=$3`,
+              [item.id, date, time],
+            )).rows;
+            const providerBooked = candidates.some(row => {
+              const candidate = row.data?.value || {};
+              const sameProvider = providerId
+                ? normalizedBookingText(candidate.providerId) === providerId
+                : normalizedBookingText(candidate.provider) === providerName;
+              return sameProvider && activeBooking(req.params.table, candidate);
+            });
+            if (providerBooked) {
+              throw fail(409, 'That pet-care provider is already booked at this date and time.');
             }
           }
         }

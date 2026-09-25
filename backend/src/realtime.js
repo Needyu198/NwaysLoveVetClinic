@@ -18,6 +18,7 @@ const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 let io = null;
 const queueTables = Object.freeze([
   'appointments',
+  'pet_care_bookings',
   'queue_entries',
   'walk_in_appointments',
   'doctor_appointment_state',

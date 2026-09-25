@@ -677,6 +677,7 @@ class QueueStore extends ChangeNotifier {
     });
     await DatabaseSync.instance.refreshTables([
       'appointments',
+      'pet_care_bookings',
       'queue_entries',
     ]);
     return existingEntryFor(appointment);
@@ -715,6 +716,7 @@ class QueueStore extends ChangeNotifier {
     );
     await DatabaseSync.instance.refreshTables([
       'appointments',
+      'pet_care_bookings',
       'queue_entries',
     ]);
   }
@@ -741,6 +743,7 @@ class QueueStore extends ChangeNotifier {
       if (refreshDatabase) {
         await DatabaseSync.instance.refreshTables([
           'appointments',
+          'pet_care_bookings',
           'queue_entries',
         ]);
       }

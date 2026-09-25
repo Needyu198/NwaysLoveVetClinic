@@ -322,6 +322,9 @@ class _QueueCard extends StatelessWidget {
     final showCall = item.status == 'Waiting';
     final showArrived = item.status == 'Called';
     final showStart = item.status == 'Arrived';
+    final showComplete =
+        item.status == 'In Consultation' &&
+        item.queueServiceGroup == QueueServiceGroup.petCareService;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -475,9 +478,18 @@ class _QueueCard extends StatelessWidget {
           else if (showStart)
             _QueueActionButton(
               key: ValueKey('queue-start-${item.id}'),
-              label: 'Start Consultation',
+              label: item.queueServiceGroup == QueueServiceGroup.petCareService
+                  ? 'Start Service'
+                  : 'Start Consultation',
               onTap: () =>
                   _advanceQueueItem(context, item, QueueStatus.inConsultation),
+            )
+          else if (showComplete)
+            _QueueActionButton(
+              key: ValueKey('queue-complete-service-${item.id}'),
+              label: 'Complete Service',
+              onTap: () =>
+                  _advanceQueueItem(context, item, QueueStatus.completed),
             )
           else
             _QueueOverflowMenu(item: item),
@@ -561,6 +573,7 @@ Future<void> _advanceQueueItem(
       final appointmentStatus = switch (status) {
         QueueStatus.arrived => 'Arrived',
         QueueStatus.inConsultation => 'In Consultation',
+        QueueStatus.completed => 'Completed',
         QueueStatus.missed => 'Missed',
         _ => null,
       };

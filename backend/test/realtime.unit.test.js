@@ -94,6 +94,7 @@ test('Socket.IO authenticates WebSockets and scopes queue events', async t => {
   assert.equal(ownerPayload.ownerId, 'owner-a');
   assert.deepEqual(staffPayload.tables, [
     'appointments',
+    'pet_care_bookings',
     'queue_entries',
     'walk_in_appointments',
     'doctor_appointment_state',
