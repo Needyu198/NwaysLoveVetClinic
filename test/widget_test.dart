@@ -2093,6 +2093,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Male').last);
     await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('add-pet-blood-type')),
+    );
+    await tester.tap(find.byKey(const ValueKey('add-pet-blood-type')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Type A').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('add-pet-dob')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('15').last);
@@ -2118,6 +2125,7 @@ void main() {
     );
     expect(savedPet.dateOfBirth, isNot(DateTime(2020)));
     expect(savedPet.weightKg, 4.5);
+    expect(savedPet.bloodType, 'Type A');
   });
 
   testWidgets('profile displays and manages upcoming appointments', (
@@ -2701,19 +2709,35 @@ void main() {
     );
     await tester.tap(find.text('Max').last);
     await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('appointment-pet-choice-Max')),
+        matching: find.byIcon(Icons.check_circle_rounded),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
     await tester.pumpAndSettle();
 
     expect(find.text('Pet Care Services'), findsOneWidget);
     expect(find.byKey(const ValueKey('booking-pet-care-icon')), findsOneWidget);
     await tester.ensureVisible(find.text('Pet Care Services'));
-    await tester.tap(find.byKey(const ValueKey('clinic-pet-care-category')));
+    await tester.tap(find.text('Pet Care Services'));
     await tester.pumpAndSettle();
     expect(find.text('Care made comfortable'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.text('General Checkup'));
     await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('appointment-service-choice-General Checkup'),
+        ),
+        matching: find.byIcon(Icons.check_circle_rounded),
+      ),
+      findsOneWidget,
+    );
     ClinicDirectory.instance.replaceForTesting({
       'doctor-photo': {
         'id': 'doctor-photo',
@@ -2735,6 +2759,13 @@ void main() {
     );
     await tester.tap(find.text('Dr. Aye Chan'));
     await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('appointment-vet-choice-Dr. Aye Chan')),
+        matching: find.byIcon(Icons.check_circle_rounded),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.text('Choose Date'));
     await tester.pumpAndSettle();
 

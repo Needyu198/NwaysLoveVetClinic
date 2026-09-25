@@ -249,7 +249,7 @@ class DoctorPetDetailsPage extends StatelessWidget {
       'Sex: ${profile?.sex ?? 'Not recorded'}',
       'Date of Birth: ${profile == null ? 'Not recorded' : _shortDate(profile.dateOfBirth)}',
       'Weight: ${profile == null ? 'Not recorded' : '${profile.weightKg.toStringAsFixed(profile.weightKg % 1 == 0 ? 0 : 1)} kg'}',
-      'Blood Type: Not recorded',
+      'Blood Type: ${profile?.bloodType ?? 'Not recorded'}',
       'Allergies: ${profile?.allergies ?? record.allergies}',
       'Chronic Diseases: ${profile?.conditions ?? record.existingConditions}',
       'Current Medications: ${profile?.medicines ?? 'Not recorded'}',

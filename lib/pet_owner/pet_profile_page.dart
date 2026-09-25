@@ -22,6 +22,7 @@ class PetProfile {
     required this.weight,
     required this.age,
     required this.imageAsset,
+    this.bloodType = 'Unknown',
     this.imageAlignment = Alignment.center,
     this.photoUrl = '',
     this.petKey = '',
@@ -33,6 +34,7 @@ class PetProfile {
   final String sex;
   final String weight;
   final String age;
+  final String bloodType;
   final String imageAsset;
   final Alignment imageAlignment;
 
@@ -52,6 +54,7 @@ class PetProfile {
     sex: sex,
     weight: weight,
     age: age,
+    bloodType: bloodType,
     imageAsset: imageAsset,
     imageAlignment: imageAlignment,
     photoUrl: newPhotoUrl,
@@ -412,6 +415,11 @@ class _BasicInfoPanel extends StatelessWidget {
                 ),
                 label: 'Sex',
                 value: profile.sex,
+              ),
+              _InfoTile(
+                icon: Icons.bloodtype_outlined,
+                label: 'Blood Type',
+                value: profile.bloodType,
               ),
             ],
           ),

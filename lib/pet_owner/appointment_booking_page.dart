@@ -2452,6 +2452,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
         itemBuilder: (context, index) {
           final pet = _pets[index];
           return _SelectionCard(
+            key: ValueKey('appointment-pet-choice-${pet.name}'),
             selected: _pet == pet,
             onTap: () => setState(() => _pet = pet),
             child: Column(
@@ -2494,6 +2495,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
           const SizedBox(height: 16),
           for (final service in _services) ...[
             _SelectionCard(
+              key: ValueKey('appointment-service-choice-${service.name}'),
               selected: _service == service,
               onTap: () => setState(() {
                 _service = service;
@@ -2522,6 +2524,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
           ],
           _SelectionCard(
             selected: false,
+            showSelectionIndicator: false,
             onTap: () =>
                 Navigator.of(context).pushNamed(PetCareServicesPage.routeName),
             child: Row(
@@ -2584,6 +2587,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
                     ? null
                     : PetPhoto.decodeDataUri(profile!.photoUrl!);
                 return _SelectionCard(
+                  key: ValueKey('appointment-vet-choice-$doctor'),
                   selected: _veterinarian == doctor,
                   onTap: () => setState(() {
                     _veterinarian = doctor;
@@ -3179,38 +3183,74 @@ class _SelectionCard extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.child,
+    this.showSelectionIndicator = true,
+    super.key,
   });
 
   final bool selected;
   final VoidCallback onTap;
   final Widget child;
+  final bool showSelectionIndicator;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? const Color(0xFFE8FFF5) : Colors.white,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        onTap: onTap,
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected ? const Color(0xFFE8FFF5) : Colors.white,
         borderRadius: BorderRadius.circular(22),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: selected ? _BookingColors.green : const Color(0xFFDDE9E4),
-              width: selected ? 2.3 : 1.2,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0C0B2F25),
-                blurRadius: 12,
-                offset: Offset(0, 6),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: selected
+                    ? _BookingColors.green
+                    : const Color(0xFFDDE9E4),
+                width: selected ? 2.3 : 1.2,
               ),
-            ],
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0C0B2F25),
+                  blurRadius: 12,
+                  offset: Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(
+                    right: showSelectionIndicator ? 32 : 0,
+                  ),
+                  child: child,
+                ),
+                if (showSelectionIndicator)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      child: Icon(
+                        selected
+                            ? Icons.check_circle_rounded
+                            : Icons.circle_outlined,
+                        key: ValueKey(selected),
+                        color: selected
+                            ? _BookingColors.green
+                            : _BookingColors.muted,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-          child: child,
         ),
       ),
     );

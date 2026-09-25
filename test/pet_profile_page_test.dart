@@ -12,6 +12,7 @@ void main() {
     sex: 'Male',
     weight: '4.5 kg',
     age: '3 years',
+    bloodType: 'Type A',
     imageAsset: PetOwnerHomePage.dogAsset,
   );
 
@@ -35,6 +36,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Basic Info'), findsOneWidget);
+    expect(find.text('Blood Type'), findsOneWidget);
+    expect(find.text('Type A'), findsOneWidget);
     expect(find.text('Age'), findsNothing);
     expect(
       find.byKey(const ValueKey('pet-profile-species-cat-icon')),

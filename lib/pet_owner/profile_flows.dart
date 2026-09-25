@@ -172,6 +172,7 @@ class ProfilePet {
     'type': type,
     'breed': breed,
     'sex': sex,
+    'bloodType': bloodType,
     'dateOfBirth': dateOfBirth.toIso8601String(),
     'weightKg': weightKg,
     'color': color,
@@ -194,6 +195,7 @@ class ProfilePet {
       type: str('type', 'Dog'),
       breed: str('breed'),
       sex: str('sex', 'Unknown'),
+      bloodType: str('bloodType', 'Unknown'),
       dateOfBirth: DateTime.tryParse(str('dateOfBirth')) ?? DateTime(2020),
       weightKg: (data['weightKg'] as num?)?.toDouble() ?? 0,
       color: str('color'),
@@ -213,6 +215,7 @@ class ProfilePet {
     required this.type,
     required this.breed,
     required this.sex,
+    this.bloodType = 'Unknown',
     required this.dateOfBirth,
     required this.weightKg,
     required this.color,
@@ -229,6 +232,7 @@ class ProfilePet {
   final String type;
   final String breed;
   final String sex;
+  final String bloodType;
   final DateTime dateOfBirth;
   final double weightKg;
   final String color;
@@ -247,6 +251,7 @@ class ProfilePet {
 
   ProfilePet copyWith({
     DateTime? dateOfBirth,
+    String? bloodType,
     String? photoUrl,
     bool? hasCustomPhoto,
   }) => ProfilePet(
@@ -254,6 +259,7 @@ class ProfilePet {
     type: type,
     breed: breed,
     sex: sex,
+    bloodType: bloodType ?? this.bloodType,
     dateOfBirth: dateOfBirth ?? this.dateOfBirth,
     weightKg: weightKg,
     color: color,
@@ -287,6 +293,7 @@ class ProfilePet {
     species: type,
     breed: breed,
     sex: sex,
+    bloodType: bloodType,
     weight: '${weightKg.toStringAsFixed(weightKg % 1 == 0 ? 0 : 1)} kg',
     age: ageLabel,
     imageAsset: PetProfilePage.fallbackProfile.imageAsset,
@@ -1018,7 +1025,14 @@ class _AddPetPageState extends State<AddPetPage> {
   final _weight = TextEditingController();
   String? _type;
   String? _sex;
+  String _bloodType = 'Unknown';
   DateTime? _dateOfBirth;
+
+  List<String> get _bloodTypes => switch (_type) {
+    'Dog' => const ['Unknown', 'DEA 1 Positive', 'DEA 1 Negative'],
+    'Cat' => const ['Unknown', 'Type A', 'Type B', 'Type AB'],
+    _ => const ['Unknown'],
+  };
 
   /// Uploaded pet photo as a base64 data URI (or null when none chosen).
   String? _photoSource;
@@ -1105,6 +1119,7 @@ class _AddPetPageState extends State<AddPetPage> {
                       onChanged: (value) => setState(() {
                         _type = value;
                         _breed.clear();
+                        _bloodType = 'Unknown';
                       }),
                       validator: (value) =>
                           value == null ? 'Select a pet type' : null,
@@ -1134,6 +1149,28 @@ class _AddPetPageState extends State<AddPetPage> {
                       onChanged: (value) => setState(() => _sex = value),
                       validator: (value) =>
                           value == null ? 'Select the pet sex' : null,
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      key: const ValueKey('add-pet-blood-type'),
+                      initialValue: _bloodType,
+                      decoration: const InputDecoration(
+                        labelText: 'Blood type',
+                        helperText: 'Select Unknown if the pet is untested.',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _bloodTypes
+                          .map(
+                            (value) => DropdownMenuItem(
+                              value: value,
+                              child: Text(value),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: _type == null
+                          ? null
+                          : (value) =>
+                                setState(() => _bloodType = value ?? 'Unknown'),
                     ),
                     const SizedBox(height: 14),
                     FormField<DateTime>(
@@ -1311,6 +1348,7 @@ class _AddPetPageState extends State<AddPetPage> {
     type: _type!,
     breed: _breed.text.trim(),
     sex: _sex!,
+    bloodType: _bloodType,
     dateOfBirth: _dateOfBirth!,
     weightKg: double.parse(_weight.text.trim()),
     color: '',
@@ -1356,7 +1394,8 @@ class _AddPetPageState extends State<AddPetPage> {
         content: Text(
           '${pet.name}\n${pet.type} • ${pet.breed}\n'
           '${pet.sex} • ${pet.ageLabel} • '
-          '${pet.weightKg.toStringAsFixed(pet.weightKg % 1 == 0 ? 0 : 1)} kg',
+          '${pet.weightKg.toStringAsFixed(pet.weightKg % 1 == 0 ? 0 : 1)} kg\n'
+          'Blood type: ${pet.bloodType}',
         ),
         actions: [
           TextButton(
