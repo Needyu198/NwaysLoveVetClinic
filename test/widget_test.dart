@@ -2875,7 +2875,10 @@ void main() {
     await tester.tap(find.text('Select Schedule'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(ChoiceChip).first);
+    expect(find.byKey(const ValueKey('care-date-today')), findsOneWidget);
+    expect(find.textContaining('Today'), findsOneWidget);
+    // Select tomorrow so this test remains valid after today's clinic hours.
+    await tester.tap(find.byType(ChoiceChip).at(1));
     await tester.pump();
     expect(find.byKey(const ValueKey('care-time-12:00 PM')), findsOneWidget);
     expect(find.byKey(const ValueKey('care-time-5:00 PM')), findsOneWidget);
@@ -2903,6 +2906,10 @@ void main() {
     expect(find.text('Check In Pet'), findsNothing);
     expect(find.text('Start Service'), findsNothing);
     expect(find.text('Mark Service Complete'), findsNothing);
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Doctor Profiles'), findsOneWidget);
   });
 
   testWidgets('Clinic Queue category opens read-only My Queue', (

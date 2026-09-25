@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../data/clinic_api.dart';
 import '../data/clinic_directory.dart';
 import 'appointment_booking_page.dart';
+import 'booking_slot_time.dart';
 import 'pet_owner_page_header.dart';
 import 'pet_image.dart';
 import 'profile_flows.dart';
@@ -66,67 +67,81 @@ class MyServiceBookingsPage extends StatelessWidget {
   const MyServiceBookingsPage({super.key});
 
   static const routeName = '/my-service-bookings';
+  static const _clinicRouteName = '/pet-owner-clinic';
+
+  void _returnToClinic(BuildContext context) {
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(_clinicRouteName, (route) => route.isFirst);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _CareColors.page,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            const PetOwnerPageHeader(
-              title: 'My Service Bookings',
-              logoKey: ValueKey('my-service-bookings-logo'),
-            ),
-            Expanded(
-              child: AnimatedBuilder(
-                animation: Listenable.merge([
-                  PetCareBookingStore.instance,
-                  AppointmentStore.instance,
-                ]),
-                builder: (context, _) {
-                  final bookings = PetCareBookingStore.instance.bookings;
-                  if (bookings.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.content_cut_rounded,
-                              size: 70,
-                              color: _CareColors.muted,
-                            ),
-                            const SizedBox(height: 18),
-                            const Text(
-                              'No service bookings yet',
-                              style: _CareText.title,
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Choose Pet Care Services from the Clinic categories to make a booking.',
-                              textAlign: TextAlign.center,
-                              style: _CareText.body,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-                    itemCount: bookings.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) =>
-                        _ServiceBookingCard(booking: bookings[index]),
-                  );
-                },
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _returnToClinic(context);
+      },
+      child: Scaffold(
+        backgroundColor: _CareColors.page,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              PetOwnerPageHeader(
+                title: 'My Service Bookings',
+                logoKey: const ValueKey('my-service-bookings-logo'),
+                onBack: () => _returnToClinic(context),
               ),
-            ),
-          ],
+              Expanded(
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([
+                    PetCareBookingStore.instance,
+                    AppointmentStore.instance,
+                  ]),
+                  builder: (context, _) {
+                    final bookings = PetCareBookingStore.instance.bookings;
+                    if (bookings.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.content_cut_rounded,
+                                size: 70,
+                                color: _CareColors.muted,
+                              ),
+                              const SizedBox(height: 18),
+                              const Text(
+                                'No service bookings yet',
+                                style: _CareText.title,
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Choose Pet Care Services from the Clinic categories to make a booking.',
+                                textAlign: TextAlign.center,
+                                style: _CareText.body,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+                      itemCount: bookings.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 14),
+                      itemBuilder: (context, index) =>
+                          _ServiceBookingCard(booking: bookings[index]),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -890,7 +905,7 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
 
   List<DateTime> get _dates {
     final today = DateUtils.dateOnly(DateTime.now());
-    return List.generate(7, (index) => today.add(Duration(days: index + 1)));
+    return List.generate(7, (index) => today.add(Duration(days: index)));
   }
 
   static const _times = [
@@ -931,6 +946,13 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
 
   void _holdSlot() {
     if (_date == null || _time == null || _providerName == null) return;
+    if (!isFutureBookingSlot(_date!, _time!)) {
+      setState(() {
+        _time = null;
+        _error = 'That time has passed. Choose another available time.';
+      });
+      return;
+    }
     if (!PetCareBookingStore.instance.isSlotAvailable(
       provider: _providerName!,
       providerId: _providerId,
@@ -961,6 +983,16 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
   }
 
   Future<void> _confirm() async {
+    if (_date == null ||
+        _time == null ||
+        !isFutureBookingSlot(_date!, _time!)) {
+      setState(() {
+        _step = 2;
+        _time = null;
+        _error = 'That time has passed. Choose another available time.';
+      });
+      return;
+    }
     final bookingId = 'CARE${DateTime.now().microsecondsSinceEpoch}';
     final booking = PetCareBooking(
       id: bookingId,
@@ -1197,6 +1229,11 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
   }
 
   Widget _scheduleStep() {
+    final availableTimes = _date == null
+        ? _times
+        : _times
+              .where((time) => isFutureBookingSlot(_date!, time))
+              .toList(growable: false);
     return _BookingStep(
       title: 'Select Schedule',
       subtitle:
@@ -1214,7 +1251,12 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
             children: [
               for (final date in _dates)
                 ChoiceChip(
-                  label: Text(_shortDate(date)),
+                  key: ValueKey(
+                    DateUtils.isSameDay(date, DateTime.now())
+                        ? 'care-date-today'
+                        : 'care-date-${date.toIso8601String()}',
+                  ),
+                  label: Text(_scheduleDateLabel(date)),
                   selected: _date == date,
                   onSelected: (_) => setState(() {
                     _date = date;
@@ -1226,21 +1268,27 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
           const SizedBox(height: 24),
           const Text('Available times', style: _CareText.section),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final time in _times)
-                ChoiceChip(
-                  key: ValueKey('care-time-$time'),
-                  label: Text(time),
-                  selected: _time == time,
-                  onSelected: _date == null
-                      ? null
-                      : (_) => setState(() => _time = time),
-                ),
-            ],
-          ),
+          if (_date != null && availableTimes.isEmpty)
+            const _Notice(
+              icon: Icons.schedule_outlined,
+              text: 'No times remain today. Select another date to continue.',
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final time in availableTimes)
+                  ChoiceChip(
+                    key: ValueKey('care-time-$time'),
+                    label: Text(time),
+                    selected: _time == time,
+                    onSelected: _date == null
+                        ? null
+                        : (_) => setState(() => _time = time),
+                  ),
+              ],
+            ),
         ],
       ),
     );
@@ -1995,6 +2043,13 @@ String _shortDate(DateTime date) {
     'Dec',
   ];
   return '${months[date.month - 1]} ${date.day}';
+}
+
+String _scheduleDateLabel(DateTime date) {
+  if (DateUtils.isSameDay(date, DateTime.now())) {
+    return 'Today • ${_shortDate(date)}';
+  }
+  return _shortDate(date);
 }
 
 String _longDate(DateTime date) {
