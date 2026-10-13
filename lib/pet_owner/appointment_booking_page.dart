@@ -417,6 +417,7 @@ QueueServiceGroup queueServiceGroupForName(
     'day care',
     'overnight stay',
     'nail clipping',
+    'nail trimming',
     'ear cleaning',
     'anal gland cleaning',
   }.any(normalized.contains)) {
@@ -1194,6 +1195,10 @@ class BookingService {
     'Vaccination' => 'assets/photos/icon/reminder_vaccine.png',
     'Emergency' => 'assets/photos/icon/clinic_emergency.png',
     'Home Visit' => 'assets/photos/icon/clinic_home_visit.png',
+    'Grooming' => 'assets/photos/icon/pet_care_grooming.png',
+    'Bathing' => 'assets/photos/icon/pet_care_bathing.png',
+    'Nail Trimming' => 'assets/photos/icon/pet_care_nail_trimming.png',
+    'Boarding' => 'assets/photos/icon/pet_care_boarding.png',
     _ => null,
   };
 }
@@ -2316,6 +2321,20 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
   String? _error;
   BookedAppointment? _createdAppointment;
 
+  bool _isSelectedPet(BookingPet pet) {
+    final selectedPet = _pet;
+    if (selectedPet == null) return false;
+    if (selectedPet.id.isNotEmpty && pet.id.isNotEmpty) {
+      return selectedPet.id == pet.id;
+    }
+    return selectedPet.name == pet.name &&
+        selectedPet.species == pet.species &&
+        selectedPet.breed == pet.breed;
+  }
+
+  bool _isSelectedService(BookingService service) =>
+      _service?.name == service.name;
+
   List<DateTime> get _availableDates {
     final today = DateUtils.dateOnly(DateTime.now());
     return List.generate(7, (index) => today.add(Duration(days: index)));
@@ -2454,7 +2473,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
           final pet = _pets[index];
           return _SelectionCard(
             key: ValueKey('appointment-pet-choice-${pet.name}'),
-            selected: _pet == pet,
+            selected: _isSelectedPet(pet),
             onTap: () => setState(() => _pet = pet),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -2497,7 +2516,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
           for (final service in _services) ...[
             _SelectionCard(
               key: ValueKey('appointment-service-choice-${service.name}'),
-              selected: _service == service,
+              selected: _isSelectedService(service),
               onTap: () => setState(() {
                 _service = service;
                 _veterinarian = null;

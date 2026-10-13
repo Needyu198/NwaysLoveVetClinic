@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:senior_project/data/clinic_api.dart';
 import 'package:senior_project/pet_owner/appointment_booking_page.dart';
 import 'package:senior_project/pet_owner/pet_owner_home_page.dart';
+import 'package:senior_project/pet_owner/profile_flows.dart';
 
 void main() {
   const services = [
@@ -35,6 +37,13 @@ void main() {
     ),
   ];
 
+  const petCareServices = {
+    'Grooming': 'assets/photos/icon/pet_care_grooming.png',
+    'Bathing': 'assets/photos/icon/pet_care_bathing.png',
+    'Nail Trimming': 'assets/photos/icon/pet_care_nail_trimming.png',
+    'Boarding': 'assets/photos/icon/pet_care_boarding.png',
+  };
+
   testWidgets('Book Appointment service choices use fixed-size artwork', (
     tester,
   ) async {
@@ -54,6 +63,65 @@ void main() {
     for (final service in services) {
       _expectFixedIcon(tester, service.name, 'selection');
     }
+  });
+
+  testWidgets('signed-in pet and service choices keep their selected state', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    ClinicApi.instance.token = 'test-token';
+    ProfilePetStore.instance.reset();
+    ProfilePetStore.instance.add(
+      ProfilePet(
+        name: 'Milo',
+        type: 'Cat',
+        breed: 'Domestic Shorthair',
+        sex: 'Male',
+        dateOfBirth: DateTime(2022, 1, 1),
+        weightKg: 4.2,
+        color: 'Orange',
+        identifyingFeatures: '',
+        allergies: 'None',
+        conditions: 'None',
+        medicines: 'None',
+        vaccination: 'Up to date',
+      ),
+    );
+    addTearDown(() {
+      ClinicApi.instance.token = null;
+      ProfilePetStore.instance.reset();
+    });
+
+    await tester.pumpWidget(const MaterialApp(home: AppointmentBookingPage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Milo'));
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('appointment-pet-choice-Milo')),
+        matching: find.byIcon(Icons.check_circle_rounded),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('General Checkup'));
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('appointment-service-choice-General Checkup'),
+        ),
+        matching: find.byIcon(Icons.check_circle_rounded),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('My Appointments cards use fixed-size service artwork', (
@@ -98,6 +166,65 @@ void main() {
 
     for (final service in services) {
       _expectFixedIcon(tester, service.name, 'appointment-card');
+    }
+  });
+
+  testWidgets('My Appointments cards show pet-care service artwork', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    AppointmentStore.instance.clear();
+    addTearDown(AppointmentStore.instance.clear);
+
+    var index = 0;
+    for (final serviceName in petCareServices.keys) {
+      AppointmentStore.instance.add(
+        BookedAppointment(
+          id: 'CARE-ICON-${index++}',
+          createdAt: DateTime.now(),
+          pet: const BookingPet(
+            name: 'Max',
+            species: 'Dog',
+            breed: 'Golden Retriever',
+            age: '2 years',
+            icon: Icons.pets,
+            color: Colors.blue,
+          ),
+          service: BookingService(
+            name: serviceName,
+            description: 'Pet care service.',
+            icon: Icons.pets_rounded,
+            homeVisit: false,
+            doctors: const ['Care Team'],
+          ),
+          veterinarian: 'Care Team',
+          date: DateTime.now().add(const Duration(days: 1)),
+          time: '10:00 AM',
+          symptoms: '',
+          reason: '',
+          notes: '',
+          address: '',
+          status: 'Confirmed',
+        ),
+      );
+    }
+
+    await tester.pumpWidget(const MaterialApp(home: MyAppointmentsPage()));
+    await tester.pumpAndSettle();
+
+    for (final entry in petCareServices.entries) {
+      final finder = find.byKey(
+        ValueKey('appointment-service-${entry.key}-appointment-card-icon'),
+      );
+      expect(finder, findsOneWidget);
+      final image = tester.widget<Image>(
+        find.descendant(of: finder, matching: find.byType(Image)),
+      );
+      expect((image.image as AssetImage).assetName, entry.value);
     }
   });
 

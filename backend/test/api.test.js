@@ -127,6 +127,24 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
         data:{...duplicateBooking.data,key:`${table}-other-owner`},
       }]})).status,200,`${table} other owner`);
     }
+    // Staff appointment screens hydrate clinic-wide owner bookings from these
+    // shared tables, including the pet-care service and its linked appointment.
+    const staffAppointments = await request('/data/appointments',tokens.staff);
+    assert.equal(staffAppointments.status,200);
+    assert.equal(
+      staffAppointments.records.some(record =>
+        record.owner_id === 'ownerA' &&
+        record.data.value.id === 'appointments-first'),
+      true,
+    );
+    const staffPetCareBookings = await request('/data/pet_care_bookings',tokens.staff);
+    assert.equal(staffPetCareBookings.status,200);
+    assert.equal(
+      staffPetCareBookings.records.some(record =>
+        record.owner_id === 'ownerA' &&
+        record.data.value.id === 'pet_care_bookings-first'),
+      true,
+    );
     // Health posts are clinic-visible but doctor-owned for mutation. Publishing
     // also creates an in-app notification for every active pet owner.
     const healthPost = {

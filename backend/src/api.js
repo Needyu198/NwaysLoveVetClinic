@@ -85,7 +85,7 @@ const clinicDateToday = () => {
 };
 const queueServiceGroupForAppointment = appointment => {
   const name = String(appointment?.service?.name || appointment?.service || '').toLowerCase();
-  return ['pet care','grooming','bathing','boarding','day care','overnight stay','nail clipping','ear cleaning','anal gland cleaning']
+  return ['pet care','grooming','bathing','boarding','day care','overnight stay','nail clipping','nail trimming','ear cleaning','anal gland cleaning']
     .some(value => name.includes(value)) ? 'petCareService' : 'medicalService';
 };
 async function findAccountByIdentifier(database, identifier) {

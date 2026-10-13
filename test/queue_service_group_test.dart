@@ -21,6 +21,10 @@ void main() {
       QueueServiceGroup.petCareService,
     );
     expect(
+      queueServiceGroupForName('Nail Trimming'),
+      QueueServiceGroup.petCareService,
+    );
+    expect(
       queueServiceGroupForName('General Checkup', walkIn: true),
       QueueServiceGroup.walkInService,
     );

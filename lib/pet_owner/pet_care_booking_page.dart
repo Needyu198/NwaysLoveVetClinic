@@ -883,6 +883,15 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
   String? _error;
   PetCareBooking? _created;
 
+  bool _isSelectedPet(CarePet pet) {
+    final selectedPet = _pet;
+    if (selectedPet == null) return false;
+    if (selectedPet.petKey.isNotEmpty && pet.petKey.isNotEmpty) {
+      return selectedPet.petKey == pet.petKey;
+    }
+    return selectedPet.name == pet.name && selectedPet.breed == pet.breed;
+  }
+
   List<DateTime> get _dates {
     final today = DateUtils.dateOnly(DateTime.now());
     return List.generate(7, (index) => today.add(Duration(days: index)));
@@ -1147,7 +1156,7 @@ class _PetCareBookingPageState extends State<PetCareBookingPage> {
                 final pet = _pets[index];
                 return _SelectTile(
                   key: ValueKey('care-pet-${pet.name}'),
-                  selected: _pet == pet,
+                  selected: _isSelectedPet(pet),
                   leading: ProfilePetAvatar(
                     petName: pet.name,
                     species: ProfilePetStore.instance.byKey(pet.petKey)?.type,

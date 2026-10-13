@@ -30,12 +30,19 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
     super.dispose();
   }
 
-  static const _filters = ['All', 'Consulting', 'In Queue', 'Emergency'];
+  static const _filters = [
+    'All',
+    'Pet Care',
+    'Consulting',
+    'In Queue',
+    'Emergency',
+  ];
 
   static String _normalizeFilter(String? value) =>
       _filters.contains(value) ? value! : 'All';
 
   bool _matchesFilter(StaffAppointment a) => switch (_filter) {
+    'Pet Care' => a.queueServiceGroup == QueueServiceGroup.petCareService,
     'Consulting' => a.status == 'In Consultation',
     'In Queue' =>
       a.priority != 'Urgent' &&
@@ -51,6 +58,7 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
   };
 
   bool _matchesLabel(StaffAppointment a, String filter) => switch (filter) {
+    'Pet Care' => a.queueServiceGroup == QueueServiceGroup.petCareService,
     'Consulting' => a.status == 'In Consultation',
     'In Queue' =>
       a.priority != 'Urgent' &&
@@ -64,6 +72,74 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
     'Emergency' => a.priority == 'Urgent',
     _ => true,
   };
+
+  _StaffAppointmentTopic _topicFor(StaffAppointment item) {
+    final serviceName = item.service.trim().toLowerCase();
+    if (item.source?.service.homeVisit == true ||
+        serviceName.contains('home visit')) {
+      return _StaffAppointmentTopic.homeVisit;
+    }
+    if (item.queueServiceGroup == QueueServiceGroup.petCareService) {
+      return _StaffAppointmentTopic.petCare;
+    }
+    return _StaffAppointmentTopic.medical;
+  }
+
+  List<Widget> _groupedAppointmentTiles(
+    BuildContext context,
+    List<StaffAppointment> items,
+  ) {
+    final children = <Widget>[];
+    for (final topic in _StaffAppointmentTopic.values) {
+      final topicItems = items
+          .where((item) => _topicFor(item) == topic)
+          .toList();
+      if (topicItems.isEmpty) continue;
+      children.add(
+        Padding(
+          key: ValueKey('staff-appointment-topic-${topic.name}'),
+          padding: EdgeInsets.only(top: children.isEmpty ? 6 : 22, bottom: 10),
+          child: Row(
+            children: [
+              Icon(topic.icon, size: 20, color: _green),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  topic.label,
+                  style: const TextStyle(
+                    color: _ink,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '${topicItems.length}',
+                style: const TextStyle(
+                  color: _muted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      for (final item in topicItems) {
+        children.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: _AppointmentTile(
+              item: item,
+              onTap: () =>
+                  _push(context, StaffAppointmentDetailsPage(item: item)),
+            ),
+          ),
+        );
+      }
+    }
+    return children;
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -186,19 +262,10 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
                           ),
                         ),
                       )
-                    : ListView.separated(
+                    : ListView(
                         key: const ValueKey('staff-appointments'),
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-                        itemCount: items.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 14),
-                        itemBuilder: (context, index) => _AppointmentTile(
-                          item: items[index],
-                          onTap: () => _push(
-                            context,
-                            StaffAppointmentDetailsPage(item: items[index]),
-                          ),
-                        ),
+                        children: _groupedAppointmentTiles(context, items),
                       ),
               ),
             ],
@@ -207,6 +274,22 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
       ),
     ),
   );
+}
+
+enum _StaffAppointmentTopic { medical, homeVisit, petCare }
+
+extension on _StaffAppointmentTopic {
+  String get label => switch (this) {
+    _StaffAppointmentTopic.medical => 'Medical Service',
+    _StaffAppointmentTopic.homeVisit => 'Home Visit',
+    _StaffAppointmentTopic.petCare => 'Pet Care Service',
+  };
+
+  IconData get icon => switch (this) {
+    _StaffAppointmentTopic.medical => Icons.medical_services_outlined,
+    _StaffAppointmentTopic.homeVisit => Icons.home_work_outlined,
+    _StaffAppointmentTopic.petCare => Icons.pets_outlined,
+  };
 }
 
 class _StaffAppointmentsHeader extends StatelessWidget {

@@ -405,6 +405,15 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
   String? _error;
   HomeVisit? _created;
 
+  bool _isSelectedPet(HomeVisitPet pet) {
+    final selectedPet = _pet;
+    if (selectedPet == null) return false;
+    if (selectedPet.petKey.isNotEmpty && pet.petKey.isNotEmpty) {
+      return selectedPet.petKey == pet.petKey;
+    }
+    return selectedPet.name == pet.name && selectedPet.breed == pet.breed;
+  }
+
   List<DateTime> get _availableDates {
     final today = DateUtils.dateOnly(DateTime.now());
     return List.generate(7, (index) => today.add(Duration(days: index)));
@@ -682,7 +691,7 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
           final pet = _pets[index];
           return _VisitSelectTile(
             key: ValueKey('home-visit-pet-${pet.name}'),
-            selected: _pet == pet,
+            selected: _isSelectedPet(pet),
             icon: Icons.pets_rounded,
             leading: ProfilePetAvatar(
               petName: pet.name,
