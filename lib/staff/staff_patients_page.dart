@@ -355,24 +355,52 @@ class StaffPatientDetailPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Row(
+                    Column(
                       children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: FilledButton.icon(
+                            key: const ValueKey('staff-call-owner'),
                             onPressed: latest == null
                                 ? null
                                 : () => _callOwnerAndRecord(context, latest),
-                            icon: const Icon(Icons.call_outlined),
-                            label: const Text('Call owner'),
+                            icon: const Icon(Icons.call_rounded, size: 23),
+                            label: const Text(
+                              'Call Owner',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _green,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: const Color(0xFFB8CBC4),
+                              disabledForegroundColor: Colors.white,
+                              elevation: 3,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: FilledButton.icon(
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: OutlinedButton.icon(
                             key: const ValueKey('staff-set-reminder'),
                             onPressed: () => _setReminder(context, owner),
                             icon: const Icon(Icons.alarm_add_rounded),
                             label: const Text('Set Reminder'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _green,
+                              side: const BorderSide(color: _green, width: 1.5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
                           ),
                         ),
                       ],

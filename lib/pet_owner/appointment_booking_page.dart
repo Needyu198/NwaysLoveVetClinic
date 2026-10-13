@@ -2268,7 +2268,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
                 description: s.description,
                 icon: s.icon,
                 homeVisit: s.homeVisit,
-                doctors: ClinicDirectory.instance.doctors,
+                doctors: ClinicDirectory.instance.availableDoctors,
               ),
             )
             .toList();
@@ -2592,6 +2592,13 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       onAction: _next,
       child: Column(
         children: [
+          if (_service!.doctors.isEmpty)
+            const _NoticeBox(
+              icon: Icons.event_busy_outlined,
+              text:
+                  'No veterinarian is currently accepting appointments for this service.',
+            ),
+          if (_service!.doctors.isEmpty) const SizedBox(height: 12),
           for (final doctor in _service!.doctors) ...[
             Builder(
               builder: (context) {

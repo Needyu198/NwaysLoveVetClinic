@@ -171,9 +171,18 @@ class _MedicalRecordCard extends StatelessWidget {
   );
 }
 
-class StaffMedicalRecordDetailPage extends StatelessWidget {
+class StaffMedicalRecordDetailPage extends StatefulWidget {
   const StaffMedicalRecordDetailPage({required this.record, super.key});
   final DoctorMedicalRecord record;
+
+  @override
+  State<StaffMedicalRecordDetailPage> createState() =>
+      _StaffMedicalRecordDetailPageState();
+}
+
+class _StaffMedicalRecordDetailPageState
+    extends State<StaffMedicalRecordDetailPage> {
+  DoctorMedicalRecord get record => widget.record;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -193,7 +202,7 @@ class StaffMedicalRecordDetailPage extends StatelessWidget {
               const _Callout(
                 icon: Icons.lock_outline_rounded,
                 text:
-                    'Diagnoses, prescriptions, and clinical notes are read-only for staff.',
+                    'Clinical entries are read-only. Staff may update administrative follow-up details below.',
               ),
               const SizedBox(height: 14),
               _InfoCard(
@@ -217,12 +226,90 @@ class StaffMedicalRecordDetailPage extends StatelessWidget {
               _RecordField('Next dose', record.nextDoseDate),
               _RecordField('Follow-up', record.followUp),
               _RecordField('Test result', record.testResult),
+              const SizedBox(height: 8),
+              const Text('Administrative follow-up', style: _sectionStyle),
+              const SizedBox(height: 8),
+              _RecordField('Follow-up status', record.followUpStatus),
+              _RecordField('Administrative notes', record.administrativeNotes),
+              FilledButton.icon(
+                key: const ValueKey('staff-edit-medical-administration'),
+                onPressed: () => _editAdministrativeDetails(context),
+                icon: const Icon(Icons.edit_note_rounded),
+                label: const Text('Edit Administrative Details'),
+              ),
             ],
           ),
         ),
       ],
     ),
   );
+
+  Future<void> _editAdministrativeDetails(BuildContext context) async {
+    var notes = record.administrativeNotes;
+    var status = record.followUpStatus;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Administrative Details'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                key: const ValueKey('staff-medical-follow-up-status'),
+                initialValue: status,
+                decoration: const InputDecoration(
+                  labelText: 'Follow-up status',
+                ),
+                items:
+                    const ['Pending', 'Scheduled', 'Completed', 'Not required']
+                        .map(
+                          (value) => DropdownMenuItem(
+                            value: value,
+                            child: Text(value),
+                          ),
+                        )
+                        .toList(),
+                onChanged: (value) =>
+                    setDialogState(() => status = value ?? status),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const ValueKey('staff-medical-administrative-notes'),
+                initialValue: notes,
+                onChanged: (value) => notes = value,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Administrative notes',
+                  hintText: 'Scheduling, owner contact, or document follow-up',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const ValueKey('staff-save-medical-administration'),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (saved == true) {
+      DoctorMedicalRecordStore.instance.updateAdministrativeDetails(
+        record,
+        notes: notes,
+        followUpStatus: status,
+      );
+      if (mounted) setState(() {});
+    }
+  }
 }
 
 class _RecordField extends StatelessWidget {

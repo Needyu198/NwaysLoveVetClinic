@@ -1,4 +1,5 @@
 import '../data/database_sync.dart';
+import '../data/clinic_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -269,11 +270,26 @@ class ContactClinicStore extends ChangeNotifier {
     if (changed) notifyListeners();
   }
 
+  void markReadByStaff(Iterable<String> messageIds) {
+    final ids = messageIds.toSet();
+    var changed = false;
+    for (final message in _messages) {
+      if (ids.contains(message.id) &&
+          !message.isFromStaff &&
+          message.status != ContactMessageStatus.read) {
+        message.status = ContactMessageStatus.read;
+        changed = true;
+      }
+    }
+    if (changed) notifyListeners();
+  }
+
   void send({
     required String text,
     required ContactCategory category,
     String? petName,
   }) {
+    final ownerId = ClinicApi.instance.accountId;
     _messages.add(
       ClinicContactMessage(
         id: 'MSG-${DateTime.now().microsecondsSinceEpoch}',
@@ -283,6 +299,9 @@ class ContactClinicStore extends ChangeNotifier {
         petName: petName,
         status: ContactMessageStatus.sent,
         isFromStaff: false,
+        conversationId: ownerId.isEmpty ? '' : 'owner:$ownerId',
+        senderId: ownerId,
+        recipientId: 'clinic',
       ),
     );
     notifyListeners();
@@ -294,7 +313,13 @@ class ContactClinicStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void staffReply(String text, {String? ownerId}) {
+  void staffReply(
+    String text, {
+    String? ownerId,
+    String? conversationId,
+    String? petName,
+  }) {
+    final resolvedOwnerId = ownerId ?? '';
     final reply = ClinicContactMessage(
       id: 'STAFF-${DateTime.now().microsecondsSinceEpoch}',
       text: text,
@@ -302,6 +327,12 @@ class ContactClinicStore extends ChangeNotifier {
       category: ContactCategory.other,
       status: ContactMessageStatus.read,
       isFromStaff: true,
+      conversationId:
+          conversationId ??
+          (resolvedOwnerId.isEmpty ? '' : 'owner:$resolvedOwnerId'),
+      senderId: ClinicApi.instance.accountId,
+      recipientId: resolvedOwnerId,
+      petName: petName,
     );
     _messages.add(databaseAssignOwner(reply, reply.id, ownerId));
     notifyListeners();
@@ -344,6 +375,9 @@ class ClinicContactMessage {
     'isFromStaff': isFromStaff,
     'petName': petName,
     'status': status.name,
+    'conversationId': conversationId,
+    'senderId': senderId,
+    'recipientId': recipientId,
   };
   static ClinicContactMessage fromDb(Map<String, dynamic> data) {
     final value = ClinicContactMessage(
@@ -354,6 +388,9 @@ class ClinicContactMessage {
       isFromStaff: data['isFromStaff'] as bool,
       petName: data['petName'] == null ? null : data['petName'] as String,
       status: ContactMessageStatus.values.byName(data['status'] as String),
+      conversationId: data['conversationId'] as String? ?? '',
+      senderId: data['senderId'] as String? ?? '',
+      recipientId: data['recipientId'] as String? ?? '',
     );
     return value;
   }
@@ -366,6 +403,9 @@ class ClinicContactMessage {
     required this.status,
     required this.isFromStaff,
     this.petName,
+    this.conversationId = '',
+    this.senderId = '',
+    this.recipientId = '',
   });
 
   final String id;
@@ -374,6 +414,9 @@ class ClinicContactMessage {
   final ContactCategory category;
   final bool isFromStaff;
   final String? petName;
+  final String conversationId;
+  final String senderId;
+  final String recipientId;
   ContactMessageStatus status;
 }
 

@@ -656,6 +656,8 @@ class DoctorMedicalRecord {
     'followUp': followUp,
     'testResult': testResult,
     'finalized': finalized,
+    'administrativeNotes': administrativeNotes,
+    'followUpStatus': followUpStatus,
   };
   static DoctorMedicalRecord fromDb(Map<String, dynamic> data) {
     final value = DoctorMedicalRecord(
@@ -675,6 +677,8 @@ class DoctorMedicalRecord {
       followUp: data['followUp'] as String,
       testResult: data['testResult'] as String,
       finalized: data['finalized'] as bool,
+      administrativeNotes: data['administrativeNotes'] as String? ?? '',
+      followUpStatus: data['followUpStatus'] as String? ?? 'Pending',
     );
     return value;
   }
@@ -696,6 +700,8 @@ class DoctorMedicalRecord {
     required this.followUp,
     required this.testResult,
     required this.finalized,
+    this.administrativeNotes = '',
+    this.followUpStatus = 'Pending',
   });
 
   final String id;
@@ -714,6 +720,8 @@ class DoctorMedicalRecord {
   String followUp;
   String testResult;
   bool finalized;
+  String administrativeNotes;
+  String followUpStatus;
 }
 
 class DoctorMedicalRecordStore extends ChangeNotifier {
@@ -797,6 +805,17 @@ class DoctorMedicalRecordStore extends ChangeNotifier {
         ..testResult = testResult
         ..finalized = finalized;
     }
+    notifyListeners();
+  }
+
+  void updateAdministrativeDetails(
+    DoctorMedicalRecord record, {
+    required String notes,
+    required String followUpStatus,
+  }) {
+    record
+      ..administrativeNotes = notes.trim()
+      ..followUpStatus = followUpStatus;
     notifyListeners();
   }
 

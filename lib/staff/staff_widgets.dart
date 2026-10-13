@@ -98,12 +98,15 @@ class _StaffScaffold extends StatelessWidget {
   final VoidCallback? onBack;
   final VoidCallback? onLogoTap;
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: Column(
-      children: [
-        _InlineHeader(title: title, onBack: onBack, onLogoTap: onLogoTap),
-        Expanded(child: child),
-      ],
+  Widget build(BuildContext context) => Material(
+    color: _page,
+    child: SafeArea(
+      child: Column(
+        children: [
+          _InlineHeader(title: title, onBack: onBack, onLogoTap: onLogoTap),
+          Expanded(child: child),
+        ],
+      ),
     ),
   );
 }

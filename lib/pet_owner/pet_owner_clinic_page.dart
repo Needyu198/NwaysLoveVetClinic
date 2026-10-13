@@ -57,7 +57,7 @@ class PetOwnerClinicPage extends StatelessWidget {
     _ClinicService(
       'Pet Care Services',
       Icons.spa_outlined,
-      'Grooming, pet spa, bathing, nail trimming, and wellness care.',
+      'Grooming, pet spa, bathing, nail trimming, and boarding care.',
       imageAsset: petCareServiceIconAsset,
     ),
   ];

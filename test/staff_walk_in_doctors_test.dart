@@ -108,12 +108,8 @@ void main() {
     final queueIcon = find.byKey(const ValueKey('staff-queue-dashboard-icon'));
     expect(queueIcon, findsOneWidget);
     expect(
-      tester
-          .widget<Icon>(
-            find.descendant(of: queueIcon, matching: find.byType(Icon)),
-          )
-          .icon,
-      Icons.format_list_numbered_rounded,
+      find.descendant(of: queueIcon, matching: find.byType(Image)),
+      findsOneWidget,
     );
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('doctor-availability-Dr. Database Available')),
@@ -189,5 +185,16 @@ void main() {
       find.descendant(of: detailPhoto, matching: find.byType(Image)),
       findsOneWidget,
     );
+    final callOwner = find.byKey(const ValueKey('staff-call-owner'));
+    expect(callOwner, findsOneWidget);
+    expect(
+      find.descendant(of: callOwner, matching: find.text('Call Owner')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: callOwner, matching: find.byIcon(Icons.call_rounded)),
+      findsOneWidget,
+    );
+    expect(tester.widget<FilledButton>(callOwner).onPressed, isNotNull);
   });
 }

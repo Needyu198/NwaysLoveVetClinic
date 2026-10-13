@@ -372,7 +372,7 @@ class _HomeVisitBookingPageState extends State<HomeVisitBookingPage> {
 
   List<String> get _veterinarians => ClinicApi.instance.token == null
       ? _demoVeterinarians
-      : ClinicDirectory.instance.doctors;
+      : ClinicDirectory.instance.availableDoctors;
   static const _demoVeterinarians = [
     'Dr. Hnin Thiri Aung',
     'Dr. Cindy Lynn',

@@ -45,6 +45,13 @@ class _AdminManagementTab extends StatelessWidget {
                     keyValue: 'admin-menu-audit',
                     onTap: () => _open(context, const AdminAuditPage()),
                   ),
+                  _AdminMenuTile(
+                    icon: Icons.analytics_outlined,
+                    title: 'Operational Reports',
+                    subtitle: 'Appointments, queue, payments, and services',
+                    keyValue: 'admin-menu-reports',
+                    onTap: () => _open(context, const StaffReportsPage()),
+                  ),
                 ],
               );
             },

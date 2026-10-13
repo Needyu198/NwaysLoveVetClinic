@@ -773,6 +773,7 @@ void main() {
       find.byKey(const ValueKey('admin-menu-verification')),
       findsOneWidget,
     );
+    expect(find.byKey(const ValueKey('admin-menu-reports')), findsOneWidget);
 
     // Users and Roles list opens with search + filters.
     await tester.tap(find.byKey(const ValueKey('admin-menu-users')));
@@ -789,7 +790,7 @@ void main() {
       find.byKey(const ValueKey('admin-verification-list')),
       findsOneWidget,
     );
-    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
 
     // Profile tab still exposes the administrator identity and logout.
