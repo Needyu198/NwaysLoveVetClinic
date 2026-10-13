@@ -178,7 +178,11 @@ class PetCareBookingStore extends ChangeNotifier {
 
   final List<PetCareBooking> _bookings = [];
 
-  List<PetCareBooking> get bookings => List.unmodifiable(_bookings.reversed);
+  List<PetCareBooking> get bookings => List.unmodifiable(
+    _bookings.reversed.where(
+      (booking) => !isRemovedAppointmentService(booking.service.name),
+    ),
+  );
 
   void _syncLinkedAppointmentStatuses() {
     var changed = false;
@@ -214,6 +218,7 @@ class PetCareBookingStore extends ChangeNotifier {
   }) {
     return !_bookings.any(
       (booking) =>
+          !isRemovedAppointmentService(booking.service.name) &&
           (providerId != null &&
                   providerId.isNotEmpty &&
                   booking.providerId.isNotEmpty
@@ -232,6 +237,7 @@ class PetCareBookingStore extends ChangeNotifier {
   }) {
     return _bookings.any(
       (booking) =>
+          !isRemovedAppointmentService(booking.service.name) &&
           booking.isActive &&
           _sameCarePet(booking.pet, pet) &&
           DateUtils.isSameDay(booking.date, date) &&

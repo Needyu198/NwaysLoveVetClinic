@@ -140,8 +140,11 @@ class AppointmentStore extends ChangeNotifier {
 
   final List<BookedAppointment> _appointments = [];
 
-  List<BookedAppointment> get appointments =>
-      List.unmodifiable(_appointments.reversed);
+  List<BookedAppointment> get appointments => List.unmodifiable(
+    _appointments.reversed.where(
+      (appointment) => !isRemovedAppointmentService(appointment.service.name),
+    ),
+  );
 
   /// The maximum number of active bookings allowed for a single date/time slot
   /// across the whole clinic (all doctors combined). Cancelled bookings are
@@ -160,6 +163,7 @@ class AppointmentStore extends ChangeNotifier {
         .where(
           (appointment) =>
               appointment.id != excludingAppointmentId &&
+              !isRemovedAppointmentService(appointment.service.name) &&
               appointment.status != 'Cancelled' &&
               DateUtils.isSameDay(appointment.date, date) &&
               appointment.time == time,
@@ -192,6 +196,7 @@ class AppointmentStore extends ChangeNotifier {
     return _appointments.any(
       (appointment) =>
           appointment.id != excludingAppointmentId &&
+          !isRemovedAppointmentService(appointment.service.name) &&
           (ownerId == null || databaseOwnerOf(appointment) == ownerId) &&
           appointment.status != 'Cancelled' &&
           _sameBookingPet(appointment.pet, pet) &&
@@ -394,6 +399,9 @@ enum QueueStatus {
 }
 
 enum QueueServiceGroup { medicalService, petCareService, walkInService }
+
+bool isRemovedAppointmentService(String serviceName) =>
+    serviceName.trim().toLowerCase().contains('wellness');
 
 extension QueueServiceGroupLabel on QueueServiceGroup {
   String get label => switch (this) {
@@ -613,6 +621,7 @@ class QueueStore extends ChangeNotifier {
   List<QueueEntry> get active => List.unmodifiable(
     _entries.where(
       (entry) =>
+          !isRemovedAppointmentService(entry.appointment.service.name) &&
           !entry.isTerminal &&
           DateUtils.isSameDay(entry.clinicDate, DateTime.now()),
     ),
@@ -622,8 +631,9 @@ class QueueStore extends ChangeNotifier {
     _entries
         .where(
           (entry) =>
-              entry.isTerminal ||
-              !DateUtils.isSameDay(entry.clinicDate, DateTime.now()),
+              !isRemovedAppointmentService(entry.appointment.service.name) &&
+              (entry.isTerminal ||
+                  !DateUtils.isSameDay(entry.clinicDate, DateTime.now())),
         )
         .toList()
       ..sort((a, b) => b.checkedInAt.compareTo(a.checkedInAt)),
@@ -646,7 +656,9 @@ class QueueStore extends ChangeNotifier {
     if (existing != null && !existing.isTerminal) return existing;
     if (ClinicApi.instance.token == null) {
       final todayEntries = _entries.where(
-        (entry) => DateUtils.isSameDay(entry.clinicDate, today),
+        (entry) =>
+            !isRemovedAppointmentService(entry.appointment.service.name) &&
+            DateUtils.isSameDay(entry.clinicDate, today),
       );
       final sequence =
           todayEntries.fold<int>(
@@ -871,6 +883,9 @@ class QueueStore extends ChangeNotifier {
           _entries
               .where(
                 (entry) =>
+                    !isRemovedAppointmentService(
+                      entry.appointment.service.name,
+                    ) &&
                     entry.status == QueueStatus.waiting &&
                     entry.serviceGroup == group &&
                     DateUtils.isSameDay(entry.clinicDate, today),
@@ -889,6 +904,12 @@ class QueueStore extends ChangeNotifier {
           ..estimatedWaitMinutes = index * 10;
       }
     }
+  }
+
+  @visibleForTesting
+  void addForTesting(QueueEntry entry) {
+    _entries.add(entry);
+    notifyListeners();
   }
 
   @visibleForTesting

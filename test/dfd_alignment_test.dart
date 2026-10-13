@@ -5,6 +5,7 @@ import 'package:senior_project/data/clinic_directory.dart';
 import 'package:senior_project/doctor/doctor_portal.dart';
 import 'package:senior_project/pet_owner/appointment_booking_page.dart';
 import 'package:senior_project/pet_owner/contact_clinic_page.dart';
+import 'package:senior_project/pet_owner/pet_care_booking_page.dart';
 import 'package:senior_project/pet_owner/profile_flows.dart';
 import 'package:senior_project/staff/staff_portal.dart';
 
@@ -137,6 +138,85 @@ void main() {
     );
     await tester.pump();
     expect(find.text('Please come at 10:00 AM.'), findsOneWidget);
+  });
+
+  test('legacy Wellness records are excluded from all appointment views', () {
+    const bookingPet = BookingPet(
+      name: 'Milo',
+      species: 'Cat',
+      breed: 'Domestic Shorthair',
+      age: '4 years',
+      icon: Icons.pets,
+      color: Colors.orange,
+    );
+    const bookingService = BookingService(
+      name: 'Wellness',
+      description: 'Legacy removed service',
+      icon: Icons.spa,
+      homeVisit: false,
+      doctors: ['Provider'],
+    );
+    final appointment = BookedAppointment(
+      id: 'legacy-wellness-appointment',
+      createdAt: DateTime.now(),
+      pet: bookingPet,
+      service: bookingService,
+      veterinarian: 'Provider',
+      date: DateTime.now(),
+      time: '10:00 AM',
+      symptoms: '',
+      reason: '',
+      notes: '',
+      address: '',
+      status: 'Confirmed',
+    );
+    AppointmentStore.instance.add(appointment);
+    QueueStore.instance.addForTesting(
+      QueueEntry(appointment: appointment, queueNumber: 'Q999'),
+    );
+    PetCareBookingStore.instance.add(
+      PetCareBooking(
+        id: 'legacy-wellness-pet-care',
+        service: const PetCareService(
+          name: 'Wellness',
+          description: 'Legacy removed service',
+          price: '8,000 MMK',
+          duration: '30 min',
+          availability: '',
+          requirements: '',
+          icon: Icons.spa,
+          providers: ['Provider'],
+          options: [ServicePriceOption('Session', '8,000 MMK')],
+        ),
+        pet: const CarePet(
+          name: 'Milo',
+          breed: 'Domestic Shorthair',
+          age: '4 years',
+          health: '',
+          color: Colors.orange,
+        ),
+        provider: 'Provider',
+        date: DateTime.now(),
+        time: '10:00 AM',
+        location: 'Clinic',
+      ),
+    );
+    addTearDown(() {
+      AppointmentStore.instance.clear();
+      QueueStore.instance.clear();
+      PetCareBookingStore.instance.clear();
+    });
+
+    expect(AppointmentStore.instance.appointments, isEmpty);
+    expect(PetCareBookingStore.instance.bookings, isEmpty);
+    expect(QueueStore.instance.active, isEmpty);
+    expect(QueueStore.instance.history, isEmpty);
+    expect(
+      StaffOperationsStore.instance.appointments.where(
+        (item) => item.service.toLowerCase().contains('wellness'),
+      ),
+      isEmpty,
+    );
   });
 }
 
