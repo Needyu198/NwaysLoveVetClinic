@@ -17,7 +17,10 @@ class _StaffInventoryPageState extends State<StaffInventoryPage> {
     final q = _query.trim().toLowerCase();
     final matchesSearch =
         q.isEmpty ||
-        '${item.id} ${item.name} ${item.category}'.toLowerCase().contains(q);
+        '${item.id} ${item.name} ${item.category} ${item.barcode} '
+                '${item.batches.map((batch) => batch.batchNumber).join(' ')}'
+            .toLowerCase()
+            .contains(q);
     final matchesCategory =
         _category == 'All' ||
         _normalizeInventoryCategory(item.category) == _category;

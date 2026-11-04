@@ -146,6 +146,8 @@ export function buildInventoryValue(item) {
     purchasePrice: item.purchasePrice ?? 0,
     supplier: item.supplier ?? '',
     batchNumber: item.batchNumber ?? '',
+    barcode: item.barcode ?? '',
+    batches: item.batches ?? [],
     imageAsset: item.imageAsset ?? null,
     productImages: item.productImages ?? [],
     subcategory: item.subcategory ?? '',

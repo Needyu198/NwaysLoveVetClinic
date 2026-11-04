@@ -1093,9 +1093,21 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('stock-in-MED-001')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('stock-in-qty')), '10');
+    await tester.enterText(
+      find.byKey(const ValueKey('stock-in-batch')),
+      'BATCH-TEST-01',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('stock-in-expiry')),
+      '2099-12-31',
+    );
     await tester.tap(find.byKey(const ValueKey('confirm-stock-in')));
     await tester.pumpAndSettle();
     expect(item.quantity, startQty + 10);
+    expect(
+      find.byKey(const ValueKey('staff-inventory-detail')),
+      findsOneWidget,
+    );
 
     // Issue stock (Stock Out).
     await tester.ensureVisible(find.byKey(const ValueKey('stock-out-MED-001')));

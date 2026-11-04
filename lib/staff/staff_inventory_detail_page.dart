@@ -97,6 +97,7 @@ class StaffInventoryDetailPage extends StatelessWidget {
                 _InfoCard(
                   rows: [
                     ('Product ID', item.id),
+                    if (item.barcode.isNotEmpty) ('Barcode', item.barcode),
                     (
                       'Category',
                       item.subcategory.isEmpty
@@ -111,7 +112,12 @@ class StaffInventoryDetailPage extends StatelessWidget {
                     ('Low-stock level', '${item.reorderLevel} ${item.unit}'),
                     ('Selling price', '${_money(item.sellingPrice)} MMK'),
                     ('Purchase price', '${_money(item.purchasePrice)} MMK'),
-                    ('Expiry', _shortDate(item.expiresOn)),
+                    (
+                      'Expiry',
+                      item.batches.isEmpty
+                          ? _shortDate(item.expiresOn)
+                          : '${item.batches.length} tracked batch(es)',
+                    ),
                     if (item.restockStatus.isNotEmpty)
                       (
                         'Restock',
@@ -182,6 +188,22 @@ class StaffInventoryDetailPage extends StatelessWidget {
                       ),
                     ),
                   ),
+                ],
+                if (item.batches.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  const Text('Batches and expiry', style: _sectionStyle),
+                  const SizedBox(height: 8),
+                  for (final batch in item.batches) ...[
+                    _Callout(
+                      icon: batch.isExpired
+                          ? Icons.error_outline_rounded
+                          : Icons.qr_code_2_rounded,
+                      text:
+                          '${batch.batchNumber} • ${batch.quantity} ${item.unit} • '
+                          '${batch.isExpired ? 'Expired' : 'Expires'} ${_shortDate(batch.expiresOn)}',
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                 ],
                 const SizedBox(height: 20),
                 const Text('Stock history', style: _sectionStyle),
@@ -366,6 +388,11 @@ class _MovementTile extends StatelessWidget {
                   '${movement.staff} • ${_shortDate(movement.at)}',
                   style: const TextStyle(color: _muted, fontSize: 11),
                 ),
+                if (movement.batchNumber.isNotEmpty)
+                  Text(
+                    'Batch: ${movement.batchNumber}',
+                    style: const TextStyle(color: _muted, fontSize: 11),
+                  ),
               ],
             ),
           ),
@@ -405,6 +432,8 @@ class _StockMovementDialog extends StatefulWidget {
 class _StockMovementDialogState extends State<_StockMovementDialog> {
   final _qty = TextEditingController();
   final _reference = TextEditingController();
+  final _batch = TextEditingController();
+  final _expiry = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   late String _reason = _stockOutReasons.first;
 
@@ -412,6 +441,8 @@ class _StockMovementDialogState extends State<_StockMovementDialog> {
   void dispose() {
     _qty.dispose();
     _reference.dispose();
+    _batch.dispose();
+    _expiry.dispose();
     super.dispose();
   }
 
@@ -421,13 +452,19 @@ class _StockMovementDialogState extends State<_StockMovementDialog> {
     final quantity = int.parse(_qty.text.trim());
     String message;
     if (widget.isStockIn) {
-      store.stockIn(widget.item, quantity, reference: _reference.text.trim());
+      store.stockIn(
+        widget.item,
+        quantity,
+        reference: _reference.text.trim(),
+        batchNumber: _batch.text.trim(),
+        expiresOn: DateTime.parse(_expiry.text.trim()),
+      );
       message = 'Stock received and recorded.';
     } else {
       final ok = store.stockOut(widget.item, quantity, reason: _reason);
       message = ok
           ? 'Stock issued and recorded.'
-          : 'Not enough stock available.';
+          : 'Not enough unexpired stock available.';
     }
     Navigator.pop(context);
     _notice(context, message);
@@ -476,15 +513,42 @@ class _StockMovementDialogState extends State<_StockMovementDialog> {
                   },
                 ),
                 const SizedBox(height: 10),
-                if (widget.isStockIn)
+                if (widget.isStockIn) ...[
                   TextFormField(
                     controller: _reference,
                     decoration: _input(
                       'Delivery reference (optional)',
                       Icons.receipt_long_outlined,
                     ),
-                  )
-                else
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    key: const ValueKey('stock-in-batch'),
+                    controller: _batch,
+                    decoration: _input('Batch number', Icons.qr_code_2_rounded),
+                    validator: (value) => (value ?? '').trim().isEmpty
+                        ? 'Batch number is required'
+                        : null,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    key: const ValueKey('stock-in-expiry'),
+                    controller: _expiry,
+                    keyboardType: TextInputType.datetime,
+                    decoration: _input(
+                      'Expiry date (YYYY-MM-DD)',
+                      Icons.event_outlined,
+                    ),
+                    validator: (value) {
+                      final parsed = DateTime.tryParse((value ?? '').trim());
+                      if (parsed == null) return 'Use YYYY-MM-DD';
+                      if (!parsed.isAfter(DateTime.now())) {
+                        return 'Expiry must be in the future';
+                      }
+                      return null;
+                    },
+                  ),
+                ] else
                   DropdownButtonFormField<String>(
                     initialValue: _reason,
                     isExpanded: true,

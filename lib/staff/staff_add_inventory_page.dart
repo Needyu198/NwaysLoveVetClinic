@@ -24,6 +24,9 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
     text: widget.existing?.subcategory ?? '',
   );
   late final _brand = TextEditingController(text: widget.existing?.brand ?? '');
+  late final _barcode = TextEditingController(
+    text: widget.existing?.barcode ?? '',
+  );
   late String _category = widget.existing == null
       ? StaffOperationsStore.inventoryCategories.first
       : _normalizeInventoryCategory(widget.existing!.category);
@@ -39,6 +42,7 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
     _description.dispose();
     _subcategory.dispose();
     _brand.dispose();
+    _barcode.dispose();
     super.dispose();
   }
 
@@ -118,6 +122,10 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
   void _save() {
     if (!_formKey.currentState!.validate()) return;
     final store = StaffOperationsStore.instance;
+    if (store.isDuplicateBarcode(_barcode.text, except: widget.existing)) {
+      _notice(context, 'This barcode is already assigned to another item.');
+      return;
+    }
     if (_isEdit) {
       final item = widget.existing!
         ..name = _name.text.trim()
@@ -125,6 +133,7 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
         ..subcategory = _subcategory.text.trim()
         ..petType = _petType
         ..brand = _brand.text.trim()
+        ..barcode = _barcode.text.trim()
         ..sellingPrice = int.parse(_selling.text.trim())
         ..description = _description.text.trim()
         ..productImages = _images.whereType<String>().toList()
@@ -143,6 +152,7 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
         subcategory: _subcategory.text.trim(),
         petType: _petType,
         brand: _brand.text.trim(),
+        barcode: _barcode.text.trim(),
         // New products start at zero. Quantity is managed by the audited
         // Stock In/Stock Out workflow after the product has been created.
         quantity: 0,
@@ -218,6 +228,20 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                   validator: _required,
                 ),
                 _AddField(
+                  controller: _barcode,
+                  label: 'Barcode / GTIN',
+                  iconAsset: _InventoryFieldIcons.itemName,
+                  keyboardType: TextInputType.number,
+                  fieldKey: const ValueKey('inventory-barcode'),
+                  validator: (value) {
+                    final barcode = (value ?? '').trim();
+                    if (barcode.isEmpty) return null;
+                    return RegExp(r'^\d{8,14}$').hasMatch(barcode)
+                        ? null
+                        : 'Use 8 to 14 digits';
+                  },
+                ),
+                _AddField(
                   controller: _description,
                   label: 'Description',
                   // Description now uses the category icon.
@@ -287,6 +311,7 @@ class _AddField extends StatelessWidget {
     this.keyboardType,
     this.validator,
     this.maxLines = 1,
+    this.fieldKey,
   });
 
   final TextEditingController controller;
@@ -295,11 +320,13 @@ class _AddField extends StatelessWidget {
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
   final int maxLines;
+  final Key? fieldKey;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
     child: TextFormField(
+      key: fieldKey,
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,

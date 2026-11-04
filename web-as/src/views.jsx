@@ -320,8 +320,15 @@ export function InventoryView({ refreshKey }) {
   const { records, loading, error, reload } = useTable('inventory', refreshKey);
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [inventoryQuery, setInventoryQuery] = useState('');
 
   const active = records.filter(r => !val(r).archived);
+  const query = inventoryQuery.trim().toLowerCase();
+  const visible = active.filter(record => {
+    const item = val(record);
+    const batches = (item.batches || []).map(batch => batch.batchNumber).join(' ');
+    return !query || `${item.id} ${item.name} ${item.barcode || ''} ${batches}`.toLowerCase().includes(query);
+  });
 
   async function remove(record) {
     if (!window.confirm(`Delete "${val(record).name}"?`)) return;
@@ -340,6 +347,46 @@ export function InventoryView({ refreshKey }) {
     const raw = window.prompt(`${direction === 'in' ? 'Stock in' : 'Stock out'} quantity:`, '1');
     const quantity = Number(raw);
     if (!Number.isInteger(quantity) || quantity <= 0) return;
+    const now = new Date();
+    let batches = [...(v.batches || [])].map(batch => ({ ...batch }));
+    let movementBatch = '';
+    if (direction === 'in') {
+      const batchNumber = window.prompt('Batch number:', '')?.trim();
+      if (!batchNumber) return alert('Batch number is required.');
+      const expiryText = window.prompt('Expiry date (YYYY-MM-DD):', '')?.trim();
+      const expiry = new Date(`${expiryText}T23:59:59`);
+      if (!expiryText || Number.isNaN(expiry.getTime()) || expiry <= now) {
+        return alert('Enter a future expiry date in YYYY-MM-DD format.');
+      }
+      if (batches.length === 0 && Number(v.quantity) > 0) {
+        batches.push({
+          batchNumber: v.batchNumber || `LEGACY-${v.id}`,
+          quantity: Number(v.quantity),
+          expiresOn: v.expiresOn,
+          receivedOn: null,
+        });
+      }
+      const existingBatch = batches.find(batch => batch.batchNumber.toLowerCase() === batchNumber.toLowerCase());
+      if (existingBatch) existingBatch.quantity = Number(existingBatch.quantity) + quantity;
+      else batches.push({ batchNumber, quantity, expiresOn: expiry.toISOString(), receivedOn: now.toISOString() });
+      movementBatch = batchNumber;
+    } else if (batches.length > 0) {
+      const eligible = batches
+        .filter(batch => Number(batch.quantity) > 0 && new Date(batch.expiresOn) >= now)
+        .sort((a, b) => new Date(a.expiresOn) - new Date(b.expiresOn));
+      const available = eligible.reduce((sum, batch) => sum + Number(batch.quantity), 0);
+      if (quantity > available) return alert('Not enough unexpired stock.');
+      let remaining = quantity;
+      const used = [];
+      for (const batch of eligible) {
+        if (remaining === 0) break;
+        const amount = Math.min(remaining, Number(batch.quantity));
+        batch.quantity = Number(batch.quantity) - amount;
+        remaining -= amount;
+        used.push(`${batch.batchNumber}:${amount}`);
+      }
+      movementBatch = used.join(', ');
+    }
     const next = direction === 'in' ? Number(v.quantity) + quantity : Number(v.quantity) - quantity;
     if (next < 0) return alert('Not enough stock.');
     const movement = {
@@ -352,10 +399,16 @@ export function InventoryView({ refreshKey }) {
       staff: getAccount()?.fullName || 'Staff',
       at: new Date().toISOString(),
       reference: '',
+      batchNumber: movementBatch,
     };
     try {
       await updateRecord('inventory', record, {
         quantity: next,
+        batches,
+        ...(direction === 'in' ? {
+          batchNumber: movementBatch,
+          expiresOn: batches.find(batch => batch.batchNumber === movementBatch)?.expiresOn || v.expiresOn,
+        } : {}),
         movements: [...(v.movements || []), movement],
         lastAudit: `${movement.type} ${direction === 'in' ? '+' : '-'}${quantity}`,
         ...(direction === 'in' && next > Number(v.reorderLevel) ? { restockRequested: false, restockStatus: 'Received' } : {}),
@@ -380,7 +433,14 @@ export function InventoryView({ refreshKey }) {
   return (
     <div>
       <div className="view-actions">
-        <span className="count-badge">{active.length} items</span>
+        <span className="count-badge">{visible.length} items</span>
+        <input
+          aria-label="Scan or search inventory"
+          value={inventoryQuery}
+          onChange={event => setInventoryQuery(event.target.value)}
+          placeholder="Scan barcode or search item / batch"
+          style={{ minWidth: 280 }}
+        />
         <button
           className="btn-primary small"
           onClick={() => {
@@ -391,7 +451,7 @@ export function InventoryView({ refreshKey }) {
           + Add New Item
         </button>
       </div>
-      <StateWrap loading={loading} error={error} empty={active.length === 0}>
+      <StateWrap loading={loading} error={error} empty={visible.length === 0}>
         <div className="card">
           <table>
             <thead>
@@ -399,15 +459,21 @@ export function InventoryView({ refreshKey }) {
                 <th></th>
                 <th>Name</th>
                 <th>Category</th>
+                <th>Barcode / batch</th>
+                <th>Expiry</th>
                 <th>Stock</th>
                 <th>Price</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {active.map(r => {
+              {visible.map(r => {
                 const v = val(r);
                 const low = Number(v.quantity) <= Number(v.reorderLevel || 0);
+                const stockedBatches = (v.batches || []).filter(batch => Number(batch.quantity) > 0);
+                const nextExpiry = stockedBatches.length
+                  ? new Date(Math.min(...stockedBatches.map(batch => new Date(batch.expiresOn).getTime())))
+                  : v.expiresOn ? new Date(v.expiresOn) : null;
                 return (
                   <tr key={r.id}>
                     <td>
@@ -424,6 +490,13 @@ export function InventoryView({ refreshKey }) {
                       ) : null}
                     </td>
                     <td>{v.category}</td>
+                    <td>
+                      <div>{v.barcode || '—'}</div>
+                      <div className="muted small">{(v.batches || []).length} batch(es)</div>
+                    </td>
+                    <td>
+                      {nextExpiry ? nextExpiry.toLocaleDateString() : '—'}
+                    </td>
                     <td>
                       <span className={low ? 'pill danger' : 'pill ok'}>
                         {v.quantity} {v.unit || ''}
@@ -458,6 +531,7 @@ export function InventoryView({ refreshKey }) {
       {showForm && (
         <InventoryForm
           existing={editing}
+          records={records}
           onClose={() => setShowForm(false)}
           onSaved={reload}
         />

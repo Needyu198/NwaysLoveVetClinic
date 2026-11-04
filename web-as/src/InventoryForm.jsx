@@ -10,7 +10,7 @@ function readValue(record) {
   return record?.data?.value || {};
 }
 
-export default function InventoryForm({ existing, onClose, onSaved }) {
+export default function InventoryForm({ existing, records = [], onClose, onSaved }) {
   const isEdit = !!existing;
   const current = readValue(existing);
 
@@ -22,6 +22,7 @@ export default function InventoryForm({ existing, onClose, onSaved }) {
   const [petType, setPetType] = useState(current.petType || PET_TYPES[0]);
   const [brand, setBrand] = useState(current.brand || '');
   const [description, setDescription] = useState(current.description || '');
+  const [barcode, setBarcode] = useState(current.barcode || '');
   const [quantity, setQuantity] = useState(
     current.quantity != null ? String(current.quantity) : '5',
   );
@@ -67,6 +68,19 @@ export default function InventoryForm({ existing, onClose, onSaved }) {
     if (!name.trim()) return setError('Item name is required.');
     if (!subcategory.trim()) return setError('Subcategory is required.');
     if (!brand.trim()) return setError('Brand is required.');
+    if (barcode.trim() && !/^\d{8,14}$/.test(barcode.trim())) {
+      return setError('Barcode / GTIN must contain 8 to 14 digits.');
+    }
+    if (
+      barcode.trim() &&
+      records.some(
+        record =>
+          record.id !== existing?.id &&
+          readValue(record).barcode === barcode.trim(),
+      )
+    ) {
+      return setError('This barcode is already assigned to another item.');
+    }
     if (!isEdit && (Number.isNaN(qty) || qty < 0)) {
       return setError('Enter a valid quantity.');
     }
@@ -88,6 +102,7 @@ export default function InventoryForm({ existing, onClose, onSaved }) {
         petType,
         brand: brand.trim(),
         description: description.trim(),
+        barcode: barcode.trim(),
         // Quantity is locked when editing (matches Flutter).
         quantity: isEdit ? current.quantity : qty,
         reorderLevel: isEdit
@@ -162,6 +177,13 @@ export default function InventoryForm({ existing, onClose, onSaved }) {
           rows={3}
           value={description}
           onChange={e => setDescription(e.target.value)}
+        />
+        <label>Barcode / GTIN</label>
+        <input
+          inputMode="numeric"
+          value={barcode}
+          onChange={e => setBarcode(e.target.value)}
+          placeholder="Scan with a USB scanner or enter digits"
         />
 
         <h3 className="section">Product images</h3>

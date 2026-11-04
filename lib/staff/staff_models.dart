@@ -185,6 +185,21 @@ class StaffOperationsStore extends ChangeNotifier {
     (item) => item.id.toLowerCase() == sku.trim().toLowerCase(),
   );
 
+  InventoryItem? findByBarcode(String barcode) {
+    final normalized = barcode.trim();
+    if (normalized.isEmpty) return null;
+    for (final item in activeInventory) {
+      if (item.barcode == normalized) return item;
+    }
+    return null;
+  }
+
+  bool isDuplicateBarcode(String barcode, {InventoryItem? except}) {
+    final normalized = barcode.trim();
+    return normalized.isNotEmpty &&
+        inventory.any((item) => item != except && item.barcode == normalized);
+  }
+
   void addItem(InventoryItem item) {
     inventory.add(item);
     _record(
@@ -204,10 +219,44 @@ class StaffOperationsStore extends ChangeNotifier {
     int quantity, {
     String reason = 'Delivery received',
     String reference = '',
+    String batchNumber = '',
+    DateTime? expiresOn,
   }) {
     if (quantity <= 0) return;
     final previous = item.quantity;
     item.quantity = previous + quantity;
+    if (batchNumber.trim().isNotEmpty && expiresOn != null) {
+      if (item.batches.isEmpty && previous > 0) {
+        item.batches.add(
+          InventoryBatch(
+            batchNumber: item.batchNumber.isEmpty
+                ? 'LEGACY-${item.id}'
+                : item.batchNumber,
+            quantity: previous,
+            expiresOn: item.expiresOn,
+          ),
+        );
+      }
+      final normalizedBatch = batchNumber.trim();
+      final existing = item.batches.where(
+        (batch) =>
+            batch.batchNumber.toLowerCase() == normalizedBatch.toLowerCase(),
+      );
+      if (existing.isEmpty) {
+        item.batches.add(
+          InventoryBatch(
+            batchNumber: normalizedBatch,
+            quantity: quantity,
+            expiresOn: expiresOn,
+            receivedOn: DateTime.now(),
+          ),
+        );
+      } else {
+        existing.first.quantity += quantity;
+      }
+      item.batchNumber = normalizedBatch;
+      item.expiresOn = expiresOn;
+    }
     _record(
       item,
       type: 'Stock In',
@@ -216,6 +265,7 @@ class StaffOperationsStore extends ChangeNotifier {
       next: item.quantity,
       reason: reason,
       reference: reference,
+      batchNumber: batchNumber.trim(),
     );
     item.lastAudit =
         'Stock In +$quantity • Mya Thu • ${_shortDate(DateTime.now())}';
@@ -235,7 +285,24 @@ class StaffOperationsStore extends ChangeNotifier {
     String reference = '',
   }) {
     if (quantity <= 0 || quantity > item.quantity) return false;
+    if (item.batches.isNotEmpty && quantity > item.availableUnexpiredQuantity) {
+      return false;
+    }
     final previous = item.quantity;
+    final usedBatches = <String>[];
+    var remaining = quantity;
+    final eligible =
+        item.batches
+            .where((batch) => !batch.isExpired && batch.quantity > 0)
+            .toList()
+          ..sort((a, b) => a.expiresOn.compareTo(b.expiresOn));
+    for (final batch in eligible) {
+      if (remaining == 0) break;
+      final used = remaining < batch.quantity ? remaining : batch.quantity;
+      batch.quantity -= used;
+      remaining -= used;
+      usedBatches.add('${batch.batchNumber}:$used');
+    }
     item.quantity = previous - quantity;
     _record(
       item,
@@ -245,6 +312,7 @@ class StaffOperationsStore extends ChangeNotifier {
       next: item.quantity,
       reason: reason,
       reference: reference,
+      batchNumber: usedBatches.join(', '),
     );
     item.lastAudit =
         'Stock Out -$quantity ($reason) • Mya Thu • ${_shortDate(DateTime.now())}';
@@ -298,6 +366,7 @@ class StaffOperationsStore extends ChangeNotifier {
     required int next,
     required String reason,
     String reference = '',
+    String batchNumber = '',
   }) {
     item.movements.add(
       StockMovement(
@@ -310,6 +379,7 @@ class StaffOperationsStore extends ChangeNotifier {
         staff: 'Mya Thu',
         at: DateTime.now(),
         reference: reference,
+        batchNumber: batchNumber,
       ),
     );
   }
@@ -740,6 +810,7 @@ class StockMovement {
     'staff': staff,
     'at': at.toIso8601String(),
     'reference': reference,
+    'batchNumber': batchNumber,
   };
   static StockMovement fromDb(Map<String, dynamic> data) {
     final value = StockMovement(
@@ -751,7 +822,8 @@ class StockMovement {
       reason: data['reason'] as String,
       staff: data['staff'] as String,
       at: DateTime.parse(data['at'] as String),
-      reference: data['reference'] as String,
+      reference: data['reference'] as String? ?? '',
+      batchNumber: data['batchNumber'] as String? ?? '',
     );
     return value;
   }
@@ -766,6 +838,7 @@ class StockMovement {
     required this.staff,
     required this.at,
     this.reference = '',
+    this.batchNumber = '',
   });
 
   final String id;
@@ -777,6 +850,42 @@ class StockMovement {
   final String staff;
   final DateTime at;
   final String reference;
+  final String batchNumber;
+}
+
+class InventoryBatch {
+  InventoryBatch({
+    required this.batchNumber,
+    required this.quantity,
+    required this.expiresOn,
+    this.receivedOn,
+  });
+
+  factory InventoryBatch.fromDb(Map<String, dynamic> data) => InventoryBatch(
+    batchNumber: data['batchNumber'] as String? ?? '',
+    quantity: data['quantity'] as int? ?? 0,
+    expiresOn: DateTime.parse(data['expiresOn'] as String),
+    receivedOn: data['receivedOn'] == null
+        ? null
+        : DateTime.parse(data['receivedOn'] as String),
+  );
+
+  Map<String, dynamic> toDb() => {
+    'batchNumber': batchNumber,
+    'quantity': quantity,
+    'expiresOn': expiresOn.toIso8601String(),
+    'receivedOn': receivedOn?.toIso8601String(),
+  };
+
+  final String batchNumber;
+  int quantity;
+  final DateTime expiresOn;
+  final DateTime? receivedOn;
+
+  bool get isExpired => expiresOn.isBefore(DateTime.now());
+  bool get isNearExpiry =>
+      !isExpired &&
+      expiresOn.isBefore(DateTime.now().add(const Duration(days: 90)));
 }
 
 class InventoryItem {
@@ -792,6 +901,8 @@ class InventoryItem {
     'purchasePrice': purchasePrice,
     'supplier': supplier,
     'batchNumber': batchNumber,
+    'barcode': barcode,
+    'batches': batches.map((batch) => batch.toDb()).toList(),
     'imageAsset': imageAsset,
     'productImages': productImages,
     'subcategory': subcategory,
@@ -819,6 +930,16 @@ class InventoryItem {
       purchasePrice: data['purchasePrice'] as int,
       supplier: data['supplier'] as String,
       batchNumber: data['batchNumber'] as String,
+      barcode: data['barcode'] as String? ?? '',
+      batches:
+          (data['batches'] as List?)
+              ?.map(
+                (value) => InventoryBatch.fromDb(
+                  Map<String, dynamic>.from(value as Map),
+                ),
+              )
+              .toList() ??
+          const [],
       imageAsset: data['imageAsset'] == null
           ? null
           : data['imageAsset'] as String,
@@ -860,13 +981,15 @@ class InventoryItem {
     this.purchasePrice = 0,
     this.supplier = '',
     this.batchNumber = '',
+    this.barcode = '',
+    List<InventoryBatch> batches = const [],
     this.imageAsset,
     this.productImages = const [],
     this.subcategory = '',
     this.petType = 'All Pets',
     this.brand = '',
     this.description = '',
-  });
+  }) : batches = List<InventoryBatch>.of(batches);
 
   final String id;
   String name;
@@ -879,6 +1002,8 @@ class InventoryItem {
   int purchasePrice;
   String supplier;
   String batchNumber;
+  String barcode;
+  List<InventoryBatch> batches;
   String? imageAsset;
   List<String> productImages;
   String subcategory;
@@ -896,10 +1021,21 @@ class InventoryItem {
 
   bool get isOutOfStock => quantity <= 0;
   bool get isLowStock => quantity <= reorderLevel;
-  bool get isExpired => expiresOn.isBefore(DateTime.now());
-  bool get isNearExpiry =>
-      !isExpired &&
-      expiresOn.isBefore(DateTime.now().add(const Duration(days: 90)));
+  bool get isExpired => batches.isNotEmpty
+      ? batches
+            .where((batch) => batch.quantity > 0)
+            .every((batch) => batch.isExpired)
+      : expiresOn.isBefore(DateTime.now());
+  bool get isNearExpiry => batches.isNotEmpty
+      ? batches.any((batch) => batch.quantity > 0 && batch.isNearExpiry)
+      : !isExpired &&
+            expiresOn.isBefore(DateTime.now().add(const Duration(days: 90)));
+
+  int get availableUnexpiredQuantity => batches.isEmpty
+      ? (isExpired ? 0 : quantity)
+      : batches
+            .where((batch) => !batch.isExpired)
+            .fold(0, (total, batch) => total + batch.quantity);
 
   String get stockStatus {
     if (isOutOfStock) return 'Out of Stock';
