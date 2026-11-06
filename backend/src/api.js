@@ -39,6 +39,58 @@ const sameBookingPet = (left, right) => {
 };
 const bookingDate = value => String(value?.date || '').slice(0, 10);
 const bookingTime = value => String(value?.time || '').trim();
+const bookingTimeMinutes = value => {
+  const match = String(value || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+  const hour = Number(match[1]) % 12 + (match[3].toUpperCase() === 'PM' ? 12 : 0);
+  return hour * 60 + Number(match[2]);
+};
+const bookingDuration = value => Math.max(1, Number(value?.service?.durationMinutes) || 60);
+const bookingIntervalsOverlap = (left, right) => {
+  const leftStart = bookingTimeMinutes(left?.time);
+  const rightStart = bookingTimeMinutes(right?.time);
+  if (leftStart === null || rightStart === null) return false;
+  return leftStart < rightStart + bookingDuration(right) &&
+    leftStart + bookingDuration(left) > rightStart;
+};
+const sameAppointmentDoctor = (left, right) => {
+  const leftId = normalizedBookingText(left?.veterinarianId);
+  const rightId = normalizedBookingText(right?.veterinarianId);
+  return leftId && rightId
+    ? leftId === rightId
+    : normalizedBookingText(left?.veterinarian) === normalizedBookingText(right?.veterinarian);
+};
+const appointmentScheduleError = ({ profile, date, time, durationMinutes }) => {
+  const startMinutes = bookingTimeMinutes(time);
+  if (startMinutes === null || startMinutes < 8 * 60 ||
+      startMinutes + durationMinutes > 19 * 60) {
+    return 'That appointment is outside clinic hours. Please choose another time.';
+  }
+  if (!profile) return null;
+  if (profile.acceptingAppointments === false) {
+    return 'That veterinarian is not accepting appointments.';
+  }
+  const leaveDates = Array.isArray(profile.leaveDates) ? profile.leaveDates : [];
+  if (leaveDates.some(leave => String(leave).slice(0, 10) === date)) {
+    return 'That veterinarian is on leave. Please choose another date.';
+  }
+  const schedule = profile.schedule && typeof profile.schedule === 'object'
+    ? profile.schedule
+    : {};
+  if (!Object.keys(schedule).length) return null;
+  const weekday = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][
+    new Date(`${date}T00:00:00Z`).getUTCDay()
+  ];
+  const day = schedule[weekday];
+  const overlapsBreak = day?.breakStartMinutes != null && day?.breakEndMinutes != null &&
+    startMinutes < Number(day.breakEndMinutes) &&
+    startMinutes + durationMinutes > Number(day.breakStartMinutes);
+  if (!day?.isWorking || startMinutes < Number(day.startMinutes) ||
+      startMinutes + durationMinutes > Number(day.endMinutes) || overlapsBreak) {
+    return 'That time is outside the veterinarian\'s working schedule.';
+  }
+  return null;
+};
 const activeBooking = (table, value) => {
   const status = normalizedBookingText(value?.status);
   if (table === 'appointments') return status !== 'cancelled';
@@ -723,7 +775,13 @@ function installApi(app, pool, options = {}) {
           'available',CASE WHEN a.role='staff'
             THEN COALESCE(sp.data->'value'->>'onShift' = 'true', TRUE)
             ELSE COALESCE(dp.data->'value'->>'acceptingAppointments' = 'true', TRUE)
-          END)) AS data
+          END,
+          'schedule',CASE WHEN a.role='doctor'
+            THEN COALESCE(dp.data->'value'->'schedule','{}'::jsonb)
+            ELSE '{}'::jsonb END,
+          'leaveDates',CASE WHEN a.role='doctor'
+            THEN COALESCE(dp.data->'value'->'leaveDates','[]'::jsonb)
+            ELSE '[]'::jsonb END)) AS data
         FROM app_accounts a
         LEFT JOIN doctor_profiles dp ON dp.owner_id = a.id
         LEFT JOIN staff_profiles sp ON sp.owner_id = a.id
@@ -914,9 +972,60 @@ function installApi(app, pool, options = {}) {
             String(existing.data.value.date || '').slice(0, 10) !== slotKey.date ||
             String(existing.data.value.time || '') !== slotKey.time
           );
+          const schedulingRulesChanged = existing && (
+            normalizedBookingText(existing.data.value.veterinarianId) !== normalizedBookingText(value.veterinarianId) ||
+            normalizedBookingText(existing.data.value.veterinarian) !== normalizedBookingText(value.veterinarian) ||
+            bookingDuration(existing.data.value) !== bookingDuration(value)
+          );
           const becameActive = existing && previousStatus === 'Cancelled' && isActiveBooking;
           if (isActiveBooking && slotKey.date && slotKey.time &&
-              (!existing || slotChanged || becameActive)) {
+              (!existing || slotChanged || schedulingRulesChanged || becameActive)) {
+            const durationMinutes = bookingDuration(value);
+            const clinicScheduleError = appointmentScheduleError({
+              profile: null,
+              date: slotKey.date,
+              time: slotKey.time,
+              durationMinutes,
+            });
+            if (clinicScheduleError) throw fail(409, clinicScheduleError);
+            const doctorId = String(value.veterinarianId || '');
+            const doctorName = String(value.veterinarian || '');
+            const doctorKey = normalizedBookingText(doctorId || doctorName);
+            if (doctorKey) {
+              await client.query(
+                'SELECT pg_advisory_xact_lock(hashtext($1))',
+                [`appointment-doctor-day:${doctorKey}:${slotKey.date}`],
+              );
+            }
+            const profile = (await client.query(
+              `SELECT dp.data->'value' AS value
+               FROM doctor_profiles dp
+               LEFT JOIN app_accounts a ON a.id=dp.owner_id
+               WHERE ($1<>'' AND dp.owner_id=$1)
+                  OR ($2<>'' AND LOWER(COALESCE(dp.data->'value'->>'name',a.full_name,a.username))=LOWER($2))
+               LIMIT 1`,
+              [doctorId, doctorName],
+            )).rows[0]?.value;
+            const doctorScheduleError = appointmentScheduleError({
+              profile,
+              date: slotKey.date,
+              time: slotKey.time,
+              durationMinutes,
+            });
+            if (doctorScheduleError) throw fail(409, doctorScheduleError);
+            const sameDayAppointments = (await client.query(
+              `SELECT data FROM appointments
+               WHERE id<>$1 AND LEFT(data->'value'->>'date',10)=$2
+                 AND COALESCE(data->'value'->>'status','')<>'Cancelled'`,
+              [item.id, slotKey.date],
+            )).rows;
+            if (sameDayAppointments.some(row => {
+              const candidate = row.data?.value || {};
+              return sameAppointmentDoctor(candidate, value) &&
+                bookingIntervalsOverlap(candidate, value);
+            })) {
+              throw fail(409, 'That veterinarian already has an overlapping appointment.');
+            }
             if (!appointmentSlotLocked) {
               await client.query(
                 'SELECT pg_advisory_xact_lock(hashtext($1))',
@@ -1015,4 +1124,12 @@ function installApi(app, pool, options = {}) {
     finally { client.release(); }
   }));
 }
-module.exports = { installApi, syncUserDirectoryAccount, findAccountByIdentifier };
+module.exports = {
+  installApi,
+  syncUserDirectoryAccount,
+  findAccountByIdentifier,
+  bookingTimeMinutes,
+  bookingIntervalsOverlap,
+  sameAppointmentDoctor,
+  appointmentScheduleError,
+};

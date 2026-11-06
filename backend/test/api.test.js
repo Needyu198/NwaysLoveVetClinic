@@ -68,13 +68,19 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
     let directory = await request('/data/clinic_directory',tokens.ownerA);
     let staffDirectoryEntry = directory.records.find(r=>r.data.value.id==='staff');
     assert.equal(staffDirectoryEntry.data.value.available,true);
-    const doctorProfile = {id:'doctor-profile',version:0,data:{key:'profile',value:{name:'Dr. Updated Name',specialty:'Surgery',acceptingAppointments:true}}};
+    const doctorSchedule = Object.fromEntries(
+      ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
+        .map(day=>[day,{isWorking:true,startMinutes:8*60,endMinutes:17*60,breakStartMinutes:12*60,breakEndMinutes:13*60}]),
+    );
+    const doctorProfile = {id:'doctor-profile',version:0,data:{key:'profile',value:{name:'Dr. Updated Name',specialty:'Surgery',acceptingAppointments:true,schedule:doctorSchedule,leaveDates:[]}}};
     assert.equal((await request('/data/doctor_profiles/sync',tokens.doctor,{changes:[doctorProfile]})).status,200);
     assert.equal((await database.query("SELECT full_name FROM app_accounts WHERE id='doctor'")).rows[0].full_name,'Dr. Updated Name');
     directory = await request('/data/clinic_directory',tokens.ownerA);
     const doctorDirectoryEntry = directory.records.find(r=>r.data.value.id==='doctor');
     assert.equal(doctorDirectoryEntry.data.value.name,'Dr. Updated Name');
     assert.equal(doctorDirectoryEntry.data.value.specialty,'Surgery');
+    assert.equal(doctorDirectoryEntry.data.value.schedule.monday.startMinutes,480);
+    assert.deepEqual(doctorDirectoryEntry.data.value.leaveDates,[]);
     const staffProfile = {id:'staff-profile',version:0,data:{key:'staff:profile',value:{name:'Clinic Staff',shift:'Evening',onShift:false}}};
     assert.equal((await request('/data/staff_profiles/sync',tokens.staff,{changes:[staffProfile]})).status,200);
     directory = await request('/data/clinic_directory',tokens.ownerA);
@@ -127,6 +133,24 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
         data:{...duplicateBooking.data,key:`${table}-other-owner`},
       }]})).status,200,`${table} other owner`);
     }
+    const scheduledAppointment = (id,pet,time) => ({
+      id:`${id}-row`,version:0,data:{key:id,value:{
+        id,date:duplicateDate,time,status:'Confirmed',pet,
+        veterinarian:'Dr. Updated Name',veterinarianId:'doctor',
+        service:{name:'Checkup',durationMinutes:60},
+      }},
+    });
+    assert.equal((await request('/data/appointments/sync',tokens.ownerA,{changes:[
+      scheduledAppointment('doctor-slot-first',{id:'pet-slot-a',name:'Alpha'},'09:00 AM'),
+    ]})).status,200);
+    const overlap = await request('/data/appointments/sync',tokens.ownerB,{changes:[
+      scheduledAppointment('doctor-slot-overlap',{id:'pet-slot-b',name:'Beta'},'09:30 AM'),
+    ]});
+    assert.equal(overlap.status,409);
+    assert.match(overlap.message,/overlapping appointment/i);
+    assert.equal((await request('/data/appointments/sync',tokens.ownerB,{changes:[
+      scheduledAppointment('doctor-slot-next',{id:'pet-slot-b',name:'Beta'},'10:00 AM'),
+    ]})).status,200);
     // Staff appointment screens hydrate clinic-wide owner bookings from these
     // shared tables, including the pet-care service and its linked appointment.
     const staffAppointments = await request('/data/appointments',tokens.staff);

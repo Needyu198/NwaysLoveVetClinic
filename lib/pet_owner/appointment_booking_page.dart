@@ -184,6 +184,130 @@ class AppointmentStore extends ChangeNotifier {
         slotCapacity;
   }
 
+  bool hasDoctorConflict({
+    required DateTime date,
+    required String time,
+    required int durationMinutes,
+    required String veterinarian,
+    String veterinarianId = '',
+    String? excludingAppointmentId,
+  }) {
+    return _appointments.any(
+      (appointment) =>
+          appointment.id != excludingAppointmentId &&
+          appointment.status != 'Cancelled' &&
+          (veterinarianId.isNotEmpty && appointment.veterinarianId.isNotEmpty
+              ? appointment.veterinarianId == veterinarianId
+              : appointment.veterinarian == veterinarian) &&
+          DateUtils.isSameDay(appointment.date, date) &&
+          bookingSlotsOverlap(
+            firstTime: time,
+            firstDurationMinutes: durationMinutes,
+            secondTime: appointment.time,
+            secondDurationMinutes: appointment.service.durationMinutes,
+          ),
+    );
+  }
+
+  bool isDoctorAvailableForSlot({
+    required DateTime date,
+    required String time,
+    required int durationMinutes,
+    required String veterinarian,
+    ClinicPerson? doctor,
+    String? excludingAppointmentId,
+  }) {
+    if (!bookingSlotFitsWindow(
+      time: time,
+      durationMinutes: durationMinutes,
+      startMinutes: 8 * 60,
+      endMinutes: 19 * 60,
+    )) {
+      return false;
+    }
+    if (doctor != null) {
+      if (!doctor.available || doctor.isOnLeave(date)) return false;
+      if (doctor.hasPublishedSchedule) {
+        final day = doctor.schedule[date.weekday];
+        if (day == null || !day.isWorking) return false;
+        if (!bookingSlotFitsWindow(
+          time: time,
+          durationMinutes: durationMinutes,
+          startMinutes: day.startMinutes,
+          endMinutes: day.endMinutes,
+          breakStartMinutes: day.breakStartMinutes,
+          breakEndMinutes: day.breakEndMinutes,
+        )) {
+          return false;
+        }
+      }
+    }
+    return !hasDoctorConflict(
+      date: date,
+      time: time,
+      durationMinutes: durationMinutes,
+      veterinarian: veterinarian,
+      veterinarianId: doctor?.id ?? '',
+      excludingAppointmentId: excludingAppointmentId,
+    );
+  }
+
+  List<AppointmentSlotSuggestion> suggestSlots({
+    required List<DateTime> dates,
+    required List<String> times,
+    required BookingPet pet,
+    required String veterinarian,
+    required int durationMinutes,
+    ClinicPerson? doctor,
+    DateTime? now,
+    int limit = 5,
+  }) {
+    final current = now ?? DateTime.now();
+    final suggestions = <AppointmentSlotSuggestion>[];
+    for (final date in dates) {
+      for (final time in times) {
+        if (!isFutureBookingSlot(date, time, now: current) ||
+            !isSlotAvailable(date: date, time: time) ||
+            hasDuplicateBooking(pet: pet, date: date, time: time) ||
+            !isDoctorAvailableForSlot(
+              date: date,
+              time: time,
+              durationMinutes: durationMinutes,
+              veterinarian: veterinarian,
+              doctor: doctor,
+            )) {
+          continue;
+        }
+        final booked = slotBookingCount(date: date, time: time);
+        final remaining = slotCapacity - booked;
+        suggestions.add(
+          AppointmentSlotSuggestion(
+            date: date,
+            time: time,
+            remainingCapacity: remaining,
+            reason: booked == 0
+                ? 'Doctor available • least busy'
+                : 'Doctor available • $remaining clinic place remaining',
+          ),
+        );
+      }
+    }
+    suggestions.sort((left, right) {
+      final dateOrder = DateUtils.dateOnly(
+        left.date,
+      ).compareTo(DateUtils.dateOnly(right.date));
+      if (dateOrder != 0) return dateOrder;
+      final capacityOrder = right.remainingCapacity.compareTo(
+        left.remainingCapacity,
+      );
+      if (capacityOrder != 0) return capacityOrder;
+      return bookingTimeMinutes(
+        left.time,
+      ).compareTo(bookingTimeMinutes(right.time));
+    });
+    return suggestions.take(limit).toList(growable: false);
+  }
+
   /// Prevents an owner from booking the same pet into the same date/time more
   /// than once, even when a different service or veterinarian is selected.
   bool hasDuplicateBooking({
@@ -928,6 +1052,7 @@ class BookedAppointment {
     'pet': pet.toDb(),
     'service': service.toDb(),
     'veterinarian': veterinarian,
+    'veterinarianId': veterinarianId,
     'date': date.toIso8601String(),
     'time': time,
     'symptoms': symptoms,
@@ -951,6 +1076,7 @@ class BookedAppointment {
         Map<String, dynamic>.from(data['service'] as Map),
       ),
       veterinarian: data['veterinarian'] as String,
+      veterinarianId: data['veterinarianId'] as String? ?? '',
       date: DateTime.parse(data['date'] as String),
       time: data['time'] as String,
       symptoms: data['symptoms'] as String,
@@ -982,6 +1108,7 @@ class BookedAppointment {
     required this.pet,
     required this.service,
     required this.veterinarian,
+    this.veterinarianId = '',
     required this.date,
     required this.time,
     required this.symptoms,
@@ -1000,6 +1127,7 @@ class BookedAppointment {
   final BookingPet pet;
   final BookingService service;
   String veterinarian;
+  final String veterinarianId;
   DateTime date;
   String time;
   final String symptoms;
@@ -1185,6 +1313,7 @@ class BookingService {
     'icon': icon.codePoint,
     'homeVisit': homeVisit,
     'doctors': doctors.map((v) => v).toList(),
+    'durationMinutes': durationMinutes,
   };
   static BookingService fromDb(Map<String, dynamic> data) {
     final value = BookingService(
@@ -1193,6 +1322,7 @@ class BookingService {
       icon: databaseIcon(data['icon'] as int),
       homeVisit: data['homeVisit'] as bool,
       doctors: (data['doctors'] as List).map((v) => v as String).toList(),
+      durationMinutes: data['durationMinutes'] as int? ?? 60,
     );
     return value;
   }
@@ -1203,6 +1333,7 @@ class BookingService {
     required this.icon,
     required this.homeVisit,
     required this.doctors,
+    this.durationMinutes = 60,
   });
 
   final String name;
@@ -1210,6 +1341,7 @@ class BookingService {
   final IconData icon;
   final bool homeVisit;
   final List<String> doctors;
+  final int durationMinutes;
 
   String? get iconAsset => switch (name) {
     'General Checkup' => 'assets/photos/icon/reminder_checkup.png',
@@ -2290,6 +2422,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
                 icon: s.icon,
                 homeVisit: s.homeVisit,
                 doctors: ClinicDirectory.instance.availableDoctors,
+                durationMinutes: s.durationMinutes,
               ),
             )
             .toList();
@@ -2300,6 +2433,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       icon: Icons.health_and_safety_rounded,
       homeVisit: false,
       doctors: ['Dr. Aye Chan', 'Dr. Hnin Thiri'],
+      durationMinutes: 60,
     ),
     BookingService(
       name: 'Vaccination',
@@ -2307,6 +2441,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       icon: Icons.vaccines_rounded,
       homeVisit: false,
       doctors: ['Dr. Hnin Thiri', 'Dr. Su Mon'],
+      durationMinutes: 30,
     ),
     BookingService(
       name: 'Emergency',
@@ -2314,6 +2449,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       icon: Icons.emergency_rounded,
       homeVisit: false,
       doctors: ['Dr. Aye Chan', 'Dr. Min Khant'],
+      durationMinutes: 60,
     ),
     BookingService(
       name: 'Home Visit',
@@ -2321,6 +2457,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       icon: Icons.home_work_rounded,
       homeVisit: true,
       doctors: ['Dr. Min Khant', 'Dr. Aye Chan'],
+      durationMinutes: 60,
     ),
   ];
 
@@ -2363,22 +2500,51 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
 
   List<String> get _availableTimes {
     if (_service?.homeVisit ?? false) {
-      return const ['12:00 PM', '1:00 PM', '2:00 PM'];
+      return const ['12:00 PM', '12:30 PM', '1:00 PM', '1:30 PM', '2:00 PM'];
     }
-    return const [
-      '8:00 AM',
-      '9:00 AM',
-      '10:00 AM',
-      '11:00 AM',
-      '12:00 PM',
-      '1:00 PM',
-      '2:00 PM',
-      '3:00 PM',
-      '4:00 PM',
-      '5:00 PM',
-      '6:00 PM',
+    return [
+      for (var minutes = 8 * 60; minutes < 19 * 60; minutes += 30)
+        formatBookingTime(minutes),
     ];
   }
+
+  ClinicPerson? get _selectedDoctorProfile {
+    final name = _veterinarian;
+    if (name == null) return null;
+    for (final doctor in ClinicDirectory.instance.doctorProfiles) {
+      if (doctor.name == name) return doctor;
+    }
+    return null;
+  }
+
+  bool _slotIsAvailable(DateTime date, String time) =>
+      isFutureBookingSlot(date, time) &&
+      AppointmentStore.instance.isSlotAvailable(date: date, time: time) &&
+      !AppointmentStore.instance.hasDuplicateBooking(
+        pet: _pet!,
+        date: date,
+        time: time,
+      ) &&
+      AppointmentStore.instance.isDoctorAvailableForSlot(
+        date: date,
+        time: time,
+        durationMinutes: _service!.durationMinutes,
+        veterinarian: _veterinarian!,
+        doctor: _selectedDoctorProfile,
+      );
+
+  bool _dateHasAvailableSlot(DateTime date) =>
+      _availableTimes.any((time) => _slotIsAvailable(date, time));
+
+  List<AppointmentSlotSuggestion> get _suggestedSlots =>
+      AppointmentStore.instance.suggestSlots(
+        dates: _availableDates,
+        times: _availableTimes,
+        pet: _pet!,
+        veterinarian: _veterinarian!,
+        durationMinutes: _service!.durationMinutes,
+        doctor: _selectedDoctorProfile,
+      );
 
   @override
   void initState() {
@@ -2721,25 +2887,34 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
             runSpacing: 10,
             children: [
               for (final date in _availableDates)
-                ChoiceChip(
-                  key: ValueKey('appointment-date-${date.day}'),
-                  selected: DateUtils.isSameDay(_date, date),
-                  onSelected: (_) => setState(() {
-                    _date = date;
-                    _clearHeldTime();
-                  }),
-                  selectedColor: _BookingColors.green,
-                  labelStyle: TextStyle(
-                    color: DateUtils.isSameDay(_date, date)
-                        ? Colors.white
-                        : _BookingColors.ink,
-                    fontWeight: FontWeight.w800,
-                  ),
-                  label: Text(
-                    DateUtils.isSameDay(date, DateTime.now())
-                        ? 'Today, ${_shortDate(date)}'
-                        : _shortDate(date),
-                  ),
+                Builder(
+                  builder: (context) {
+                    final available = _dateHasAvailableSlot(date);
+                    return ChoiceChip(
+                      key: ValueKey('appointment-date-${date.day}'),
+                      selected: DateUtils.isSameDay(_date, date),
+                      onSelected: available
+                          ? (_) => setState(() {
+                              _date = date;
+                              _clearHeldTime();
+                            })
+                          : null,
+                      selectedColor: _BookingColors.green,
+                      labelStyle: TextStyle(
+                        color: DateUtils.isSameDay(_date, date)
+                            ? Colors.white
+                            : available
+                            ? _BookingColors.ink
+                            : _BookingColors.muted,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      label: Text(
+                        DateUtils.isSameDay(date, DateTime.now())
+                            ? 'Today, ${_shortDate(date)}'
+                            : _shortDate(date),
+                      ),
+                    );
+                  },
                 ),
             ],
           ),
@@ -2772,7 +2947,41 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
                   '$_time is held for ${_formatCountdown(_holdSeconds)}. Complete the booking before the hold expires.',
             ),
           if (_time != null) const SizedBox(height: 18),
-          const Text('Available one-hour slots', style: _BookingText.section),
+          if (_suggestedSlots.isNotEmpty) ...[
+            const Text('Recommended slots', style: _BookingText.section),
+            const SizedBox(height: 6),
+            const Text(
+              'Ranked by doctor schedule, conflicts, clinic capacity, and lower workload.',
+              style: _BookingText.caption,
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 120,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _suggestedSlots.take(3).length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final suggestion = _suggestedSlots[index];
+                  return SizedBox(
+                    width: 270,
+                    child: _SuggestedAppointmentSlot(
+                      suggestion: suggestion,
+                      selected:
+                          DateUtils.isSameDay(_date, suggestion.date) &&
+                          _time == suggestion.time,
+                      onTap: () => _holdSuggestion(suggestion),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          Text(
+            'Available ${_service!.durationMinutes}-minute slots',
+            style: _BookingText.section,
+          ),
           const SizedBox(height: 12),
           GridView.builder(
             shrinkWrap: true,
@@ -2786,12 +2995,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
             ),
             itemBuilder: (context, index) {
               final time = _availableTimes[index];
-              final available =
-                  isFutureBookingSlot(_date!, time) &&
-                  AppointmentStore.instance.isSlotAvailable(
-                    date: _date!,
-                    time: time,
-                  );
+              final available = _slotIsAvailable(_date!, time);
               return FilledButton(
                 key: ValueKey('appointment-time-$time'),
                 onPressed: available ? () => _holdTime(time) : null,
@@ -2892,7 +3096,8 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
                 ('Service', _service!.name),
                 ('Veterinarian', _veterinarian!),
                 ('Date', _longDate(_date!)),
-                ('Time', '$_time (1 hour)'),
+                ('Time', '$_time'),
+                ('Duration', '${_service!.durationMinutes} minutes'),
                 ('Symptoms', _symptomsController.text.trim()),
                 ('Reason', _reasonController.text.trim()),
                 if (_notesController.text.trim().isNotEmpty)
@@ -2952,6 +3157,11 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       }
       setState(() => _holdSeconds--);
     });
+  }
+
+  void _holdSuggestion(AppointmentSlotSuggestion suggestion) {
+    setState(() => _date = suggestion.date);
+    _holdTime(suggestion.time);
   }
 
   void _clearHeldTime() {
@@ -3031,6 +3241,20 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       _goToStep(4);
       return;
     }
+    if (!AppointmentStore.instance.isDoctorAvailableForSlot(
+      date: _date!,
+      time: _time!,
+      durationMinutes: _service!.durationMinutes,
+      veterinarian: _veterinarian!,
+      doctor: _selectedDoctorProfile,
+    )) {
+      setState(
+        () => _error =
+            'The veterinarian is no longer available then. Choose a recommended slot.',
+      );
+      _goToStep(4);
+      return;
+    }
 
     final appointment = BookedAppointment(
       id: 'NWAY${DateTime.now().microsecondsSinceEpoch}',
@@ -3038,6 +3262,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       pet: _pet!,
       service: _service!,
       veterinarian: _veterinarian!,
+      veterinarianId: _selectedDoctorProfile?.id ?? '',
       date: _date!,
       time: _time!,
       symptoms: _symptomsController.text.trim(),
@@ -3329,6 +3554,68 @@ class _BookingContextCard extends StatelessWidget {
       ],
     );
   }
+}
+
+class _SuggestedAppointmentSlot extends StatelessWidget {
+  const _SuggestedAppointmentSlot({
+    required this.suggestion,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppointmentSlotSuggestion suggestion;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: selected ? _BookingColors.mint : Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    child: InkWell(
+      key: ValueKey(
+        'suggested-slot-${suggestion.date.toIso8601String().substring(0, 10)}-${suggestion.time}',
+      ),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? _BookingColors.green : const Color(0xFFD8E7E1),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.auto_awesome_rounded, color: _BookingColors.green),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_shortDate(suggestion.date)} • ${suggestion.time}',
+                    style: _BookingText.cardTitle,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    suggestion.reason,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: _BookingText.caption,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: _BookingColors.green,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _ConfirmedAddressCard extends StatelessWidget {
