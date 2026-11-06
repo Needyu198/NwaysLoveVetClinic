@@ -156,7 +156,9 @@ void main() {
     expect(detailLogo.height, 28);
     expect(detailLogo.fit, BoxFit.contain);
     expect(find.byKey(const ValueKey('product-detail-price')), findsOneWidget);
-    expect(find.byKey(const ValueKey('product-detail-stock')), findsNothing);
+    expect(find.byKey(const ValueKey('product-detail-stock')), findsOneWidget);
+    expect(find.text('Add to Cart'), findsOneWidget);
+    expect(find.text('Buy Now'), findsOneWidget);
     expect(find.byKey(const ValueKey('product-detail-facts')), findsOneWidget);
     expect(find.byKey(const ValueKey('product-image-dot-0')), findsOneWidget);
     expect(

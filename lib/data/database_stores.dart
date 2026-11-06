@@ -10,6 +10,7 @@ import '../pet_owner/owner_shared_stores.dart';
 import '../pet_owner/pet_care_booking_page.dart';
 import '../pet_owner/profile_account_pages.dart';
 import '../pet_owner/profile_flows.dart';
+import '../pet_owner/pet_products_page.dart';
 import '../staff/staff_portal.dart';
 import '../system_admin/system_admin_portal.dart';
 
@@ -39,6 +40,7 @@ void registerDatabaseStores() {
   DoctorMedicalRecordStore.instance.connectDatabase();
   DoctorNotificationStore.instance.connectDatabase();
   StaffOperationsStore.instance.connectDatabase();
+  ProductOrderStore.instance.connectDatabase();
   StaffProfileStore.instance.connectDatabase();
   UserAccountStore.instance.connectDatabase();
   DoctorVerificationStore.instance.connectDatabase();

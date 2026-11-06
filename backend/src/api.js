@@ -91,6 +91,79 @@ const appointmentScheduleError = ({ profile, date, time, durationMinutes }) => {
   }
   return null;
 };
+async function reserveProductOrderInventory(client, order, orderId) {
+  if (!Array.isArray(order.items) || order.items.length < 1 || order.items.length > 50) {
+    throw fail(400, 'An order must contain between 1 and 50 products.');
+  }
+  const requested = new Map();
+  for (const item of order.items) {
+    const inventoryId = String(item?.inventoryId || '').trim();
+    const quantity = Number(item?.quantity);
+    if (!inventoryId || !Number.isInteger(quantity) || quantity <= 0 || quantity > 1000) {
+      throw fail(400, 'Invalid product order quantity.');
+    }
+    requested.set(inventoryId, (requested.get(inventoryId) || 0) + quantity);
+  }
+  const verifiedItems = [];
+  let total = 0;
+  const now = new Date();
+  for (const [inventoryId, quantity] of requested) {
+    const row = (await client.query(
+      `SELECT * FROM inventory WHERE data->'value'->>'id'=$1 FOR UPDATE`,
+      [inventoryId],
+    )).rows[0];
+    if (!row || row.data?.value?.archived) throw fail(409, 'A product is no longer available.');
+    const value = structuredClone(row.data.value);
+    const batches = Array.isArray(value.batches) ? value.batches : [];
+    if (batches.length) {
+      const eligible = batches
+        .filter(batch => Number(batch.quantity) > 0 && new Date(batch.expiresOn) >= now)
+        .sort((left, right) => new Date(left.expiresOn) - new Date(right.expiresOn));
+      const available = eligible.reduce((sum, batch) => sum + Number(batch.quantity), 0);
+      if (available < quantity) throw fail(409, `${value.name || 'A product'} does not have enough unexpired stock.`);
+      let remaining = quantity;
+      for (const batch of eligible) {
+        if (!remaining) break;
+        const used = Math.min(remaining, Number(batch.quantity));
+        batch.quantity = Number(batch.quantity) - used;
+        remaining -= used;
+      }
+    } else {
+      const expired = value.expiresOn && new Date(value.expiresOn) < now;
+      if (expired || Number(value.quantity) < quantity) {
+        throw fail(409, `${value.name || 'A product'} does not have enough available stock.`);
+      }
+    }
+    const previous = Number(value.quantity) || 0;
+    value.quantity = previous - quantity;
+    value.movements = [...(Array.isArray(value.movements) ? value.movements : []), {
+      id: `MOV-${crypto.randomUUID()}`,
+      type: 'Stock Out',
+      quantity,
+      previousBalance: previous,
+      newBalance: value.quantity,
+      reason: `Reserved for ${orderId}`,
+      staff: 'Online checkout',
+      at: now.toISOString(),
+      reference: orderId,
+      batchNumber: '',
+    }];
+    value.lastAudit = `Stock Out -${quantity} (online order ${orderId})`;
+    const data = { ...row.data, value };
+    await client.query(
+      'UPDATE inventory SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1',
+      [row.id, data],
+    );
+    const unitPrice = Math.max(0, Number(value.sellingPrice) || 0);
+    total += unitPrice * quantity;
+    verifiedItems.push({ inventoryId, name: String(value.name || inventoryId), unitPrice, quantity });
+  }
+  order.items = verifiedItems;
+  order.total = total;
+  order.status = 'Reserved';
+  order.fulfillment = 'Clinic pickup';
+  order.paymentMethod = 'Pay at clinic';
+}
 const activeBooking = (table, value) => {
   const status = normalizedBookingText(value?.status);
   if (table === 'appointments') return status !== 'cancelled';
@@ -805,6 +878,7 @@ function installApi(app, pool, options = {}) {
       // Owners whose cancellation count reached the suspension threshold during
       // this sync. They are suspended once, atomically, before the commit.
       const ownersToSuspend = new Set();
+      let inventoryChanged = false;
       for (const item of [...changes, ...deletions.map(x => ({ ...x, deleting: true }))]) {
         if (typeof item.id !== 'string' || !item.id || item.id.length > 250 || !Number.isInteger(item.version) || item.version < 0) throw fail(400, 'Invalid record.');
         const existing = (await client.query(`SELECT * FROM ${req.params.table} WHERE id=$1 FOR UPDATE`, [item.id])).rows[0];
@@ -848,6 +922,10 @@ function installApi(app, pool, options = {}) {
             "UPDATE app_accounts SET full_name=$2 WHERE id=$1 AND role='doctor'",
             [req.session.account_id, profileName],
           );
+        }
+        if (req.params.table === 'product_orders' && !existing) {
+          await reserveProductOrderInventory(client, item.data.value, item.data.value.id || item.id);
+          inventoryChanged = true;
         }
         let ownerId = existing?.owner_id || req.session.account_id;
         if (!existing && p.scope === 'owner' && req.session.role !== 'petOwner' && item.ownerId) {
@@ -1105,6 +1183,7 @@ function installApi(app, pool, options = {}) {
       // (drives the real-time queue). Only emit when something actually changed.
       if (changes.length || deletions.length) {
         broadcastChange(req.params.table);
+        if (inventoryChanged) broadcastChange('inventory');
         if (postNotifications.length) broadcastChange('owner_notifications');
         // clinic_directory is a computed view over accounts + doctor profiles.
         // Refresh staff/owner doctor pickers as soon as availability changes.
@@ -1132,4 +1211,5 @@ module.exports = {
   bookingIntervalsOverlap,
   sameAppointmentDoctor,
   appointmentScheduleError,
+  reserveProductOrderInventory,
 };

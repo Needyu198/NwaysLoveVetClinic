@@ -264,6 +264,7 @@ test('PostgreSQL API: round trips, ownership, roles, conflicts, rollback, logout
     for (const [table,p] of Object.entries(resources)) {
       if (p.writers?.length === 0) continue;
       if (table === 'user_directory') continue; // covered by provisioning above
+      if (table === 'product_orders') continue; // covered by checkout reservation tests
       const role=(p.writers||p.roles)[0];
       const who={petOwner:'ownerA',doctor:'doctor',staff:'staff',systemAdmin:'admin'}[role];
       const item={id:`roundtrip-${table}`,version:0,data:{key:'roundtrip',value: table === 'user_directory' ? {id:'directory-test',name:'Test',role:'owner',status:'pending'} : {test:true}}};

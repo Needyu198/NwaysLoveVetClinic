@@ -14,7 +14,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: ProductDetailsPage()));
     await tester.pumpAndSettle();
 
-    expect(find.text('More for you'), findsOneWidget);
+    expect(find.text('More for You'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

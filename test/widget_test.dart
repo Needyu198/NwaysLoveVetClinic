@@ -2666,12 +2666,14 @@ void main() {
     },
   );
 
-  testWidgets('product details are browse-only', (WidgetTester tester) async {
+  testWidgets('product details open the checkout flow', (
+    WidgetTester tester,
+  ) async {
     await signIn(tester);
 
     await tester.tap(find.byTooltip('Products'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Cart'), findsNothing);
+    expect(find.byTooltip('Cart'), findsOneWidget);
     expect(find.text('Product Options'), findsOneWidget);
     expect(find.text('Recommended Products'), findsNothing);
     await tester.ensureVisible(find.text('Dog Food 01'));
@@ -2679,17 +2681,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('product-detail-price')), findsOneWidget);
-    expect(find.byKey(const ValueKey('product-detail-stock')), findsNothing);
+    expect(find.byKey(const ValueKey('product-detail-stock')), findsOneWidget);
     expect(find.byKey(const ValueKey('product-detail-facts')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('product-detail-description')),
       findsOneWidget,
     );
-    expect(find.text('Add to Cart'), findsNothing);
-    expect(find.text('Add to cart'), findsNothing);
-    expect(find.text('Buy Now'), findsNothing);
-    expect(find.text('Quantity'), findsNothing);
-    expect(find.text('Secure payment'), findsNothing);
+    expect(find.text('Add to Cart'), findsOneWidget);
+    expect(find.text('Buy Now'), findsOneWidget);
     expect(find.text('Chat with the clinic'), findsNothing);
     expect(find.text('Variations'), findsNothing);
     expect(find.text('View shop'), findsNothing);

@@ -32,6 +32,7 @@ const resources = {
   walk_in_appointments: { roles: clinic, scope: 'clinic' },
   payments: { roles: ['staff', 'systemAdmin'], scope: 'clinic' },
   inventory: { roles: owner, scope: 'clinic', writers: clinic },
+  product_orders: { roles: ['petOwner', 'staff', 'systemAdmin'], scope: 'owner', writers: ['petOwner', 'staff', 'systemAdmin'], appendOnly: true },
   staff_profiles: { roles: ['staff'], scope: 'private' },
   user_directory: { roles: admin, scope: 'clinic' },
   doctor_verifications: { roles: admin, scope: 'clinic' },

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../data/clinic_api.dart';
+import '../data/database_sync.dart';
 import '../staff/staff_portal.dart';
 import 'package:flutter/material.dart';
 
@@ -11,6 +12,7 @@ import 'pet_owner_nav_bar.dart';
 import 'pet_owner_profile_page.dart';
 import 'pet_owner_page_header.dart';
 import 'pet_product_styles.dart';
+import 'profile_flows.dart';
 
 /// Formats an integer amount as "1,015 MMK".
 String formatMmk(int amount) {
@@ -21,6 +23,170 @@ String formatMmk(int amount) {
     buf.write(s[i]);
   }
   return '${buf.toString()} MMK';
+}
+
+class CartLine {
+  CartLine({required this.product, this.quantity = 1});
+  final Product product;
+  int quantity;
+  int get total => product.price * quantity;
+}
+
+class ProductCartStore extends ChangeNotifier {
+  ProductCartStore._();
+  static final instance = ProductCartStore._();
+  final Map<String, CartLine> _lines = {};
+
+  String _key(Product product) =>
+      product.inventoryId.isEmpty ? product.name : product.inventoryId;
+
+  List<CartLine> get lines => List.unmodifiable(_lines.values);
+  int get itemCount =>
+      _lines.values.fold(0, (sum, line) => sum + line.quantity);
+  int get subtotal => _lines.values.fold(0, (sum, line) => sum + line.total);
+  bool get isEmpty => _lines.isEmpty;
+
+  bool add(Product product, {int quantity = 1}) {
+    if (quantity <= 0 || product.stock <= 0) return false;
+    final key = _key(product);
+    final next = (_lines[key]?.quantity ?? 0) + quantity;
+    if (next > product.stock) return false;
+    _lines.putIfAbsent(key, () => CartLine(product: product)).quantity = next;
+    notifyListeners();
+    return true;
+  }
+
+  bool setQuantity(CartLine line, int quantity) {
+    if (quantity <= 0) {
+      _lines.remove(_key(line.product));
+      notifyListeners();
+      return true;
+    }
+    if (quantity > line.product.stock) return false;
+    line.quantity = quantity;
+    notifyListeners();
+    return true;
+  }
+
+  void clear() {
+    _lines.clear();
+    notifyListeners();
+  }
+}
+
+class ProductOrderLine {
+  const ProductOrderLine({
+    required this.inventoryId,
+    required this.name,
+    required this.unitPrice,
+    required this.quantity,
+  });
+
+  factory ProductOrderLine.fromDb(Map<String, dynamic> value) =>
+      ProductOrderLine(
+        inventoryId: value['inventoryId'] as String? ?? '',
+        name: value['name'] as String? ?? '',
+        unitPrice: value['unitPrice'] as int? ?? 0,
+        quantity: value['quantity'] as int? ?? 0,
+      );
+
+  Map<String, dynamic> toDb() => {
+    'inventoryId': inventoryId,
+    'name': name,
+    'unitPrice': unitPrice,
+    'quantity': quantity,
+  };
+
+  final String inventoryId;
+  final String name;
+  final int unitPrice;
+  final int quantity;
+}
+
+class ProductOrder {
+  ProductOrder({
+    required this.id,
+    required this.createdAt,
+    required this.items,
+    required this.total,
+    required this.ownerName,
+    required this.ownerPhone,
+    this.fulfillment = 'Clinic pickup',
+    this.paymentMethod = 'Pay at clinic',
+    this.status = 'Reserved',
+  });
+
+  factory ProductOrder.fromDb(Map<String, dynamic> value) => ProductOrder(
+    id: value['id'] as String,
+    createdAt: DateTime.parse(value['createdAt'] as String),
+    items: (value['items'] as List? ?? const [])
+        .map(
+          (item) =>
+              ProductOrderLine.fromDb(Map<String, dynamic>.from(item as Map)),
+        )
+        .toList(),
+    total: value['total'] as int? ?? 0,
+    ownerName: value['ownerName'] as String? ?? '',
+    ownerPhone: value['ownerPhone'] as String? ?? '',
+    fulfillment: value['fulfillment'] as String? ?? 'Clinic pickup',
+    paymentMethod: value['paymentMethod'] as String? ?? 'Pay at clinic',
+    status: value['status'] as String? ?? 'Reserved',
+  );
+
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'createdAt': createdAt.toIso8601String(),
+    'items': items.map((item) => item.toDb()).toList(),
+    'total': total,
+    'ownerName': ownerName,
+    'ownerPhone': ownerPhone,
+    'fulfillment': fulfillment,
+    'paymentMethod': paymentMethod,
+    'status': status,
+  };
+
+  final String id;
+  final DateTime createdAt;
+  final List<ProductOrderLine> items;
+  final int total;
+  final String ownerName;
+  final String ownerPhone;
+  final String fulfillment;
+  final String paymentMethod;
+  String status;
+}
+
+class ProductOrderStore extends ChangeNotifier {
+  ProductOrderStore._();
+  static final instance = ProductOrderStore._();
+  final List<ProductOrder> _orders = [];
+
+  List<ProductOrder> get orders => List.unmodifiable(_orders.reversed);
+
+  void connectDatabase() => DatabaseSync.instance.bind(
+    'product_orders',
+    this,
+    () => {for (final order in _orders) order.id: order.toDb()},
+    (rows) => _orders
+      ..clear()
+      ..addAll(rows.values.map(ProductOrder.fromDb)),
+  );
+
+  void add(ProductOrder order) {
+    _orders.add(order);
+    notifyListeners();
+  }
+
+  void remove(ProductOrder order) {
+    _orders.remove(order);
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void clear() {
+    _orders.clear();
+    notifyListeners();
+  }
 }
 
 class PetProductsPage extends StatefulWidget {
@@ -98,6 +264,7 @@ class _PetProductsPageState extends State<PetProductsPage> {
                   onLogoTap: () => Navigator.of(
                     context,
                   ).pushReplacementNamed(PetOwnerHomePage.routeName),
+                  actions: const [_ProductCartButton()],
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
@@ -262,6 +429,73 @@ class ProductDetailsPage extends StatelessWidget {
     );
     return Scaffold(
       backgroundColor: Colors.white,
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: AnimatedBuilder(
+          animation: ProductCartStore.instance,
+          builder: (context, _) => Container(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x19000000),
+                  blurRadius: 16,
+                  offset: Offset(0, -4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('product-add-to-cart'),
+                    onPressed: product.stock > 0
+                        ? () {
+                            final added = ProductCartStore.instance.add(
+                              product,
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  added
+                                      ? '${product.name} added to cart.'
+                                      : 'The requested quantity is not available.',
+                                ),
+                              ),
+                            );
+                          }
+                        : null,
+                    icon: const Icon(Icons.add_shopping_cart_rounded),
+                    label: const Text('Add to Cart'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const ValueKey('product-buy-now'),
+                    onPressed: product.stock > 0
+                        ? () {
+                            ProductCartStore.instance.add(product);
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const ProductCartPage(),
+                              ),
+                            );
+                          }
+                        : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: ProductStyles.green,
+                    ),
+                    icon: const Icon(Icons.shopping_bag_outlined),
+                    label: const Text('Buy Now'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -331,6 +565,19 @@ class ProductDetailsPage extends StatelessWidget {
                               fontWeight: FontWeight.w900,
                             ),
                           ),
+                          const SizedBox(height: 6),
+                          Text(
+                            product.stock > 0
+                                ? '${product.stock} ${product.weight} available'
+                                : 'Out of stock',
+                            key: const ValueKey('product-detail-stock'),
+                            style: TextStyle(
+                              color: product.stock > 0
+                                  ? ProductStyles.green
+                                  : ProductStyles.red,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                           const SizedBox(height: 16),
                           _ProductFacts(product: product),
                           const Divider(height: 30),
@@ -372,6 +619,530 @@ class ProductDetailsPage extends StatelessWidget {
   }
 }
 
+class _ProductCartButton extends StatelessWidget {
+  const _ProductCartButton();
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: ProductCartStore.instance,
+    builder: (context, _) => Badge(
+      isLabelVisible: ProductCartStore.instance.itemCount > 0,
+      label: Text('${ProductCartStore.instance.itemCount}'),
+      child: IconButton(
+        key: const ValueKey('open-product-cart'),
+        tooltip: 'Cart',
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const ProductCartPage()),
+        ),
+        icon: const Icon(Icons.shopping_cart_outlined),
+      ),
+    ),
+  );
+}
+
+class ProductCartPage extends StatelessWidget {
+  const ProductCartPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: ProductStyles.background,
+    body: SafeArea(
+      child: Column(
+        children: [
+          PetOwnerPageHeader(
+            title: 'Shopping Cart',
+            actions: [
+              IconButton(
+                key: const ValueKey('open-product-orders'),
+                tooltip: 'My orders',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ProductOrdersPage(),
+                  ),
+                ),
+                icon: const Icon(Icons.receipt_long_outlined),
+              ),
+            ],
+          ),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: ProductCartStore.instance,
+              builder: (context, _) {
+                final cart = ProductCartStore.instance;
+                if (cart.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.shopping_cart_outlined, size: 64),
+                        SizedBox(height: 12),
+                        Text(
+                          'Your cart is empty',
+                          style: ProductStyles.sectionTitle,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(18),
+                  itemCount: cart.lines.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) =>
+                      _CartLineCard(line: cart.lines[index]),
+                );
+              },
+            ),
+          ),
+          AnimatedBuilder(
+            animation: ProductCartStore.instance,
+            builder: (context, _) {
+              final cart = ProductCartStore.instance;
+              if (cart.isEmpty) return const SizedBox.shrink();
+              return SafeArea(
+                top: false,
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  color: Colors.white,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Subtotal', style: ProductStyles.body),
+                          Text(
+                            formatMmk(cart.subtotal),
+                            key: const ValueKey('cart-subtotal'),
+                            style: ProductStyles.sectionTitle,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          key: const ValueKey('proceed-to-checkout'),
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ProductCheckoutPage(),
+                            ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: ProductStyles.green,
+                            minimumSize: const Size.fromHeight(52),
+                          ),
+                          icon: const Icon(Icons.lock_outline_rounded),
+                          label: const Text('Proceed to Checkout'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _CartLineCard extends StatelessWidget {
+  const _CartLineCard({required this.line});
+  final CartLine line;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: ValueKey(
+      'cart-line-${line.product.inventoryId.isEmpty ? line.product.name : line.product.inventoryId}',
+    ),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFDDE9E4)),
+    ),
+    child: Row(
+      children: [
+        SizedBox.square(
+          dimension: 72,
+          child: ProductArt(product: line.product),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(line.product.name, style: ProductStyles.productName),
+              const SizedBox(height: 3),
+              Text(formatMmk(line.product.price), style: ProductStyles.caption),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  IconButton.outlined(
+                    key: ValueKey('cart-minus-${line.product.name}'),
+                    onPressed: () => ProductCartStore.instance.setQuantity(
+                      line,
+                      line.quantity - 1,
+                    ),
+                    icon: const Icon(Icons.remove_rounded, size: 18),
+                  ),
+                  Text(
+                    '${line.quantity}',
+                    key: ValueKey('cart-quantity-${line.product.name}'),
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  IconButton.outlined(
+                    key: ValueKey('cart-plus-${line.product.name}'),
+                    onPressed: () {
+                      final updated = ProductCartStore.instance.setQuantity(
+                        line,
+                        line.quantity + 1,
+                      );
+                      if (!updated) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('No more stock is available.'),
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Text(formatMmk(line.total), style: ProductStyles.productName),
+      ],
+    ),
+  );
+}
+
+class ProductCheckoutPage extends StatefulWidget {
+  const ProductCheckoutPage({super.key});
+
+  @override
+  State<ProductCheckoutPage> createState() => _ProductCheckoutPageState();
+}
+
+class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
+  bool _placing = false;
+  String? _error;
+  ProductOrder? _completed;
+
+  Future<void> _placeOrder() async {
+    final cart = ProductCartStore.instance;
+    if (cart.isEmpty || _placing) return;
+    final inventory = StaffOperationsStore.instance;
+    for (final line in cart.lines) {
+      if (line.product.inventoryId.isEmpty) continue;
+      final matches = inventory.activeInventory.where(
+        (item) => item.id == line.product.inventoryId,
+      );
+      if (matches.isEmpty ||
+          matches.first.availableUnexpiredQuantity < line.quantity) {
+        setState(
+          () => _error = '${line.product.name} no longer has enough stock.',
+        );
+        return;
+      }
+    }
+    setState(() {
+      _placing = true;
+      _error = null;
+    });
+    final now = DateTime.now();
+    final profile = OwnerProfileStore.instance.profile;
+    final order = ProductOrder(
+      id: 'ORD-${now.microsecondsSinceEpoch}',
+      createdAt: now,
+      items: cart.lines
+          .map(
+            (line) => ProductOrderLine(
+              inventoryId: line.product.inventoryId,
+              name: line.product.name,
+              unitPrice: line.product.price,
+              quantity: line.quantity,
+            ),
+          )
+          .toList(),
+      total: cart.subtotal,
+      ownerName: profile.fullName,
+      ownerPhone: profile.phone,
+    );
+    ProductOrderStore.instance.add(order);
+    try {
+      if (DatabaseSync.instance.active) {
+        await DatabaseSync.instance.flushOrThrow();
+        await DatabaseSync.instance.refreshTable('inventory');
+      } else if (ClinicApi.instance.token != null) {
+        for (final line in cart.lines) {
+          if (line.product.inventoryId.isEmpty) continue;
+          final item = inventory.activeInventory.firstWhere(
+            (item) => item.id == line.product.inventoryId,
+          );
+          inventory.stockOut(
+            item,
+            line.quantity,
+            reason: 'Reserved for ${order.id}',
+            reference: order.id,
+          );
+        }
+      }
+      cart.clear();
+      if (mounted) setState(() => _completed = order);
+    } catch (error) {
+      ProductOrderStore.instance.remove(order);
+      if (mounted) {
+        setState(
+          () => _error = 'The order could not be reserved. Please retry.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _placing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final completed = _completed;
+    if (completed != null) return _OrderConfirmation(order: completed);
+    final profile = OwnerProfileStore.instance.profile;
+    final cart = ProductCartStore.instance;
+    return Scaffold(
+      backgroundColor: ProductStyles.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Checkout'),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(18),
+                children: [
+                  const Text(
+                    'Pickup details',
+                    style: ProductStyles.sectionTitle,
+                  ),
+                  const SizedBox(height: 10),
+                  _CheckoutCard(
+                    rows: [
+                      (
+                        'Customer',
+                        profile.fullName.isEmpty
+                            ? 'Registered owner'
+                            : profile.fullName,
+                      ),
+                      (
+                        'Phone',
+                        profile.phone.isEmpty ? 'Not recorded' : profile.phone,
+                      ),
+                      ('Fulfillment', 'Clinic pickup'),
+                      ('Payment', 'Pay at clinic'),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Order summary',
+                    style: ProductStyles.sectionTitle,
+                  ),
+                  const SizedBox(height: 10),
+                  _CheckoutCard(
+                    rows: [
+                      for (final line in cart.lines)
+                        (
+                          '${line.quantity} × ${line.product.name}',
+                          formatMmk(line.total),
+                        ),
+                      ('Total', formatMmk(cart.subtotal)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Items are reserved after confirmation. Payment is collected by clinic staff at pickup.',
+                    style: ProductStyles.caption,
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: ProductStyles.red),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const ValueKey('place-product-order'),
+                  onPressed: _placing ? null : _placeOrder,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: ProductStyles.green,
+                    minimumSize: const Size.fromHeight(54),
+                  ),
+                  icon: _placing
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_circle_outline_rounded),
+                  label: Text(_placing ? 'Reserving items…' : 'Place Order'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CheckoutCard extends StatelessWidget {
+  const _CheckoutCard({required this.rows});
+  final List<(String, String)> rows;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFDDE9E4)),
+    ),
+    child: Column(
+      children: [
+        for (var index = 0; index < rows.length; index++) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(rows[index].$1, style: ProductStyles.caption),
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  rows[index].$2,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          if (index < rows.length - 1) const Divider(height: 20),
+        ],
+      ],
+    ),
+  );
+}
+
+class _OrderConfirmation extends StatelessWidget {
+  const _OrderConfirmation({required this.order});
+  final ProductOrder order;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    key: const ValueKey('product-order-confirmation'),
+    backgroundColor: ProductStyles.background,
+    body: SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const SizedBox(height: 36),
+          const Icon(
+            Icons.check_circle_rounded,
+            size: 84,
+            color: ProductStyles.green,
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Order Reserved',
+            textAlign: TextAlign.center,
+            style: ProductStyles.sectionTitle,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            order.id,
+            textAlign: TextAlign.center,
+            style: ProductStyles.caption,
+          ),
+          const SizedBox(height: 24),
+          _CheckoutCard(
+            rows: [
+              ('Status', order.status),
+              (
+                'Items',
+                '${order.items.fold<int>(0, (sum, item) => sum + item.quantity)}',
+              ),
+              ('Total', formatMmk(order.total)),
+              ('Payment', order.paymentMethod),
+              ('Pickup', "Nway's Love Vet Clinic"),
+            ],
+          ),
+          const SizedBox(height: 18),
+          FilledButton(
+            key: const ValueKey('finish-product-order'),
+            onPressed: () => Navigator.of(context).popUntil(
+              (route) =>
+                  route.isFirst ||
+                  route.settings.name == PetProductsPage.routeName,
+            ),
+            style: FilledButton.styleFrom(backgroundColor: ProductStyles.green),
+            child: const Text('Continue Shopping'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class ProductOrdersPage extends StatelessWidget {
+  const ProductOrdersPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: ProductStyles.background,
+    body: SafeArea(
+      child: Column(
+        children: [
+          const PetOwnerPageHeader(title: 'My Product Orders'),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: ProductOrderStore.instance,
+              builder: (context, _) {
+                final orders = ProductOrderStore.instance.orders;
+                if (orders.isEmpty) {
+                  return const Center(child: Text('No product orders yet.'));
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(18),
+                  itemCount: orders.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final order = orders[index];
+                    return _CheckoutCard(
+                      rows: [
+                        ('Order', order.id),
+                        ('Status', order.status),
+                        ('Total', formatMmk(order.total)),
+                        ('Payment', order.paymentMethod),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 List<Product> _recommendationsFor(
   Product current,
   bool Function(Product product) matches, {
@@ -398,6 +1169,7 @@ List<Product> _recommendationsFor(
 
 class Product {
   const Product({
+    this.inventoryId = '',
     required this.name,
     required this.category,
     required this.brand,
@@ -411,8 +1183,10 @@ class Product {
     this.photoUrl = '',
     this.imageUrls = const [],
     this.subcategory = '',
+    this.stock = 20,
   });
 
+  final String inventoryId;
   final String name;
   final String category;
   final String brand;
@@ -428,6 +1202,7 @@ class Product {
   final String photoUrl;
   final List<String> imageUrls;
   final String subcategory;
+  final int stock;
 
   List<String> get galleryImages {
     if (imageUrls.isNotEmpty) return imageUrls;
@@ -510,6 +1285,7 @@ List<Product> get products => ClinicApi.instance.token == null
     : StaffOperationsStore.instance.activeInventory
           .map(
             (item) => Product(
+              inventoryId: item.id,
               name: item.name,
               category: _normalizedProductCategory(item.category),
               subcategory: item.subcategory,
@@ -539,6 +1315,7 @@ List<Product> get products => ClinicApi.instance.token == null
                   ? item.imageAsset!
                   : '',
               imageUrls: item.productImages,
+              stock: item.availableUnexpiredQuantity,
             ),
           )
           .toList();
