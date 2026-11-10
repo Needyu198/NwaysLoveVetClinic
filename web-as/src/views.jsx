@@ -12,6 +12,7 @@ import {
   settleMmqrPayment,
   reconcileMmqrPayment,
   cancelMmqrPayment,
+  collectCashPayment,
 } from './api.js';
 import InventoryForm from './InventoryForm.jsx';
 
@@ -342,6 +343,19 @@ export function PaymentsView({ refreshKey }) {
     try { await cancelMmqrPayment(val(record).id, reason); reload(); }
     catch (e) { alert(e.message); }
   }
+  async function collectCash(record) {
+    const v = val(record);
+    const tenderedAmount = Number(window.prompt(`Cash tendered (invoice ${formatMmk(v.amount)}):`, String(v.amount)));
+    if (!Number.isInteger(tenderedAmount)) return;
+    const receiptReference = window.prompt('Receipt reference:')?.trim();
+    if (!receiptReference) return;
+    try {
+      const result = await collectCashPayment(v.id, { tenderedAmount, receiptReference });
+      const change = result.record.data.value.settlement.changeAmount;
+      alert(`Cash recorded. Change: ${formatMmk(change)}`);
+      reload();
+    } catch (e) { alert(e.message); }
+  }
   return (
     <div>
       <h1 className="view-title">Payments</h1>
@@ -349,8 +363,8 @@ export function PaymentsView({ refreshKey }) {
         <div className="card"><table><thead><tr><th>Invoice</th><th>Owner / Pet</th><th>Amount</th><th>Status</th><th>MMQR / audit</th><th>Actions</th></tr></thead>
           <tbody>{records.map(r => { const v = val(r); const pending = v.status === 'Pending' && v.mmqr?.status === 'Pending'; return <tr key={r.id}>
             <td>{v.id}</td><td>{v.owner}<div className="muted">{v.pet}</div></td><td>{formatMmk(v.amount)}</td><td>{v.status}</td>
-            <td>{v.mmqr ? <><strong>{v.mmqr.reference}</strong><div className="muted">{v.mmqr.status} · {(v.auditTrail || []).length} events</div><details><summary>Audit history</summary>{(v.auditTrail || []).slice().reverse().map(event => <div key={event.id} className="muted">{event.action}: {event.fromStatus} → {event.toStatus}<br />{event.at} · {event.actorRole}</div>)}</details></> : '—'}</td>
-            <td>{['Unpaid', 'Failed'].includes(v.status) && !pending && <button className="link-btn" onClick={() => startMmqr(r)}>Create MMQR</button>}{pending && <><button className="link-btn" onClick={() => verifyProvider(r)}>Verify provider</button> <button className="link-btn" onClick={() => reconcile(r)}>Reconcile receipt</button> <button className="link-btn" onClick={() => cancel(r)}>Cancel</button></>}</td>
+            <td>{v.mmqr ? <><strong>{v.mmqr.reference}</strong><div className="muted">{v.mmqr.status} · {(v.auditTrail || []).length} events</div><details><summary>Audit history</summary>{(v.auditTrail || []).slice().reverse().map(event => <div key={event.id} className="muted">{event.action}: {event.fromStatus} → {event.toStatus}<br />{event.at} · {event.actorRole}</div>)}</details>{v.receipt && <div><a href={v.receipt.verificationUrl} target="_blank" rel="noreferrer">Verify receipt</a> · <a href={v.receipt.pdfUrl} target="_blank" rel="noreferrer">Print PDF</a></div>}</> : v.receipt ? <><strong>{v.receipt.receiptNumber}</strong><div><a href={v.receipt.pdfUrl} target="_blank" rel="noreferrer">Print PDF</a></div></> : '—'}</td>
+            <td>{v.paymentMethod === 'Cash' && v.status === 'Unpaid' && <button className="link-btn" onClick={() => collectCash(r)}>Collect cash</button>}{v.paymentMethod !== 'Cash' && ['Unpaid', 'Failed'].includes(v.status) && !pending && <button className="link-btn" onClick={() => startMmqr(r)}>Create MMQR</button>}{pending && <><button className="link-btn" onClick={() => verifyProvider(r)}>Verify provider</button> <button className="link-btn" onClick={() => reconcile(r)}>Reconcile receipt</button> <button className="link-btn" onClick={() => cancel(r)}>Cancel</button></>}</td>
           </tr>; })}</tbody>
         </table></div>
       </StateWrap>

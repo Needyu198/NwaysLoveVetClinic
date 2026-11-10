@@ -86,6 +86,59 @@ async function ensureDatabaseSchema(database = pool, schema = dbSchema) {
     await client.query(`CREATE TABLE IF NOT EXISTS queue_daily_counters (
       clinic_date DATE PRIMARY KEY,
       last_number INTEGER NOT NULL CHECK(last_number > 0))`);
+    await client.query(`CREATE SEQUENCE IF NOT EXISTS payment_receipt_number_seq START 1001`);
+    await client.query(`CREATE TABLE IF NOT EXISTS payment_receipts (
+      id TEXT PRIMARY KEY,
+      payment_id TEXT NOT NULL UNIQUE,
+      owner_id TEXT NOT NULL,
+      receipt_number TEXT NOT NULL UNIQUE,
+      public_token TEXT NOT NULL UNIQUE,
+      data JSONB NOT NULL CHECK(jsonb_typeof(data) = 'object'),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    await client.query(`CREATE INDEX IF NOT EXISTS payment_receipts_owner_idx
+      ON payment_receipts(owner_id,created_at)`);
+    await client.query(`CREATE TABLE IF NOT EXISTS payment_audit_events (
+      id TEXT PRIMARY KEY,
+      payment_id TEXT NOT NULL,
+      owner_id TEXT NOT NULL,
+      event JSONB NOT NULL CHECK(jsonb_typeof(event) = 'object'),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    await client.query(`CREATE INDEX IF NOT EXISTS payment_audit_events_payment_idx
+      ON payment_audit_events(payment_id,created_at)`);
+    await client.query(`CREATE TABLE IF NOT EXISTS mmqr_payment_attempts (
+      attempt_id TEXT PRIMARY KEY,
+      payment_id TEXT NOT NULL,
+      owner_id TEXT NOT NULL,
+      reference TEXT NOT NULL UNIQUE,
+      payload_hash TEXT,
+      data JSONB NOT NULL CHECK(jsonb_typeof(data) = 'object'),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    await client.query(`CREATE INDEX IF NOT EXISTS mmqr_payment_attempts_payment_idx
+      ON mmqr_payment_attempts(payment_id,created_at)`);
+    await client.query(`CREATE TABLE IF NOT EXISTS receipt_delivery_events (
+      id BIGSERIAL PRIMARY KEY,
+      receipt_number TEXT NOT NULL,
+      event TEXT NOT NULL,
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    await client.query(`CREATE TABLE IF NOT EXISTS payment_reconciliation_queue (
+      id BIGSERIAL PRIMARY KEY,
+      payment_id TEXT NOT NULL,
+      provider_transaction_id TEXT NOT NULL UNIQUE,
+      payload JSONB NOT NULL CHECK(jsonb_typeof(payload) = 'object'),
+      status TEXT NOT NULL DEFAULT 'open',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    await client.query(`CREATE TABLE IF NOT EXISTS receipt_delivery_jobs (
+      id BIGSERIAL PRIMARY KEY,
+      receipt_number TEXT NOT NULL,
+      email TEXT NOT NULL,
+      recipient_name TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_error TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(receipt_number,email))`);
     for (const table of Object.keys(resources)) {
       await client.query(`CREATE TABLE IF NOT EXISTS ${table} (
         id TEXT PRIMARY KEY, owner_id TEXT NOT NULL,

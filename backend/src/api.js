@@ -1,9 +1,11 @@
 const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
+const QRCode = require('qrcode');
+const PDFDocument = require('pdfkit');
 const { resources } = require('./resources');
 const { broadcastChange } = require('./realtime');
 const { sendToAccount } = require('./messaging');
-const { resetEmailConfigured, sendPasswordResetEmail } = require('./passwordResetEmail');
+const { resetEmailConfigured, sendPasswordResetEmail, sendReceiptEmail } = require('./passwordResetEmail');
 const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const MMQR_CURRENCY = 'MMK';
@@ -22,6 +24,60 @@ const paymentAuditEvent = ({ actorId, actorRole }, action, fromStatus, toStatus,
   details,
 });
 const paymentCopy = payment => structuredClone(payment || {});
+async function renderMmqrQr(payment) {
+  const value = paymentCopy(payment);
+  if (!value.mmqr?.qrPayload) return value;
+  value.mmqr.payloadHash = hash(value.mmqr.qrPayload);
+  value.mmqr.qrImageDataUrl = await QRCode.toDataURL(value.mmqr.qrPayload, {
+    errorCorrectionLevel: 'M',
+    margin: 2,
+    width: 360,
+  });
+  return value;
+}
+async function prepareMmqrPayment(payment, request = fetch) {
+  const endpoint = String(process.env.MMQR_PROVIDER_QR_ENDPOINT || '').trim();
+  if (!endpoint) return renderMmqrQr({
+    ...payment,
+    mmqr: { ...payment.mmqr, providerMode: 'development_payload' },
+  });
+  if (!process.env.MMQR_PROVIDER_API_KEY || !process.env.MMQR_MERCHANT_ID) {
+    throw fail(503, 'MMQR provider credentials are incomplete.');
+  }
+  const response = await request(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.MMQR_PROVIDER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': payment.mmqr.attemptId,
+    },
+    body: JSON.stringify({
+      merchantId: process.env.MMQR_MERCHANT_ID,
+      invoiceId: payment.id,
+      reference: payment.mmqr.reference,
+      amount: payment.mmqr.amount,
+      currency: payment.mmqr.currency,
+      expiresAt: payment.mmqr.expiresAt,
+    }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || typeof result.qrPayload !== 'string' || !result.qrPayload) {
+    throw fail(503, 'The MMQR acquiring provider could not create a payment QR.');
+  }
+  if (result.reference && result.reference !== payment.mmqr.reference) {
+    throw fail(503, 'The MMQR provider returned a mismatched payment reference.');
+  }
+  return renderMmqrQr({
+    ...payment,
+    mmqr: {
+      ...payment.mmqr,
+      qrPayload: result.qrPayload,
+      providerAttemptId: String(result.providerAttemptId || ''),
+      providerMode: 'acquirer_api',
+    },
+  });
+}
 function createMmqrPayment(payment, actor, options = {}) {
   const value = paymentCopy(payment);
   const now = options.now || new Date();
@@ -35,12 +91,20 @@ function createMmqrPayment(payment, actor, options = {}) {
   const amount = Number(value.amount);
   if (!Number.isInteger(amount) || amount <= 0) throw fail(400, 'The invoice amount must be a positive MMK amount.');
   const reference = options.reference || `MMQR-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
+  const attemptId = options.attemptId || `MMA-${crypto.randomUUID()}`;
   const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
   const previous = String(value.status || 'Unpaid');
   value.status = 'Pending';
   value.paymentMethod = 'MMQR';
+  value.mmqrAttempts = [
+    ...(Array.isArray(value.mmqrAttempts) ? value.mmqrAttempts : []),
+    ...(value.mmqr ? [{ ...value.mmqr }] : []),
+  ];
   value.mmqr = {
+    attemptId,
     reference,
+    merchantId: String(process.env.MMQR_MERCHANT_ID || ''),
+    merchantName: String(process.env.MMQR_MERCHANT_NAME || "Nway's Love Vet Clinic"),
     amount,
     currency: MMQR_CURRENCY,
     status: 'Pending',
@@ -48,27 +112,107 @@ function createMmqrPayment(payment, actor, options = {}) {
     expiresAt: expiresAt.toISOString(),
     // This payload is handed to the configured MMQR acquiring integration.
     // It is not treated as evidence of settlement.
-    qrPayload: `MMQR|invoice=${encodeURIComponent(String(value.id || ''))}|amount=${amount}|currency=${MMQR_CURRENCY}|reference=${reference}`,
+    qrPayload: `MMQR|merchant=${encodeURIComponent(String(process.env.MMQR_MERCHANT_ID || 'UNCONFIGURED'))}|invoice=${encodeURIComponent(String(value.id || ''))}|amount=${amount}|currency=${MMQR_CURRENCY}|reference=${reference}|expires=${encodeURIComponent(expiresAt.toISOString())}`,
   };
   value.auditTrail = [...(Array.isArray(value.auditTrail) ? value.auditTrail : []), paymentAuditEvent(
-    actor, 'mmqr.created', previous, 'Pending', { reference, amount, currency: MMQR_CURRENCY }, now,
+    actor, 'mmqr.created', previous, 'Pending', { attemptId, reference, amount, currency: MMQR_CURRENCY }, now,
   )];
   return value;
 }
-function validatePendingMmqr(payment, input) {
+function expireMmqrPayment(payment, actor, options = {}) {
+  const value = paymentCopy(payment);
+  const now = options.now || new Date();
+  if (value.status !== 'Pending' || value.mmqr?.status !== 'Pending') throw fail(409, 'Only a pending MMQR attempt can expire.');
+  if (!options.force && new Date(value.mmqr.expiresAt).getTime() > now.getTime()) throw fail(409, 'This MMQR attempt has not expired.');
+  value.status = 'Unpaid';
+  value.mmqr = { ...value.mmqr, status: 'Expired', expiredAt: now.toISOString() };
+  value.auditTrail = [...(Array.isArray(value.auditTrail) ? value.auditTrail : []), paymentAuditEvent(
+    actor, 'mmqr.expired', 'Pending', 'Unpaid', { attemptId: value.mmqr.attemptId, reference: value.mmqr.reference }, now,
+  )];
+  return value;
+}
+function markMmqrDisplayed(payment, actor, options = {}) {
+  const value = paymentCopy(payment);
+  if (!value.mmqr?.attemptId) throw fail(409, 'No MMQR attempt is available to display.');
+  const alreadyRecorded = (value.auditTrail || []).some(event =>
+    event.action === 'mmqr.displayed' && event.details?.attemptId === value.mmqr.attemptId);
+  if (alreadyRecorded) return value;
+  const now = options.now || new Date();
+  value.auditTrail = [...(value.auditTrail || []), paymentAuditEvent(
+    actor,
+    'mmqr.displayed',
+    value.status,
+    value.status,
+    { attemptId: value.mmqr.attemptId, reference: value.mmqr.reference },
+    now,
+  )];
+  return value;
+}
+function validatePendingMmqr(payment, input, now = new Date(), { allowExpired = false } = {}) {
   if (payment.status === 'Paid') throw fail(409, 'This invoice is already settled and cannot be finalized twice.');
-  if (payment.status !== 'Pending' || payment.mmqr?.status !== 'Pending') throw fail(409, 'There is no pending MMQR payment to settle.');
+  const pending = payment.status === 'Pending' && payment.mmqr?.status === 'Pending';
+  const expired = payment.status === 'Unpaid' && payment.mmqr?.status === 'Expired';
+  if (!pending && !(allowExpired && expired)) throw fail(409, 'There is no pending MMQR payment to settle.');
   if (String(input.reference || '') !== payment.mmqr.reference) throw fail(409, 'The MMQR reference does not match this invoice.');
   if (Number(input.amount) !== Number(payment.mmqr.amount) || Number(input.amount) !== Number(payment.amount)) {
     throw fail(409, 'The settlement amount does not match this invoice.');
   }
+  if (!allowExpired && new Date(payment.mmqr.expiresAt).getTime() <= now.getTime()) {
+    throw fail(409, 'This MMQR attempt has expired. Send late settlement to reconciliation.');
+  }
+}
+async function expirePendingMmqrPayments(database) {
+  const client = await database.connect();
+  const changedOwners = new Set();
+  let count = 0;
+  try {
+    await client.query('BEGIN');
+    const rows = (await client.query(
+      `SELECT * FROM payments
+       WHERE data->'value'->>'status'='Pending'
+         AND data->'value'->'mmqr'->>'status'='Pending'
+         AND (data->'value'->'mmqr'->>'expiresAt')::timestamptz<=NOW()
+       ORDER BY updated_at FOR UPDATE SKIP LOCKED LIMIT 100`,
+    )).rows;
+    for (const row of rows) {
+      const previous = row.data.value;
+      const next = expireMmqrPayment(previous, { actorId: 'system:mmqr-expiry', actorRole: 'system' });
+      await appendPaymentEvents(client, row, previous, next);
+      await client.query(
+        'UPDATE payments SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1',
+        [row.id, { ...row.data, value: next }],
+      );
+      if (next.orderId) {
+        await client.query(
+          `UPDATE product_orders SET
+             data=jsonb_set(jsonb_set(data,'{value,paymentStatus}',to_jsonb('Unpaid'::text),true),'{value,mmqr}',$3::jsonb,true),
+             version=version+1,updated_at=NOW()
+           WHERE owner_id=$1 AND data->'value'->>'id'=$2`,
+          [row.owner_id, next.orderId, JSON.stringify(next.mmqr)],
+        );
+      }
+      changedOwners.add(row.owner_id);
+      count += 1;
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+  if (count) {
+    broadcastChange('payments');
+    for (const ownerId of changedOwners) broadcastChange('product_orders', { ownerId });
+  }
+  return count;
 }
 function settleMmqrPayment(payment, input, actor, options = {}) {
   const value = paymentCopy(payment);
-  validatePendingMmqr(value, input);
+  const now = options.now || new Date();
+  validatePendingMmqr(value, input, now);
   const providerTransactionId = String(input.providerTransactionId || '').trim();
   if (!providerTransactionId || providerTransactionId.length > 200) throw fail(400, 'A valid provider transaction ID is required.');
-  const now = options.now || new Date();
   value.status = 'Paid';
   value.paidAt = now.toISOString();
   value.mmqr = { ...value.mmqr, status: 'Settled', settledAt: now.toISOString(), providerTransactionId };
@@ -80,30 +224,31 @@ function settleMmqrPayment(payment, input, actor, options = {}) {
       currency: MMQR_CURRENCY,
       providerTransactionId,
     }, now,
-  )];
+  ), paymentAuditEvent(actor, 'payment.settled', 'Pending', 'Paid', { method: 'MMQR', amount: value.amount }, now)];
   return value;
 }
 function reconcileMmqrPayment(payment, input, actor, options = {}) {
   const value = paymentCopy(payment);
-  validatePendingMmqr(value, input);
+  const now = options.now || new Date();
+  validatePendingMmqr(value, input, now, { allowExpired: true });
+  const previousStatus = value.status;
   const receiptReference = String(input.receiptReference || '').trim();
   const note = String(input.note || '').trim();
   if (!receiptReference || receiptReference.length > 200) throw fail(400, 'A valid receipt reference is required.');
   if (note.length < 10 || note.length > 1000) throw fail(400, 'A reconciliation note of at least 10 characters is required.');
-  const now = options.now || new Date();
   value.status = 'Paid';
   value.paidAt = now.toISOString();
   value.mmqr = { ...value.mmqr, status: 'Reconciled', settledAt: now.toISOString() };
   value.settlement = { type: 'staff_reconciliation', receiptReference, note, verifiedAt: now.toISOString(), verifiedBy: actor.actorId };
   value.auditTrail = [...(Array.isArray(value.auditTrail) ? value.auditTrail : []), paymentAuditEvent(
-    actor, 'mmqr.staff_reconciled', 'Pending', 'Paid', {
+    actor, 'mmqr.staff_reconciled', previousStatus, 'Paid', {
       reference: value.mmqr.reference,
       amount: value.amount,
       currency: MMQR_CURRENCY,
       receiptReference,
       note,
     }, now,
-  )];
+  ), paymentAuditEvent(actor, 'payment.settled', previousStatus, 'Paid', { method: 'MMQR', amount: value.amount }, now)];
   return value;
 }
 function cancelMmqrPayment(payment, input, actor, options = {}) {
@@ -119,6 +264,44 @@ function cancelMmqrPayment(payment, input, actor, options = {}) {
   )];
   return value;
 }
+function createCashPayment(payment, actor, options = {}) {
+  const value = paymentCopy(payment);
+  const now = options.now || new Date();
+  const amount = Number(value.amount);
+  if (!Number.isInteger(amount) || amount <= 0) throw fail(400, 'The invoice amount must be a positive MMK amount.');
+  value.status = 'Unpaid';
+  value.paymentMethod = 'Cash';
+  value.auditTrail = [...(Array.isArray(value.auditTrail) ? value.auditTrail : []), paymentAuditEvent(
+    actor, 'cash.selected', String(payment.status || 'Unpaid'), 'Unpaid', { amount, currency: MMQR_CURRENCY }, now,
+  )];
+  return value;
+}
+function collectCashPayment(payment, input, actor, options = {}) {
+  const value = paymentCopy(payment);
+  if (value.status === 'Paid') throw fail(409, 'This invoice is already settled and cannot be finalized twice.');
+  if (value.status !== 'Unpaid' || value.paymentMethod !== 'Cash') throw fail(409, 'This invoice is not awaiting cash collection.');
+  const tenderedAmount = Number(input.tenderedAmount);
+  const amount = Number(value.amount);
+  if (!Number.isInteger(tenderedAmount) || tenderedAmount < amount) throw fail(400, 'Cash tendered must cover the invoice amount.');
+  const receiptReference = String(input.receiptReference || '').trim();
+  if (!receiptReference || receiptReference.length > 200) throw fail(400, 'A receipt reference is required.');
+  const now = options.now || new Date();
+  const changeAmount = tenderedAmount - amount;
+  value.status = 'Paid';
+  value.paidAt = now.toISOString();
+  value.settlement = {
+    type: 'cash_collected',
+    receiptReference,
+    tenderedAmount,
+    changeAmount,
+    verifiedAt: now.toISOString(),
+    verifiedBy: actor.actorId,
+  };
+  value.auditTrail = [...(Array.isArray(value.auditTrail) ? value.auditTrail : []), paymentAuditEvent(
+    actor, 'cash.collected', 'Unpaid', 'Paid', { amount, tenderedAmount, changeAmount, receiptReference, currency: MMQR_CURRENCY }, now,
+  ), paymentAuditEvent(actor, 'payment.settled', 'Unpaid', 'Paid', { method: 'Cash', amount }, now)];
+  return value;
+}
 const mmqrProofPayload = ({ reference, amount, providerTransactionId }) =>
   `${reference}|${amount}|${providerTransactionId}|confirmed`;
 const verifyMmqrProof = (input, proof, secret) => {
@@ -129,6 +312,181 @@ const verifyMmqrProof = (input, proof, secret) => {
   const right = Buffer.from(supplied, 'utf8');
   if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) throw fail(403, 'MMQR settlement proof is invalid.');
 };
+const mmqrWebhookProofPayload = input => [
+  input.merchantId,
+  input.invoiceId,
+  input.reference,
+  input.amount,
+  input.providerTransactionId,
+  input.status,
+].join('|');
+const verifyMmqrWebhook = (input, proof, secret) => {
+  if (!secret) throw fail(503, 'MMQR webhook verification is not configured.');
+  if (!process.env.MMQR_MERCHANT_ID || input.merchantId !== process.env.MMQR_MERCHANT_ID) {
+    throw fail(403, 'MMQR merchant identity is invalid.');
+  }
+  const expected = crypto.createHmac('sha256', secret).update(mmqrWebhookProofPayload(input)).digest('hex');
+  const supplied = String(proof || '').trim().toLowerCase();
+  const left = Buffer.from(expected, 'utf8');
+  const right = Buffer.from(supplied, 'utf8');
+  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) throw fail(403, 'MMQR webhook signature is invalid.');
+};
+async function createPaymentReceipt(client, paymentRow, payment, actor) {
+  if (payment.status !== 'Paid') return null;
+  const existing = (await client.query(
+    'SELECT * FROM payment_receipts WHERE payment_id=$1',
+    [payment.id],
+  )).rows[0];
+  if (existing) return existing;
+  const sequence = (await client.query("SELECT nextval('payment_receipt_number_seq') AS number")).rows[0].number;
+  const receiptNumber = `RCP-${new Date().getUTCFullYear()}-${String(sequence).padStart(6, '0')}`;
+  const publicToken = crypto.randomBytes(24).toString('base64url');
+  let order = null;
+  if (payment.orderId) {
+    order = (await client.query(
+      `SELECT data->'value' AS value FROM product_orders
+       WHERE owner_id=$1 AND data->'value'->>'id'=$2 LIMIT 1`,
+      [paymentRow.owner_id, payment.orderId],
+    )).rows[0]?.value || null;
+  }
+  const verificationUrl = `${String(process.env.PUBLIC_BASE_URL || 'http://127.0.0.1:5050').replace(/\/$/, '')}/receipts/verify/${publicToken}`;
+  const data = {
+    receiptNumber,
+    paymentId: payment.id,
+    invoiceId: payment.id,
+    orderId: payment.orderId || '',
+    customerName: payment.owner || order?.ownerName || 'Registered owner',
+    items: order?.items || [],
+    subtotal: Number(payment.amount),
+    discount: 0,
+    total: Number(payment.amount),
+    currency: MMQR_CURRENCY,
+    paymentMethod: payment.paymentMethod,
+    mmqrReference: payment.mmqr?.reference || '',
+    providerTransactionId: payment.settlement?.providerTransactionId || '',
+    settlementType: payment.settlement?.type || '',
+    paidAt: payment.paidAt,
+    verifiedBy: actor.actorId,
+    verificationUrl,
+    clinic: {
+      name: "Nway's Love Vet Clinic",
+      phone: process.env.CLINIC_PHONE || '',
+      address: process.env.CLINIC_ADDRESS || '',
+    },
+  };
+  const row = (await client.query(
+    `INSERT INTO payment_receipts(id,payment_id,owner_id,receipt_number,public_token,data)
+     VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [`receipt:${receiptNumber}`, payment.id, paymentRow.owner_id, receiptNumber, publicToken, data],
+  )).rows[0];
+  return row;
+}
+async function appendPaymentEvents(client, paymentRow, previous, next) {
+  const existingIds = new Set((previous.auditTrail || []).map(event => event.id));
+  for (const event of next.auditTrail || []) {
+    if (existingIds.has(event.id)) continue;
+    await client.query(
+      `INSERT INTO payment_audit_events(id,payment_id,owner_id,event)
+       VALUES($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING`,
+      [event.id, next.id, paymentRow.owner_id, event],
+    );
+  }
+}
+async function appendMmqrAttempts(client, paymentRow, previous, next) {
+  const previousIds = new Set([
+    previous.mmqr?.attemptId,
+    ...(previous.mmqrAttempts || []).map(attempt => attempt.attemptId),
+  ].filter(Boolean));
+  const attempts = [next.mmqr, ...(next.mmqrAttempts || [])].filter(Boolean);
+  for (const attempt of attempts) {
+    if (!attempt.attemptId || previousIds.has(attempt.attemptId)) continue;
+    await client.query(
+      `INSERT INTO mmqr_payment_attempts(attempt_id,payment_id,owner_id,reference,payload_hash,data)
+       VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(attempt_id) DO NOTHING`,
+      [attempt.attemptId, next.id, paymentRow.owner_id, attempt.reference, attempt.payloadHash || null, attempt],
+    );
+  }
+}
+const publicReceipt = row => ({
+  valid: true,
+  receiptNumber: row.data.receiptNumber,
+  paidAmount: row.data.total,
+  currency: row.data.currency,
+  paidAt: row.data.paidAt,
+  paymentMethod: row.data.paymentMethod,
+  invoiceStatus: 'Paid',
+});
+async function receiptPdfBuffer(receipt) {
+  const verificationQr = await QRCode.toBuffer(receipt.verificationUrl, { width: 150, margin: 1 });
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const chunks = [];
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    doc.fontSize(20).text(receipt.clinic?.name || "Nway's Love Vet Clinic", { align: 'center' });
+    doc.fontSize(11).text(receipt.clinic?.address || '', { align: 'center' });
+    doc.moveDown().fontSize(16).text('PAYMENT RECEIPT', { align: 'center' });
+    doc.moveDown().fontSize(11);
+    const rows = [
+      ['Receipt', receipt.receiptNumber], ['Order', receipt.orderId || '—'],
+      ['Customer', receipt.customerName], ['Payment', receipt.paymentMethod],
+      ['Reference', receipt.mmqrReference || receipt.providerTransactionId || '—'],
+      ['Paid at', receipt.paidAt],
+    ];
+    for (const [label, value] of rows) doc.text(`${label}: ${value}`);
+    doc.moveDown();
+    for (const item of receipt.items || []) {
+      doc.text(`${item.quantity} × ${item.name}`, { continued: true });
+      doc.text(`${Number(item.unitPrice) * Number(item.quantity)} ${receipt.currency}`, { align: 'right' });
+    }
+    doc.moveDown().fontSize(14).text(`Total: ${receipt.total} ${receipt.currency}`, { align: 'right' });
+    doc.moveDown().image(verificationQr, { fit: [120, 120], align: 'center' });
+    doc.fontSize(9).text('Scan to verify this receipt.', { align: 'center' });
+    doc.end();
+  });
+}
+async function processReceiptDeliveryJobs(database, deliver = sendReceiptEmail) {
+  const claimed = (await database.query(
+    `UPDATE receipt_delivery_jobs SET status='sending',attempts=attempts+1
+     WHERE id IN (
+       SELECT id FROM receipt_delivery_jobs
+       WHERE status IN ('pending','retry') AND next_attempt_at<=NOW()
+       ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 10
+     ) RETURNING *`,
+  )).rows;
+  for (const job of claimed) {
+    try {
+      const receiptRow = (await database.query(
+        'SELECT * FROM payment_receipts WHERE receipt_number=$1',
+        [job.receipt_number],
+      )).rows[0];
+      if (!receiptRow) throw new Error('Receipt no longer exists.');
+      const receipt = {
+        ...receiptRow.data,
+        pdfUrl: `${String(process.env.PUBLIC_BASE_URL || 'http://127.0.0.1:5050').replace(/\/$/, '')}/receipts/${receiptRow.public_token}/pdf`,
+      };
+      await deliver({ to: job.email, name: job.recipient_name, receipt });
+      await database.query("UPDATE receipt_delivery_jobs SET status='sent',last_error=NULL WHERE id=$1", [job.id]);
+      await database.query(
+        "INSERT INTO receipt_delivery_events(receipt_number,event,metadata) VALUES($1,'receipt.emailed',$2)",
+        [job.receipt_number, { emailHash: hash(job.email.toLowerCase()) }],
+      );
+    } catch (error) {
+      const terminal = job.attempts >= 5;
+      await database.query(
+        `UPDATE receipt_delivery_jobs SET status=$2,last_error=$3,
+           next_attempt_at=NOW()+($4::text || ' minutes')::interval WHERE id=$1`,
+        [job.id, terminal ? 'failed' : 'retry', String(error.message).slice(0, 500), Math.min(60, 2 ** job.attempts)],
+      );
+      await database.query(
+        "INSERT INTO receipt_delivery_events(receipt_number,event,metadata) VALUES($1,'receipt.email_failed',$2)",
+        [job.receipt_number, { attempt: job.attempts, terminal }],
+      );
+    }
+  }
+  return claimed.length;
+}
 // Booking policy: at most this many active bookings per veterinarian/date/time
 // slot, and a pet owner is suspended once their cancellations reach the
 // threshold. Both are overridable via environment for different clinics.
@@ -215,7 +573,15 @@ const appointmentScheduleError = ({ profile, date, time, durationMinutes }) => {
   return null;
 };
 async function reserveProductOrderInventory(client, order, orderId) {
-  const requestedPaymentMethod = order.paymentMethod === 'MMQR' ? 'MMQR' : 'Pay at clinic';
+  const requestedPaymentMethod = ['MMQR', 'Cash'].includes(order.paymentMethod)
+    ? order.paymentMethod
+    : 'Pay at clinic';
+  const requestedPaymentTiming = order.paymentTiming === 'Pay online'
+    ? 'Pay online'
+    : 'Pay at clinic';
+  if (requestedPaymentTiming === 'Pay online' && requestedPaymentMethod !== 'MMQR') {
+    throw fail(400, 'Online checkout must use MMQR.');
+  }
   if (!Array.isArray(order.items) || order.items.length < 1 || order.items.length > 50) {
     throw fail(400, 'An order must contain between 1 and 50 products.');
   }
@@ -287,18 +653,23 @@ async function reserveProductOrderInventory(client, order, orderId) {
   order.status = 'Reserved';
   order.fulfillment = 'Clinic pickup';
   order.paymentMethod = requestedPaymentMethod;
+  order.paymentTiming = requestedPaymentTiming;
 }
 function createProductOrderPayment(order, actor) {
-  if (order.paymentMethod !== 'MMQR') return null;
+  if (!['MMQR', 'Cash'].includes(order.paymentMethod)) return null;
   const paymentId = `PAY-${order.id}`;
-  return createMmqrPayment({
+  const payment = {
     id: paymentId,
     orderId: order.id,
     owner: String(order.ownerName || 'Registered owner'),
     pet: 'Product order',
     amount: Number(order.total),
     status: 'Unpaid',
-  }, actor);
+    paymentTiming: order.paymentTiming,
+  };
+  return order.paymentMethod === 'MMQR'
+    ? createMmqrPayment(payment, actor)
+    : createCashPayment(payment, actor);
 }
 const activeBooking = (table, value) => {
   const status = normalizedBookingText(value?.status);
@@ -479,7 +850,6 @@ function installApi(app, pool, options = {}) {
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
-      if (error.code === '23505') throw fail(409, 'That MMQR or settlement reference has already been used.');
       throw error;
     } finally {
       client.release();
@@ -564,6 +934,35 @@ function installApi(app, pool, options = {}) {
       client.release();
     }
   }));
+  app.get('/receipts/verify/:token', wrap(async (req, res) => {
+    const row = (await pool.query(
+      'SELECT * FROM payment_receipts WHERE public_token=$1',
+      [String(req.params.token || '')],
+    )).rows[0];
+    if (!row) throw fail(404, 'Receipt not found.');
+    await pool.query(
+      "INSERT INTO receipt_delivery_events(receipt_number,event,metadata) VALUES($1,'receipt.viewed',$2)",
+      [row.receipt_number, { ipHash: hash(String(req.ip || 'unknown')) }],
+    );
+    const receipt = publicReceipt(row);
+    if (!String(req.headers.accept || '').includes('text/html')) return res.json(receipt);
+    res.type('html').send(`<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>Receipt ${receipt.receiptNumber}</title><style>body{font:16px system-ui;background:#f3faf7;color:#16352a;padding:32px}.card{max-width:520px;margin:auto;background:white;padding:28px;border-radius:20px;box-shadow:0 8px 30px #0001}.ok{color:#08794d;font-weight:800;font-size:22px}dt{color:#66756f;margin-top:16px}dd{margin:4px 0;font-weight:700}</style></head><body><main class="card"><div class="ok">✓ Valid clinic receipt</div><dl><dt>Receipt</dt><dd>${receipt.receiptNumber}</dd><dt>Paid amount</dt><dd>${receipt.paidAmount} ${receipt.currency}</dd><dt>Payment method</dt><dd>${receipt.paymentMethod}</dd><dt>Paid at</dt><dd>${receipt.paidAt}</dd><dt>Invoice status</dt><dd>${receipt.invoiceStatus}</dd></dl></main></body></html>`);
+  }));
+  app.get('/receipts/:token/pdf', wrap(async (req, res) => {
+    const row = (await pool.query(
+      'SELECT * FROM payment_receipts WHERE public_token=$1',
+      [String(req.params.token || '')],
+    )).rows[0];
+    if (!row) throw fail(404, 'Receipt not found.');
+    const pdf = await receiptPdfBuffer(row.data);
+    await pool.query(
+      "INSERT INTO receipt_delivery_events(receipt_number,event,metadata) VALUES($1,'receipt.downloaded',$2)",
+      [row.receipt_number, { ipHash: hash(String(req.ip || 'unknown')) }],
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${row.receipt_number}.pdf"`);
+    res.send(pdf);
+  }));
   app.use(['/data', '/reports', '/queue', '/payments', '/auth/logout', '/auth/change-password', '/devices'], async (req, res, next) => {
     try {
       const token = (req.headers.authorization || '').replace(/^Bearer /, '');
@@ -576,20 +975,36 @@ function installApi(app, pool, options = {}) {
   const requirePaymentStaff = req => {
     if (!['staff', 'systemAdmin'].includes(req.session.role)) throw fail(403, 'Staff payment access required.');
   };
-  const mutatePayment = async (req, mutation) => {
-    requirePaymentStaff(req);
+  const mutatePayment = async (req, mutation, { allowOwner = false } = {}) => {
+    const ownerAccess = allowOwner && req.session.role === 'petOwner';
+    if (!ownerAccess) requirePaymentStaff(req);
     const invoiceId = String(req.params.invoiceId || '').trim();
     if (!invoiceId || invoiceId.length > 200) throw fail(400, 'A valid invoice ID is required.');
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       const rows = (await client.query(
-        `SELECT * FROM payments WHERE data->'value'->>'id'=$1 ORDER BY created_at FOR UPDATE`,
-        [invoiceId],
+        `SELECT * FROM payments WHERE data->'value'->>'id'=$1${ownerAccess ? ' AND owner_id=$2' : ''} ORDER BY created_at FOR UPDATE`,
+        ownerAccess ? [invoiceId, req.session.account_id] : [invoiceId],
       )).rows;
       if (rows.length !== 1) throw fail(rows.length ? 409 : 404, 'Payment record not found or is not unique.');
       const row = rows[0];
-      const nextValue = await mutation(row.data.value, client);
+      const previousValue = row.data.value;
+      let nextValue = await mutation(previousValue, client);
+      if (nextValue.status === 'Paid' && !nextValue.receipt) {
+        const receiptRow = await createPaymentReceipt(client, row, nextValue, paymentActor(req.session));
+        nextValue.receipt = {
+          receiptNumber: receiptRow.receipt_number,
+          verificationUrl: receiptRow.data.verificationUrl,
+          pdfUrl: `${String(process.env.PUBLIC_BASE_URL || 'http://127.0.0.1:5050').replace(/\/$/, '')}/receipts/${receiptRow.public_token}/pdf`,
+          generatedAt: receiptRow.created_at,
+        };
+        nextValue.auditTrail = [...(nextValue.auditTrail || []), paymentAuditEvent(
+          paymentActor(req.session), 'receipt.generated', 'Paid', 'Paid', { receiptNumber: receiptRow.receipt_number }, new Date(),
+        )];
+      }
+      await appendPaymentEvents(client, row, previousValue, nextValue);
+      await appendMmqrAttempts(client, row, previousValue, nextValue);
       const data = { ...row.data, value: nextValue };
       const record = (await client.query(
         'UPDATE payments SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1 RETURNING id,owner_id,data,version',
@@ -606,6 +1021,8 @@ function installApi(app, pool, options = {}) {
         if (orderRow) {
           const orderData = structuredClone(orderRow.data);
           orderData.value.paymentStatus = nextValue.status;
+          orderData.value.mmqr = nextValue.mmqr || orderData.value.mmqr;
+          if (nextValue.receipt) orderData.value.receipt = nextValue.receipt;
           orderData.value.paymentAuditTrail = (nextValue.auditTrail || []).map(event => ({
             id: event.id,
             at: event.at,
@@ -626,13 +1043,68 @@ function installApi(app, pool, options = {}) {
       return record;
     } catch (error) {
       await client.query('ROLLBACK');
+      if (error.code === '23505') throw fail(409, 'That MMQR, settlement, or receipt reference has already been used.');
       throw error;
     } finally {
       client.release();
     }
   };
+  app.post('/webhooks/mmqr', wrap(async (req, res) => {
+    const input = {
+      merchantId: String(req.body.merchantId || ''),
+      invoiceId: String(req.body.invoiceId || ''),
+      reference: String(req.body.reference || ''),
+      amount: Number(req.body.amount),
+      providerTransactionId: String(req.body.providerTransactionId || ''),
+      status: String(req.body.status || '').toLowerCase(),
+    };
+    if (input.status !== 'confirmed') throw fail(400, 'Only confirmed MMQR settlements are accepted.');
+    verifyMmqrWebhook(
+      input,
+      req.headers['x-mmqr-signature'],
+      process.env.MMQR_SETTLEMENT_SECRET,
+    );
+    const alreadyProcessed = (await pool.query(
+      `SELECT id,owner_id,data,version FROM payments
+       WHERE data->'value'->'settlement'->>'providerTransactionId'=$1 LIMIT 1`,
+      [input.providerTransactionId],
+    )).rows[0];
+    if (alreadyProcessed) return res.json({ record: alreadyProcessed, queued: false, idempotent: true });
+    const providerRequest = {
+      ...req,
+      params: { invoiceId: input.invoiceId },
+      session: { account_id: 'provider:mmqr', role: 'systemAdmin' },
+    };
+    let queued = false;
+    const record = await mutatePayment(providerRequest, async (value, client) => {
+      const expired = value.mmqr?.status === 'Expired' ||
+        new Date(value.mmqr?.expiresAt || 0).getTime() <= Date.now();
+      if (expired) {
+        await client.query(
+          `INSERT INTO payment_reconciliation_queue(payment_id,provider_transaction_id,payload)
+           VALUES($1,$2,$3) ON CONFLICT(provider_transaction_id) DO NOTHING`,
+          [value.id, input.providerTransactionId, input],
+        );
+        queued = true;
+        const next = paymentCopy(value);
+        next.auditTrail = [...(next.auditTrail || []), paymentAuditEvent(
+          paymentActor(providerRequest.session),
+          'mmqr.late_settlement_queued',
+          value.status,
+          value.status,
+          { reference: input.reference, providerTransactionId: input.providerTransactionId },
+          new Date(),
+        )];
+        return next;
+      }
+      return settleMmqrPayment(value, input, paymentActor(providerRequest.session));
+    });
+    res.status(queued ? 202 : 200).json({ record, queued });
+  }));
   app.post('/payments/:invoiceId/mmqr', wrap(async (req, res) => {
-    const record = await mutatePayment(req, value => createMmqrPayment(value, paymentActor(req.session)));
+    const record = await mutatePayment(req, async value => prepareMmqrPayment(
+      createMmqrPayment(value, paymentActor(req.session)),
+    ));
     res.status(201).json({ record });
   }));
   app.post('/payments/:invoiceId/mmqr/settle', wrap(async (req, res) => {
@@ -677,7 +1149,89 @@ function installApi(app, pool, options = {}) {
     res.json({ record });
   }));
   app.post('/payments/:invoiceId/mmqr/cancel', wrap(async (req, res) => {
-    const record = await mutatePayment(req, value => cancelMmqrPayment(value, req.body, paymentActor(req.session)));
+    const record = await mutatePayment(
+      req,
+      value => cancelMmqrPayment(value, req.body, paymentActor(req.session)),
+      { allowOwner: true },
+    );
+    res.json({ record });
+  }));
+  app.post('/payments/:invoiceId/mmqr/expire', wrap(async (req, res) => {
+    const record = await mutatePayment(
+      req,
+      value => expireMmqrPayment(value, paymentActor(req.session)),
+      { allowOwner: true },
+    );
+    res.json({ record });
+  }));
+  app.post('/payments/:invoiceId/mmqr/displayed', wrap(async (req, res) => {
+    const record = await mutatePayment(
+      req,
+      value => markMmqrDisplayed(value, paymentActor(req.session)),
+      { allowOwner: true },
+    );
+    res.json({ record });
+  }));
+  app.post('/payments/:invoiceId/mmqr/regenerate', wrap(async (req, res) => {
+    const record = await mutatePayment(req, async value => {
+      const now = new Date();
+      const expired = value.status === 'Pending'
+        ? expireMmqrPayment(value, paymentActor(req.session), { now })
+        : value;
+      return prepareMmqrPayment(createMmqrPayment(expired, paymentActor(req.session), { now }));
+    }, { allowOwner: true });
+    res.status(201).json({ record });
+  }));
+  app.get('/payments/:invoiceId/status', wrap(async (req, res) => {
+    const clinicAccess = ['staff', 'systemAdmin'].includes(req.session.role);
+    const params = clinicAccess
+      ? [String(req.params.invoiceId || '')]
+      : [String(req.params.invoiceId || ''), req.session.account_id];
+    const row = (await pool.query(
+      `SELECT id,owner_id,data,version FROM payments
+       WHERE data->'value'->>'id'=$1${clinicAccess ? '' : ' AND owner_id=$2'} LIMIT 1`,
+      params,
+    )).rows[0];
+    if (!row) throw fail(404, 'Payment not found.');
+    res.json({ record: row });
+  }));
+  app.post('/payments/:invoiceId/receipt/email', wrap(async (req, res) => {
+    const clinicAccess = ['staff', 'systemAdmin'].includes(req.session.role);
+    const params = clinicAccess
+      ? [String(req.params.invoiceId || '')]
+      : [String(req.params.invoiceId || ''), req.session.account_id];
+    const payment = (await pool.query(
+      `SELECT * FROM payments WHERE data->'value'->>'id'=$1${clinicAccess ? '' : ' AND owner_id=$2'} LIMIT 1`,
+      params,
+    )).rows[0];
+    if (!payment?.data?.value?.receipt?.receiptNumber) throw fail(409, 'A generated receipt is required before email delivery.');
+    const account = (await pool.query(
+      'SELECT email,full_name FROM app_accounts WHERE id=$1',
+      [payment.owner_id],
+    )).rows[0];
+    if (!account?.email) throw fail(409, 'The customer account has no receipt email address.');
+    await pool.query(
+      `INSERT INTO receipt_delivery_jobs(receipt_number,email,recipient_name)
+       VALUES($1,$2,$3)
+       ON CONFLICT(receipt_number,email) DO UPDATE SET
+         status=CASE WHEN receipt_delivery_jobs.status='sent' THEN 'sent' ELSE 'pending' END,
+         next_attempt_at=NOW(),last_error=NULL`,
+      [payment.data.value.receipt.receiptNumber, account.email, account.full_name || ''],
+    );
+    res.status(202).json({ queued: true, email: account.email.replace(/(^.).*(@.*$)/, '$1***$2') });
+  }));
+  app.post('/payments/:invoiceId/cash/collect', wrap(async (req, res) => {
+    const record = await mutatePayment(req, async (value, client) => {
+      const receiptReference = String(req.body.receiptReference || '').trim();
+      const duplicate = receiptReference && (await client.query(
+        `SELECT 1 FROM payments
+         WHERE data->'value'->'settlement'->>'receiptReference'=$1
+           AND data->'value'->>'id'<>$2 LIMIT 1`,
+        [receiptReference, req.params.invoiceId],
+      )).rows[0];
+      if (duplicate) throw fail(409, 'This receipt reference has already settled another invoice.');
+      return collectCashPayment(value, req.body, paymentActor(req.session));
+    });
     res.json({ record });
   }));
   app.get('/payments/:invoiceId/audit', wrap(async (req, res) => {
@@ -1189,17 +1743,34 @@ function installApi(app, pool, options = {}) {
           if (!target.rowCount) throw fail(400, 'Owner account not found.');
           ownerId = item.ownerId;
         }
-        if (req.params.table === 'product_orders' && !existing && item.data.value.paymentMethod === 'MMQR') {
+        if (req.params.table === 'product_orders' && !existing && ['MMQR', 'Cash'].includes(item.data.value.paymentMethod)) {
           const order = item.data.value;
-          const payment = createProductOrderPayment(order, paymentActor(req.session));
+          const rawPayment = createProductOrderPayment(order, paymentActor(req.session));
+          const payment = rawPayment.paymentMethod === 'MMQR'
+            ? await prepareMmqrPayment(rawPayment)
+            : rawPayment;
           const paymentId = payment.id;
           await client.query(
             'INSERT INTO payments(id,owner_id,data) VALUES($1,$2,$3)',
             [`${ownerId}:${paymentId}`, ownerId, { key: paymentId, value: payment }],
           );
+          for (const event of payment.auditTrail || []) {
+            await client.query(
+              `INSERT INTO payment_audit_events(id,payment_id,owner_id,event)
+               VALUES($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING`,
+              [event.id, paymentId, ownerId, event],
+            );
+          }
+          if (payment.mmqr?.attemptId) {
+            await client.query(
+              `INSERT INTO mmqr_payment_attempts(attempt_id,payment_id,owner_id,reference,payload_hash,data)
+               VALUES($1,$2,$3,$4,$5,$6)`,
+              [payment.mmqr.attemptId, paymentId, ownerId, payment.mmqr.reference, payment.mmqr.payloadHash || null, payment.mmqr],
+            );
+          }
           order.paymentId = paymentId;
           order.paymentStatus = payment.status;
-          order.mmqr = payment.mmqr;
+          if (payment.mmqr) order.mmqr = payment.mmqr;
           paymentChanged = true;
         }
         if (req.params.table === 'user_directory') {
@@ -1487,6 +2058,17 @@ module.exports = {
   settleMmqrPayment,
   reconcileMmqrPayment,
   cancelMmqrPayment,
+  createCashPayment,
+  collectCashPayment,
   verifyMmqrProof,
   mmqrProofPayload,
+  renderMmqrQr,
+  prepareMmqrPayment,
+  expireMmqrPayment,
+  markMmqrDisplayed,
+  expirePendingMmqrPayments,
+  receiptPdfBuffer,
+  verifyMmqrWebhook,
+  mmqrWebhookProofPayload,
+  processReceiptDeliveryJobs,
 };

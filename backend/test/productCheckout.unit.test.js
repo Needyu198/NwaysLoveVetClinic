@@ -1,6 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { reserveProductOrderInventory, createProductOrderPayment } = require('../src/api');
+const {
+  reserveProductOrderInventory,
+  createProductOrderPayment,
+  collectCashPayment,
+} = require('../src/api');
 
 test('checkout verifies price and reserves unexpired inventory batches', async () => {
   const row = {
@@ -57,6 +61,7 @@ test('MMQR checkout creates a pending amount-bound auditable payment', () => {
     ownerName: 'Pet Owner',
     total: 10000,
     paymentMethod: 'MMQR',
+    paymentTiming: 'Pay online',
   }, { actorId: 'owner-1', actorRole: 'petOwner' });
 
   assert.equal(payment.id, 'PAY-ORD-1');
@@ -65,4 +70,30 @@ test('MMQR checkout creates a pending amount-bound auditable payment', () => {
   assert.equal(payment.status, 'Pending');
   assert.equal(payment.mmqr.amount, 10000);
   assert.equal(payment.auditTrail[0].action, 'mmqr.created');
+});
+
+test('cash checkout remains unpaid until tender and receipt are recorded', () => {
+  const actor = { actorId: 'staff-1', actorRole: 'staff' };
+  const pending = createProductOrderPayment({
+    id: 'ORD-CASH',
+    ownerName: 'Pet Owner',
+    total: 8000,
+    paymentMethod: 'Cash',
+    paymentTiming: 'Pay at clinic',
+  }, { actorId: 'owner-1', actorRole: 'petOwner' });
+  assert.equal(pending.status, 'Unpaid');
+  assert.equal(pending.auditTrail[0].action, 'cash.selected');
+
+  const paid = collectCashPayment(pending, {
+    tenderedAmount: 10000,
+    receiptReference: 'CASH-RECEIPT-1',
+  }, actor);
+  assert.equal(paid.status, 'Paid');
+  assert.equal(paid.settlement.changeAmount, 2000);
+  assert.ok(paid.auditTrail.some(event => event.action === 'cash.collected'));
+  assert.equal(paid.auditTrail.at(-1).action, 'payment.settled');
+  assert.throws(
+    () => collectCashPayment(paid, { tenderedAmount: 10000, receiptReference: 'OTHER' }, actor),
+    error => error.status === 409,
+  );
 });

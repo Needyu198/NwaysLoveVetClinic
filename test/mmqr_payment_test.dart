@@ -57,11 +57,17 @@ void main() {
         'qrPayload': 'MMQR|invoice=PAY-ORD-1',
       },
       'status': 'Reserved',
+      'receipt': {
+        'receiptNumber': 'RCP-2026-001001',
+        'verificationUrl': 'https://clinic.example/receipts/verify/token',
+        'pdfUrl': 'https://clinic.example/receipts/token/pdf',
+      },
     });
 
     expect(order.paymentMethod, 'MMQR');
     expect(order.paymentStatus, 'Pending');
     expect(order.mmqr['reference'], 'MMQR-ORDER-1');
     expect(order.toDb()['paymentId'], 'PAY-ORD-1');
+    expect(order.receipt['receiptNumber'], 'RCP-2026-001001');
   });
 }

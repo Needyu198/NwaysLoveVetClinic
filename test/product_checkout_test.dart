@@ -15,7 +15,7 @@ void main() {
     ProductOrderStore.instance.clear();
   });
 
-  testWidgets('owner completes cart and pay-at-clinic checkout', (
+  testWidgets('owner chooses pay-at-clinic cash on the payment page', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(440, 956);
@@ -42,10 +42,21 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('proceed-to-checkout')));
     await tester.pumpAndSettle();
     expect(find.text('Pay at clinic'), findsWidgets);
-    expect(find.text('MMQR'), findsOneWidget);
+    expect(find.text('Pay online'), findsWidgets);
     expect(find.text('Clinic pickup'), findsWidgets);
 
+    await tester.tap(find.text('Pay at clinic').last);
+    await tester.pump();
+
     await tester.tap(find.byKey(const ValueKey('place-product-order')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('product-payment-page')), findsOneWidget);
+    expect(find.text('Pay by cash'), findsOneWidget);
+    expect(find.text('Pay by MMQR'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('confirm-product-payment-method')),
+    );
     await tester.pumpAndSettle();
 
     expect(
@@ -54,7 +65,43 @@ void main() {
     );
     expect(find.text('Order Reserved'), findsOneWidget);
     expect(ProductOrderStore.instance.orders.single.total, 8000);
+    expect(ProductOrderStore.instance.orders.single.paymentMethod, 'Cash');
     expect(ProductCartStore.instance.isEmpty, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('online checkout continues to an MMQR-only payment page', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 956);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: ProductDetailsPage()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('product-buy-now')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('proceed-to-checkout')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pay online'), findsWidgets);
+    await tester.tap(find.byKey(const ValueKey('place-product-order')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Online payment method'), findsOneWidget);
+    expect(find.text('Pay by MMQR'), findsOneWidget);
+    expect(find.text('Pay by cash'), findsNothing);
+    await tester.tap(
+      find.byKey(const ValueKey('confirm-product-payment-method')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      ProductOrderStore.instance.orders.single.paymentTiming,
+      'Pay online',
+    );
+    expect(ProductOrderStore.instance.orders.single.paymentMethod, 'MMQR');
     expect(tester.takeException(), isNull);
   });
 }

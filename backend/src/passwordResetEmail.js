@@ -37,4 +37,29 @@ async function sendPasswordResetEmail({ to, name, code }) {
   }
 }
 
-module.exports = { resetEmailConfigured, sendPasswordResetEmail };
+async function sendReceiptEmail({ to, name, receipt }) {
+  if (!resetEmailConfigured()) throw new Error('Receipt email delivery is not configured.');
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: process.env.PASSWORD_RESET_FROM_EMAIL,
+      to: [to],
+      subject: `Clinic receipt ${receipt.receiptNumber}`,
+      html: `<p>Hello ${escapeHtml(name || 'there')},</p>
+        <p>Your payment receipt <strong>${escapeHtml(receipt.receiptNumber)}</strong> is ready.</p>
+        <p><a href="${escapeHtml(receipt.verificationUrl)}">Verify receipt</a></p>
+        <p><a href="${escapeHtml(receipt.pdfUrl)}">Download or print PDF</a></p>`,
+    }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Receipt email failed (${response.status}): ${details.slice(0, 300)}`);
+  }
+}
+
+module.exports = { resetEmailConfigured, sendPasswordResetEmail, sendReceiptEmail };

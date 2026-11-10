@@ -127,6 +127,10 @@ export async function cancelMmqrPayment(invoiceId, reason) {
   return request('POST', `/payments/${encodeURIComponent(invoiceId)}/mmqr/cancel`, { reason });
 }
 
+export async function collectCashPayment(invoiceId, cash) {
+  return request('POST', `/payments/${encodeURIComponent(invoiceId)}/cash/collect`, cash);
+}
+
 // Queue lifecycle writes must go through the server-owned state machine. The
 // generic table sync route is intentionally read-only for queue entries.
 export async function checkInQueue(appointmentId, priority = 'normal') {

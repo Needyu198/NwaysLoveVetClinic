@@ -118,6 +118,51 @@ class _StaffPaymentsPageState extends State<StaffPaymentsPage> {
     });
   }
 
+  Future<void> _collectCash(StaffPayment payment) async {
+    final result = await _twoFieldDialog(
+      title: 'Collect cash payment',
+      firstLabel: 'Cash tendered (MMK)',
+      secondLabel: 'Receipt reference',
+      help:
+          'Enter the amount received. Change is calculated by the server and the receipt reference can only be used once.',
+    );
+    if (result == null) return;
+    final tendered = int.tryParse(result['first'] ?? '');
+    if (tendered == null) {
+      if (mounted) {
+        _showInfo(
+          context,
+          'Invalid amount',
+          'Enter cash tendered as a whole MMK amount.',
+        );
+      }
+      return;
+    }
+    setState(() => _busy.add(payment.id));
+    try {
+      final response = await ClinicApi.instance.request(
+        'POST',
+        '/payments/${Uri.encodeComponent(payment.id)}/cash/collect',
+        {'tenderedAmount': tendered, 'receiptReference': result['second']},
+      );
+      await DatabaseSync.instance.refreshTable('payments');
+      final settlement = Map<String, dynamic>.from(
+        response['record']['data']['value']['settlement'] as Map,
+      );
+      if (mounted) {
+        _showInfo(
+          context,
+          'Cash payment recorded',
+          'Receipt ${settlement['receiptReference']} • Change: ${settlement['changeAmount']} MMK',
+        );
+      }
+    } on ClinicApiException catch (error) {
+      if (mounted) _showInfo(context, 'Payment not changed', error.message);
+    } finally {
+      if (mounted) setState(() => _busy.remove(payment.id));
+    }
+  }
+
   Future<void> _cancel(StaffPayment payment) async {
     final reason = TextEditingController();
     final result = await showDialog<String>(
@@ -267,7 +312,15 @@ class _StaffPaymentsPageState extends State<StaffPaymentsPage> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      if ((payment.status == 'Unpaid' ||
+                      if (payment.paymentMethod == 'Cash' &&
+                          payment.status == 'Unpaid')
+                        FilledButton.icon(
+                          onPressed: () => _collectCash(payment),
+                          icon: const Icon(Icons.payments_outlined),
+                          label: const Text('Collect cash'),
+                        ),
+                      if (payment.paymentMethod != 'Cash' &&
+                          (payment.status == 'Unpaid' ||
                               payment.status == 'Failed') &&
                           !payment.hasPendingMmqr)
                         FilledButton.icon(
@@ -295,6 +348,23 @@ class _StaffPaymentsPageState extends State<StaffPaymentsPage> {
                         icon: const Icon(Icons.history_rounded),
                         label: const Text('Audit history'),
                       ),
+                      if (payment.receipt.isNotEmpty)
+                        FilledButton.icon(
+                          onPressed: () async {
+                            final url =
+                                payment.receipt['pdfUrl'] as String? ?? '';
+                            if (url.isNotEmpty) {
+                              await launchUrl(
+                                Uri.parse(url),
+                                mode: LaunchMode.externalApplication,
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.print_rounded),
+                          label: Text(
+                            'Receipt ${payment.receipt['receiptNumber'] ?? ''}',
+                          ),
+                        ),
                     ],
                   ),
               ],

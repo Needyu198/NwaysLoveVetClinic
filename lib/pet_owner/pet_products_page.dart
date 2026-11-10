@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:typed_data';
 
 import '../data/clinic_api.dart';
 import '../data/database_sync.dart';
 import '../staff/staff_portal.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'pet_owner_clinic_page.dart';
 import 'pet_owner_home_page.dart';
@@ -112,11 +114,13 @@ class ProductOrder {
     required this.ownerName,
     required this.ownerPhone,
     this.fulfillment = 'Clinic pickup',
+    this.paymentTiming = 'Pay at clinic',
     this.paymentMethod = 'Pay at clinic',
     this.paymentId = '',
     this.paymentStatus = '',
     this.mmqr = const {},
     this.paymentAuditTrail = const [],
+    this.receipt = const {},
     this.status = 'Reserved',
   });
 
@@ -133,6 +137,7 @@ class ProductOrder {
     ownerName: value['ownerName'] as String? ?? '',
     ownerPhone: value['ownerPhone'] as String? ?? '',
     fulfillment: value['fulfillment'] as String? ?? 'Clinic pickup',
+    paymentTiming: value['paymentTiming'] as String? ?? 'Pay at clinic',
     paymentMethod: value['paymentMethod'] as String? ?? 'Pay at clinic',
     paymentId: value['paymentId'] as String? ?? '',
     paymentStatus: value['paymentStatus'] as String? ?? '',
@@ -143,6 +148,9 @@ class ProductOrder {
         .whereType<Map>()
         .map((event) => Map<String, dynamic>.from(event))
         .toList(),
+    receipt: Map<String, dynamic>.from(
+      value['receipt'] as Map? ?? const <String, dynamic>{},
+    ),
     status: value['status'] as String? ?? 'Reserved',
   );
 
@@ -154,11 +162,13 @@ class ProductOrder {
     'ownerName': ownerName,
     'ownerPhone': ownerPhone,
     'fulfillment': fulfillment,
+    'paymentTiming': paymentTiming,
     'paymentMethod': paymentMethod,
     if (paymentId.isNotEmpty) 'paymentId': paymentId,
     if (paymentStatus.isNotEmpty) 'paymentStatus': paymentStatus,
     if (mmqr.isNotEmpty) 'mmqr': mmqr,
     if (paymentAuditTrail.isNotEmpty) 'paymentAuditTrail': paymentAuditTrail,
+    if (receipt.isNotEmpty) 'receipt': receipt,
     'status': status,
   };
 
@@ -169,11 +179,13 @@ class ProductOrder {
   final String ownerName;
   final String ownerPhone;
   final String fulfillment;
+  final String paymentTiming;
   final String paymentMethod;
   final String paymentId;
   final String paymentStatus;
   final Map<String, dynamic> mmqr;
   final List<Map<String, dynamic>> paymentAuditTrail;
+  final Map<String, dynamic> receipt;
   String status;
 }
 
@@ -853,9 +865,19 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
   bool _placing = false;
   String? _error;
   ProductOrder? _completed;
-  String _paymentMethod = 'Pay at clinic';
+  String _paymentTiming = 'Pay online';
 
-  Future<void> _placeOrder() async {
+  Future<void> _continueToPayment() async {
+    if (_placing) return;
+    final selection = await Navigator.of(context).push<ProductPaymentSelection>(
+      MaterialPageRoute(
+        builder: (_) => ProductPaymentPage(paymentTiming: _paymentTiming),
+      ),
+    );
+    if (selection != null && mounted) await _placeOrder(selection);
+  }
+
+  Future<void> _placeOrder(ProductPaymentSelection payment) async {
     final cart = ProductCartStore.instance;
     if (cart.isEmpty || _placing) return;
     final inventory = StaffOperationsStore.instance;
@@ -894,7 +916,8 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
       total: cart.subtotal,
       ownerName: profile.fullName,
       ownerPhone: profile.phone,
-      paymentMethod: _paymentMethod,
+      paymentTiming: payment.paymentTiming,
+      paymentMethod: payment.paymentMethod,
     );
     ProductOrderStore.instance.add(order);
     try {
@@ -970,31 +993,31 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
                         profile.phone.isEmpty ? 'Not recorded' : profile.phone,
                       ),
                       ('Fulfillment', 'Clinic pickup'),
-                      ('Payment', _paymentMethod),
+                      ('Payment', _paymentTiming),
                     ],
                   ),
                   const SizedBox(height: 18),
                   const Text(
-                    'Payment method',
+                    'When would you like to pay?',
                     style: ProductStyles.sectionTitle,
                   ),
                   const SizedBox(height: 10),
                   SegmentedButton<String>(
                     segments: const [
                       ButtonSegment(
+                        value: 'Pay online',
+                        label: Text('Pay online'),
+                        icon: Icon(Icons.language_rounded),
+                      ),
+                      ButtonSegment(
                         value: 'Pay at clinic',
                         label: Text('Pay at clinic'),
                         icon: Icon(Icons.storefront_outlined),
                       ),
-                      ButtonSegment(
-                        value: 'MMQR',
-                        label: Text('MMQR'),
-                        icon: Icon(Icons.qr_code_2_rounded),
-                      ),
                     ],
-                    selected: {_paymentMethod},
+                    selected: {_paymentTiming},
                     onSelectionChanged: (selection) =>
-                        setState(() => _paymentMethod = selection.single),
+                        setState(() => _paymentTiming = selection.single),
                   ),
                   const SizedBox(height: 18),
                   const Text(
@@ -1014,9 +1037,9 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    _paymentMethod == 'MMQR'
-                        ? 'Items are reserved after confirmation. The server creates an amount-bound MMQR reference; the order is paid only after provider verification or audited staff reconciliation.'
-                        : 'Items are reserved after confirmation. Payment is collected by clinic staff at pickup.',
+                    _paymentTiming == 'Pay online'
+                        ? 'Continue to the secure payment page to pay by MMQR before pickup.'
+                        : 'Continue to choose Cash or MMQR. Clinic staff will verify the payment and issue a receipt.',
                     style: ProductStyles.caption,
                   ),
                   if (_error != null) ...[
@@ -1035,7 +1058,7 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
                 width: double.infinity,
                 child: FilledButton.icon(
                   key: const ValueKey('place-product-order'),
-                  onPressed: _placing ? null : _placeOrder,
+                  onPressed: _placing ? null : _continueToPayment,
                   style: FilledButton.styleFrom(
                     backgroundColor: ProductStyles.green,
                     minimumSize: const Size.fromHeight(54),
@@ -1045,8 +1068,10 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.check_circle_outline_rounded),
-                  label: Text(_placing ? 'Reserving items…' : 'Place Order'),
+                      : const Icon(Icons.arrow_forward_rounded),
+                  label: Text(
+                    _placing ? 'Reserving items…' : 'Continue to Payment',
+                  ),
                 ),
               ),
             ),
@@ -1055,6 +1080,243 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
       ),
     );
   }
+}
+
+class ProductPaymentSelection {
+  const ProductPaymentSelection({
+    required this.paymentTiming,
+    required this.paymentMethod,
+  });
+
+  final String paymentTiming;
+  final String paymentMethod;
+}
+
+class ProductPaymentPage extends StatefulWidget {
+  const ProductPaymentPage({super.key, required this.paymentTiming});
+
+  final String paymentTiming;
+
+  @override
+  State<ProductPaymentPage> createState() => _ProductPaymentPageState();
+}
+
+class _ProductPaymentPageState extends State<ProductPaymentPage> {
+  late String _method = widget.paymentTiming == 'Pay online' ? 'MMQR' : 'Cash';
+
+  @override
+  Widget build(BuildContext context) {
+    final online = widget.paymentTiming == 'Pay online';
+    final total = ProductCartStore.instance.subtotal;
+    return Scaffold(
+      key: const ValueKey('product-payment-page'),
+      backgroundColor: ProductStyles.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const PetOwnerPageHeader(title: 'Payment'),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(18),
+                children: [
+                  Row(
+                    children: [
+                      _PaymentStep(number: '1', label: 'Checkout', done: true),
+                      const Expanded(child: Divider()),
+                      _PaymentStep(number: '2', label: 'Payment', done: false),
+                      const Expanded(child: Divider()),
+                      _PaymentStep(number: '3', label: 'Receipt', done: false),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  _CheckoutCard(
+                    rows: [
+                      ('Payment timing', widget.paymentTiming),
+                      ('Order total', formatMmk(total)),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  Text(
+                    online ? 'Online payment method' : 'Pay at clinic with',
+                    style: ProductStyles.sectionTitle,
+                  ),
+                  const SizedBox(height: 10),
+                  if (online)
+                    _PaymentMethodCard(
+                      key: const ValueKey('payment-method-mmqr'),
+                      selected: true,
+                      icon: Icons.qr_code_2_rounded,
+                      title: 'Pay by MMQR',
+                      subtitle:
+                          'A unique QR reference will be created for this exact order total.',
+                      onTap: () {},
+                    )
+                  else ...[
+                    _PaymentMethodCard(
+                      key: const ValueKey('payment-method-cash'),
+                      selected: _method == 'Cash',
+                      icon: Icons.payments_outlined,
+                      title: 'Pay by cash',
+                      subtitle:
+                          'Pay at pickup. Staff records cash tendered, change and receipt number.',
+                      onTap: () => setState(() => _method = 'Cash'),
+                    ),
+                    const SizedBox(height: 10),
+                    _PaymentMethodCard(
+                      key: const ValueKey('payment-method-mmqr'),
+                      selected: _method == 'MMQR',
+                      icon: Icons.qr_code_2_rounded,
+                      title: 'Pay by MMQR',
+                      subtitle:
+                          'Scan at the clinic; settlement remains pending until verified.',
+                      onTap: () => setState(() => _method = 'MMQR'),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF8F2),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.verified_user_outlined,
+                          color: ProductStyles.green,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _method == 'MMQR'
+                                ? 'Creating a QR does not mark the order paid. The amount and reference must match a verified settlement.'
+                                : 'The order stays unpaid until clinic staff records the cash receipt. Duplicate receipt numbers are rejected.',
+                            style: ProductStyles.caption,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const ValueKey('confirm-product-payment-method'),
+                  onPressed: () => Navigator.pop(
+                    context,
+                    ProductPaymentSelection(
+                      paymentTiming: widget.paymentTiming,
+                      paymentMethod: _method,
+                    ),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: ProductStyles.green,
+                    minimumSize: const Size.fromHeight(54),
+                  ),
+                  icon: const Icon(Icons.lock_outline_rounded),
+                  label: Text(
+                    _method == 'MMQR'
+                        ? 'Reserve Order & Create MMQR'
+                        : 'Reserve Order for Cash Payment',
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentStep extends StatelessWidget {
+  const _PaymentStep({
+    required this.number,
+    required this.label,
+    required this.done,
+  });
+  final String number;
+  final String label;
+  final bool done;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      CircleAvatar(
+        radius: 15,
+        backgroundColor: ProductStyles.green,
+        child: done
+            ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
+            : Text(number, style: const TextStyle(color: Colors.white)),
+      ),
+      const SizedBox(height: 4),
+      Text(label, style: ProductStyles.caption),
+    ],
+  );
+}
+
+class _PaymentMethodCard extends StatelessWidget {
+  const _PaymentMethodCard({
+    super.key,
+    required this.selected,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+  final bool selected;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(16),
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: selected ? ProductStyles.green : const Color(0xFFDDE9E4),
+          width: selected ? 2 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: const Color(0xFFEAF8F2),
+            child: Icon(icon, color: ProductStyles.green),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 3),
+                Text(subtitle, style: ProductStyles.caption),
+              ],
+            ),
+          ),
+          Icon(
+            selected ? Icons.radio_button_checked : Icons.radio_button_off,
+            color: selected ? ProductStyles.green : Colors.grey,
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _CheckoutCard extends StatelessWidget {
@@ -1134,6 +1396,7 @@ class _OrderConfirmation extends StatelessWidget {
                 '${order.items.fold<int>(0, (sum, item) => sum + item.quantity)}',
               ),
               ('Total', formatMmk(order.total)),
+              ('Payment timing', order.paymentTiming),
               ('Payment', order.paymentMethod),
               if (order.paymentStatus.isNotEmpty)
                 ('Payment status', order.paymentStatus),
@@ -1142,45 +1405,11 @@ class _OrderConfirmation extends StatelessWidget {
           ),
           if (order.paymentMethod == 'MMQR' && order.mmqr.isNotEmpty) ...[
             const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFDDE9E4)),
-              ),
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.qr_code_2_rounded,
-                    size: 72,
-                    color: ProductStyles.green,
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'MMQR payment pending',
-                    style: ProductStyles.sectionTitle,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Reference: ${order.mmqr['reference']}',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  SelectableText(
-                    order.mmqr['qrPayload'] as String? ?? '',
-                    textAlign: TextAlign.center,
-                    style: ProductStyles.caption,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Pending is not paid. Settlement must be provider-verified or explicitly reconciled by clinic staff.',
-                    textAlign: TextAlign.center,
-                    style: ProductStyles.caption,
-                  ),
-                ],
-              ),
-            ),
+            _MmqrPaymentPanel(order: order),
+          ],
+          if (order.receipt.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            _ReceiptCard(receipt: order.receipt, paymentId: order.paymentId),
           ],
           const SizedBox(height: 18),
           FilledButton(
@@ -1195,6 +1424,283 @@ class _OrderConfirmation extends StatelessWidget {
           ),
         ],
       ),
+    ),
+  );
+}
+
+class _MmqrPaymentPanel extends StatefulWidget {
+  const _MmqrPaymentPanel({required this.order});
+  final ProductOrder order;
+
+  @override
+  State<_MmqrPaymentPanel> createState() => _MmqrPaymentPanelState();
+}
+
+class _MmqrPaymentPanelState extends State<_MmqrPaymentPanel> {
+  late Map<String, dynamic> _mmqr = Map<String, dynamic>.from(
+    widget.order.mmqr,
+  );
+  late String _status = widget.order.paymentStatus.isEmpty
+      ? 'Pending'
+      : widget.order.paymentStatus;
+  late Map<String, dynamic> _receipt = Map<String, dynamic>.from(
+    widget.order.receipt,
+  );
+  Timer? _clock;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+    if (ClinicApi.instance.token != null && widget.order.paymentId.isNotEmpty) {
+      unawaited(_request('POST', '/mmqr/displayed'));
+    }
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
+  }
+
+  Duration get _remaining {
+    final expiry = DateTime.tryParse(_mmqr['expiresAt'] as String? ?? '');
+    if (expiry == null) return Duration.zero;
+    final value = expiry.difference(DateTime.now().toUtc());
+    return value.isNegative ? Duration.zero : value;
+  }
+
+  Future<void> _request(
+    String method,
+    String suffix, [
+    Map<String, dynamic>? body,
+  ]) async {
+    if (ClinicApi.instance.token == null) return;
+    setState(() => _busy = true);
+    try {
+      final result = await ClinicApi.instance.request(
+        method,
+        '/payments/${Uri.encodeComponent(widget.order.paymentId)}$suffix',
+        body,
+      );
+      final value = Map<String, dynamic>.from(
+        result['record']['data']['value'] as Map,
+      );
+      if (!mounted) return;
+      setState(() {
+        _status = value['status'] as String? ?? _status;
+        _mmqr = Map<String, dynamic>.from(value['mmqr'] as Map? ?? _mmqr);
+        _receipt = Map<String, dynamic>.from(
+          value['receipt'] as Map? ?? const <String, dynamic>{},
+        );
+      });
+      await DatabaseSync.instance.refreshTable('product_orders');
+    } on ClinicApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _refresh() => _request('GET', '/status');
+  Future<void> _cancel() =>
+      _request('POST', '/mmqr/cancel', {'reason': 'Cancelled by customer'});
+  Future<void> _regenerate() => _request('POST', '/mmqr/regenerate');
+
+  Widget _qrImage() {
+    final dataUrl = _mmqr['qrImageDataUrl'] as String? ?? '';
+    if (!dataUrl.startsWith('data:image/')) {
+      return const Icon(
+        Icons.qr_code_2_rounded,
+        size: 160,
+        color: ProductStyles.green,
+      );
+    }
+    try {
+      return Image.memory(
+        base64Decode(dataUrl.substring(dataUrl.indexOf(',') + 1)),
+        width: 220,
+        height: 220,
+        gaplessPlayback: true,
+      );
+    } catch (_) {
+      return const Icon(Icons.broken_image_outlined, size: 80);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = _remaining;
+    final pending = _status == 'Pending' && _mmqr['status'] == 'Pending';
+    final minutes = remaining.inMinutes.toString().padLeft(2, '0');
+    final seconds = (remaining.inSeconds % 60).toString().padLeft(2, '0');
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFDDE9E4)),
+          ),
+          child: Column(
+            children: [
+              _qrImage(),
+              const SizedBox(height: 8),
+              Text(
+                pending
+                    ? 'Waiting for payment'
+                    : 'MMQR ${_mmqr['status'] ?? _status}',
+                style: ProductStyles.sectionTitle,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                formatMmk(
+                  (_mmqr['amount'] as num?)?.toInt() ?? widget.order.total,
+                ),
+              ),
+              Text(
+                'Reference: ${_mmqr['reference']}',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                pending && remaining > Duration.zero
+                    ? 'Expires in $minutes:$seconds'
+                    : pending
+                    ? 'QR expired — refresh or regenerate'
+                    : 'Payment status: $_status',
+                style: TextStyle(
+                  color: pending && remaining <= Duration.zero
+                      ? ProductStyles.red
+                      : ProductStyles.green,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_busy)
+                const CircularProgressIndicator()
+              else
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _refresh,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Refresh status'),
+                    ),
+                    if (pending && remaining > Duration.zero)
+                      TextButton(
+                        onPressed: _cancel,
+                        child: const Text('Cancel QR'),
+                      ),
+                    if (!pending || remaining <= Duration.zero)
+                      FilledButton.icon(
+                        onPressed: _regenerate,
+                        icon: const Icon(Icons.qr_code_2_rounded),
+                        label: const Text('Generate new QR'),
+                      ),
+                  ],
+                ),
+              const SizedBox(height: 8),
+              const Text(
+                'A QR image is not proof of payment. The order becomes paid only after verified settlement.',
+                textAlign: TextAlign.center,
+                style: ProductStyles.caption,
+              ),
+            ],
+          ),
+        ),
+        if (_receipt.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          _ReceiptCard(receipt: _receipt, paymentId: widget.order.paymentId),
+        ],
+      ],
+    );
+  }
+}
+
+class _ReceiptCard extends StatelessWidget {
+  const _ReceiptCard({required this.receipt, required this.paymentId});
+  final Map<String, dynamic> receipt;
+  final String paymentId;
+
+  Future<void> _open(String key) async {
+    final value = receipt[key] as String? ?? '';
+    if (value.isEmpty) return;
+    await launchUrl(Uri.parse(value), mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _email(BuildContext context) async {
+    try {
+      final result = await ClinicApi.instance.request(
+        'POST',
+        '/payments/${Uri.encodeComponent(paymentId)}/receipt/email',
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Receipt email queued for ${result['email']}'),
+          ),
+        );
+      }
+    } on ClinicApiException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFDDE9E4)),
+    ),
+    child: Column(
+      children: [
+        const Icon(
+          Icons.receipt_long_rounded,
+          size: 48,
+          color: ProductStyles.green,
+        ),
+        const Text('Digital receipt', style: ProductStyles.sectionTitle),
+        const SizedBox(height: 6),
+        Text(receipt['receiptNumber'] as String? ?? ''),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => _open('verificationUrl'),
+              icon: const Icon(Icons.verified_outlined),
+              label: const Text('Verify'),
+            ),
+            FilledButton.icon(
+              onPressed: () => _open('pdfUrl'),
+              icon: const Icon(Icons.download_rounded),
+              label: const Text('Download / Print'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _email(context),
+              icon: const Icon(Icons.email_outlined),
+              label: const Text('Email'),
+            ),
+          ],
+        ),
+      ],
     ),
   );
 }
@@ -1223,19 +1729,31 @@ class ProductOrdersPage extends StatelessWidget {
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final order = orders[index];
-                    return _CheckoutCard(
-                      rows: [
-                        ('Order', order.id),
-                        ('Status', order.status),
-                        ('Total', formatMmk(order.total)),
-                        ('Payment', order.paymentMethod),
-                        if (order.paymentStatus.isNotEmpty)
-                          ('Payment status', order.paymentStatus),
-                        if (order.paymentAuditTrail.isNotEmpty)
-                          (
-                            'Payment audit',
-                            '${order.paymentAuditTrail.length} verified events',
+                    return Column(
+                      children: [
+                        _CheckoutCard(
+                          rows: [
+                            ('Order', order.id),
+                            ('Status', order.status),
+                            ('Total', formatMmk(order.total)),
+                            ('Payment timing', order.paymentTiming),
+                            ('Payment', order.paymentMethod),
+                            if (order.paymentStatus.isNotEmpty)
+                              ('Payment status', order.paymentStatus),
+                            if (order.paymentAuditTrail.isNotEmpty)
+                              (
+                                'Payment audit',
+                                '${order.paymentAuditTrail.length} verified events',
+                              ),
+                          ],
+                        ),
+                        if (order.receipt.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _ReceiptCard(
+                            receipt: order.receipt,
+                            paymentId: order.paymentId,
                           ),
+                        ],
                       ],
                     );
                   },

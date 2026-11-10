@@ -876,6 +876,7 @@ class StaffPayment {
     if (mmqr != null) 'mmqr': mmqr!.toDb(),
     'auditTrail': auditTrail.map((event) => event.toDb()).toList(),
     if (settlement.isNotEmpty) 'settlement': settlement,
+    if (receipt.isNotEmpty) 'receipt': receipt,
   };
   static StaffPayment fromDb(Map<String, dynamic> data) {
     final value = StaffPayment(
@@ -901,6 +902,9 @@ class StaffPayment {
       settlement: Map<String, dynamic>.from(
         data['settlement'] as Map? ?? const <String, dynamic>{},
       ),
+      receipt: Map<String, dynamic>.from(
+        data['receipt'] as Map? ?? const <String, dynamic>{},
+      ),
     );
     return value;
   }
@@ -916,8 +920,10 @@ class StaffPayment {
     this.mmqr,
     List<PaymentAuditEvent>? auditTrail,
     Map<String, dynamic>? settlement,
+    Map<String, dynamic>? receipt,
   }) : auditTrail = auditTrail ?? [],
-       settlement = settlement ?? {};
+       settlement = settlement ?? {},
+       receipt = receipt ?? {};
   final String id;
   final String owner;
   final String pet;
@@ -928,6 +934,7 @@ class StaffPayment {
   final MmqrPaymentDetails? mmqr;
   final List<PaymentAuditEvent> auditTrail;
   final Map<String, dynamic> settlement;
+  final Map<String, dynamic> receipt;
 
   bool get hasPendingMmqr => status == 'Pending' && mmqr?.status == 'Pending';
 }
