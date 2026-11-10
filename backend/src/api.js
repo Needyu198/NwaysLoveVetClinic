@@ -6,6 +6,129 @@ const { sendToAccount } = require('./messaging');
 const { resetEmailConfigured, sendPasswordResetEmail } = require('./passwordResetEmail');
 const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 const fail = (status, message) => Object.assign(new Error(message), { status });
+const MMQR_CURRENCY = 'MMK';
+const paymentActor = session => ({
+  actorId: session.account_id,
+  actorRole: session.role,
+});
+const paymentAuditEvent = ({ actorId, actorRole }, action, fromStatus, toStatus, details, now) => ({
+  id: `PAE-${crypto.randomUUID()}`,
+  at: now.toISOString(),
+  actorId,
+  actorRole,
+  action,
+  fromStatus,
+  toStatus,
+  details,
+});
+const paymentCopy = payment => structuredClone(payment || {});
+function createMmqrPayment(payment, actor, options = {}) {
+  const value = paymentCopy(payment);
+  const now = options.now || new Date();
+  if (value.status === 'Paid') throw fail(409, 'A paid invoice cannot start another MMQR payment.');
+  if (!['Unpaid', 'Failed'].includes(String(value.status || 'Unpaid'))) {
+    throw fail(409, 'MMQR requires a fully unpaid invoice with a known outstanding amount.');
+  }
+  if (value.status === 'Pending' && value.mmqr?.status === 'Pending') {
+    throw fail(409, 'This invoice already has a pending MMQR payment.');
+  }
+  const amount = Number(value.amount);
+  if (!Number.isInteger(amount) || amount <= 0) throw fail(400, 'The invoice amount must be a positive MMK amount.');
+  const reference = options.reference || `MMQR-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
+  const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
+  const previous = String(value.status || 'Unpaid');
+  value.status = 'Pending';
+  value.paymentMethod = 'MMQR';
+  value.mmqr = {
+    reference,
+    amount,
+    currency: MMQR_CURRENCY,
+    status: 'Pending',
+    createdAt: now.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+    // This payload is handed to the configured MMQR acquiring integration.
+    // It is not treated as evidence of settlement.
+    qrPayload: `MMQR|invoice=${encodeURIComponent(String(value.id || ''))}|amount=${amount}|currency=${MMQR_CURRENCY}|reference=${reference}`,
+  };
+  value.auditTrail = [...(Array.isArray(value.auditTrail) ? value.auditTrail : []), paymentAuditEvent(
+    actor, 'mmqr.created', previous, 'Pending', { reference, amount, currency: MMQR_CURRENCY }, now,
+  )];
+  return value;
+}
+function validatePendingMmqr(payment, input) {
+  if (payment.status === 'Paid') throw fail(409, 'This invoice is already settled and cannot be finalized twice.');
+  if (payment.status !== 'Pending' || payment.mmqr?.status !== 'Pending') throw fail(409, 'There is no pending MMQR payment to settle.');
+  if (String(input.reference || '') !== payment.mmqr.reference) throw fail(409, 'The MMQR reference does not match this invoice.');
+  if (Number(input.amount) !== Number(payment.mmqr.amount) || Number(input.amount) !== Number(payment.amount)) {
+    throw fail(409, 'The settlement amount does not match this invoice.');
+  }
+}
+function settleMmqrPayment(payment, input, actor, options = {}) {
+  const value = paymentCopy(payment);
+  validatePendingMmqr(value, input);
+  const providerTransactionId = String(input.providerTransactionId || '').trim();
+  if (!providerTransactionId || providerTransactionId.length > 200) throw fail(400, 'A valid provider transaction ID is required.');
+  const now = options.now || new Date();
+  value.status = 'Paid';
+  value.paidAt = now.toISOString();
+  value.mmqr = { ...value.mmqr, status: 'Settled', settledAt: now.toISOString(), providerTransactionId };
+  value.settlement = { type: 'provider_verified', providerTransactionId, verifiedAt: now.toISOString() };
+  value.auditTrail = [...(Array.isArray(value.auditTrail) ? value.auditTrail : []), paymentAuditEvent(
+    actor, 'mmqr.provider_settled', 'Pending', 'Paid', {
+      reference: value.mmqr.reference,
+      amount: value.amount,
+      currency: MMQR_CURRENCY,
+      providerTransactionId,
+    }, now,
+  )];
+  return value;
+}
+function reconcileMmqrPayment(payment, input, actor, options = {}) {
+  const value = paymentCopy(payment);
+  validatePendingMmqr(value, input);
+  const receiptReference = String(input.receiptReference || '').trim();
+  const note = String(input.note || '').trim();
+  if (!receiptReference || receiptReference.length > 200) throw fail(400, 'A valid receipt reference is required.');
+  if (note.length < 10 || note.length > 1000) throw fail(400, 'A reconciliation note of at least 10 characters is required.');
+  const now = options.now || new Date();
+  value.status = 'Paid';
+  value.paidAt = now.toISOString();
+  value.mmqr = { ...value.mmqr, status: 'Reconciled', settledAt: now.toISOString() };
+  value.settlement = { type: 'staff_reconciliation', receiptReference, note, verifiedAt: now.toISOString(), verifiedBy: actor.actorId };
+  value.auditTrail = [...(Array.isArray(value.auditTrail) ? value.auditTrail : []), paymentAuditEvent(
+    actor, 'mmqr.staff_reconciled', 'Pending', 'Paid', {
+      reference: value.mmqr.reference,
+      amount: value.amount,
+      currency: MMQR_CURRENCY,
+      receiptReference,
+      note,
+    }, now,
+  )];
+  return value;
+}
+function cancelMmqrPayment(payment, input, actor, options = {}) {
+  const value = paymentCopy(payment);
+  if (value.status !== 'Pending' || value.mmqr?.status !== 'Pending') throw fail(409, 'Only a pending MMQR payment can be cancelled.');
+  const reason = String(input.reason || '').trim();
+  if (reason.length < 5 || reason.length > 500) throw fail(400, 'A cancellation reason is required.');
+  const now = options.now || new Date();
+  value.status = 'Unpaid';
+  value.mmqr = { ...value.mmqr, status: 'Cancelled', cancelledAt: now.toISOString() };
+  value.auditTrail = [...(Array.isArray(value.auditTrail) ? value.auditTrail : []), paymentAuditEvent(
+    actor, 'mmqr.cancelled', 'Pending', 'Unpaid', { reference: value.mmqr.reference, reason }, now,
+  )];
+  return value;
+}
+const mmqrProofPayload = ({ reference, amount, providerTransactionId }) =>
+  `${reference}|${amount}|${providerTransactionId}|confirmed`;
+const verifyMmqrProof = (input, proof, secret) => {
+  if (!secret) throw fail(503, 'MMQR provider verification is not configured. Use documented staff reconciliation instead.');
+  const expected = crypto.createHmac('sha256', secret).update(mmqrProofPayload(input)).digest('hex');
+  const supplied = String(proof || '').trim().toLowerCase();
+  const left = Buffer.from(expected, 'utf8');
+  const right = Buffer.from(supplied, 'utf8');
+  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) throw fail(403, 'MMQR settlement proof is invalid.');
+};
 // Booking policy: at most this many active bookings per veterinarian/date/time
 // slot, and a pet owner is suspended once their cancellations reach the
 // threshold. Both are overridable via environment for different clinics.
@@ -92,6 +215,7 @@ const appointmentScheduleError = ({ profile, date, time, durationMinutes }) => {
   return null;
 };
 async function reserveProductOrderInventory(client, order, orderId) {
+  const requestedPaymentMethod = order.paymentMethod === 'MMQR' ? 'MMQR' : 'Pay at clinic';
   if (!Array.isArray(order.items) || order.items.length < 1 || order.items.length > 50) {
     throw fail(400, 'An order must contain between 1 and 50 products.');
   }
@@ -162,7 +286,19 @@ async function reserveProductOrderInventory(client, order, orderId) {
   order.total = total;
   order.status = 'Reserved';
   order.fulfillment = 'Clinic pickup';
-  order.paymentMethod = 'Pay at clinic';
+  order.paymentMethod = requestedPaymentMethod;
+}
+function createProductOrderPayment(order, actor) {
+  if (order.paymentMethod !== 'MMQR') return null;
+  const paymentId = `PAY-${order.id}`;
+  return createMmqrPayment({
+    id: paymentId,
+    orderId: order.id,
+    owner: String(order.ownerName || 'Registered owner'),
+    pet: 'Product order',
+    amount: Number(order.total),
+    status: 'Unpaid',
+  }, actor);
 }
 const activeBooking = (table, value) => {
   const status = normalizedBookingText(value?.status);
@@ -343,6 +479,7 @@ function installApi(app, pool, options = {}) {
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
+      if (error.code === '23505') throw fail(409, 'That MMQR or settlement reference has already been used.');
       throw error;
     } finally {
       client.release();
@@ -427,7 +564,7 @@ function installApi(app, pool, options = {}) {
       client.release();
     }
   }));
-  app.use(['/data', '/reports', '/queue', '/auth/logout', '/auth/change-password', '/devices'], async (req, res, next) => {
+  app.use(['/data', '/reports', '/queue', '/payments', '/auth/logout', '/auth/change-password', '/devices'], async (req, res, next) => {
     try {
       const token = (req.headers.authorization || '').replace(/^Bearer /, '');
       const session = (await pool.query('SELECT s.* FROM app_sessions s JOIN app_accounts a ON a.id=s.account_id AND a.active AND a.role=s.role WHERE s.token_hash=$1 AND s.expires_at>NOW()', [hash(token)])).rows[0];
@@ -436,6 +573,124 @@ function installApi(app, pool, options = {}) {
       next();
     } catch (_) { res.status(503).json({ message: 'Database unavailable.' }); }
   });
+  const requirePaymentStaff = req => {
+    if (!['staff', 'systemAdmin'].includes(req.session.role)) throw fail(403, 'Staff payment access required.');
+  };
+  const mutatePayment = async (req, mutation) => {
+    requirePaymentStaff(req);
+    const invoiceId = String(req.params.invoiceId || '').trim();
+    if (!invoiceId || invoiceId.length > 200) throw fail(400, 'A valid invoice ID is required.');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const rows = (await client.query(
+        `SELECT * FROM payments WHERE data->'value'->>'id'=$1 ORDER BY created_at FOR UPDATE`,
+        [invoiceId],
+      )).rows;
+      if (rows.length !== 1) throw fail(rows.length ? 409 : 404, 'Payment record not found or is not unique.');
+      const row = rows[0];
+      const nextValue = await mutation(row.data.value, client);
+      const data = { ...row.data, value: nextValue };
+      const record = (await client.query(
+        'UPDATE payments SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1 RETURNING id,owner_id,data,version',
+        [row.id, data],
+      )).rows[0];
+      let productOrderChanged = false;
+      if (nextValue.orderId) {
+        const orderRow = (await client.query(
+          `SELECT * FROM product_orders
+           WHERE owner_id=$1 AND data->'value'->>'id'=$2
+           ORDER BY created_at FOR UPDATE`,
+          [row.owner_id, nextValue.orderId],
+        )).rows[0];
+        if (orderRow) {
+          const orderData = structuredClone(orderRow.data);
+          orderData.value.paymentStatus = nextValue.status;
+          orderData.value.paymentAuditTrail = (nextValue.auditTrail || []).map(event => ({
+            id: event.id,
+            at: event.at,
+            action: event.action,
+            fromStatus: event.fromStatus,
+            toStatus: event.toStatus,
+          }));
+          await client.query(
+            'UPDATE product_orders SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1',
+            [orderRow.id, orderData],
+          );
+          productOrderChanged = true;
+        }
+      }
+      await client.query('COMMIT');
+      broadcastChange('payments');
+      if (productOrderChanged) broadcastChange('product_orders', { ownerId: row.owner_id });
+      return record;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  };
+  app.post('/payments/:invoiceId/mmqr', wrap(async (req, res) => {
+    const record = await mutatePayment(req, value => createMmqrPayment(value, paymentActor(req.session)));
+    res.status(201).json({ record });
+  }));
+  app.post('/payments/:invoiceId/mmqr/settle', wrap(async (req, res) => {
+    requirePaymentStaff(req);
+    const input = {
+      reference: req.body.reference,
+      amount: req.body.amount,
+      providerTransactionId: req.body.providerTransactionId,
+    };
+    verifyMmqrProof(input, req.body.settlementProof || req.headers['x-mmqr-settlement-proof'], process.env.MMQR_SETTLEMENT_SECRET);
+    const record = await mutatePayment(req, async (value, client) => {
+      const transactionId = String(input.providerTransactionId || '').trim();
+      const duplicate = (await client.query(
+        `SELECT 1 FROM payments
+         WHERE data->'value'->'settlement'->>'providerTransactionId'=$1
+           AND data->'value'->>'id'<>$2 LIMIT 1`,
+        [transactionId, req.params.invoiceId],
+      )).rows[0];
+      if (duplicate) throw fail(409, 'This provider transaction has already settled another invoice.');
+      return settleMmqrPayment(value, input, paymentActor(req.session));
+    });
+    res.json({ record });
+  }));
+  app.post('/payments/:invoiceId/mmqr/reconcile', wrap(async (req, res) => {
+    const input = {
+      reference: req.body.reference,
+      amount: req.body.amount,
+      receiptReference: req.body.receiptReference,
+      note: req.body.note,
+    };
+    const record = await mutatePayment(req, async (value, client) => {
+      const receiptReference = String(input.receiptReference || '').trim();
+      const duplicate = receiptReference && (await client.query(
+        `SELECT 1 FROM payments
+         WHERE data->'value'->'settlement'->>'receiptReference'=$1
+           AND data->'value'->>'id'<>$2 LIMIT 1`,
+        [receiptReference, req.params.invoiceId],
+      )).rows[0];
+      if (duplicate) throw fail(409, 'This receipt reference has already settled another invoice.');
+      return reconcileMmqrPayment(value, input, paymentActor(req.session));
+    });
+    res.json({ record });
+  }));
+  app.post('/payments/:invoiceId/mmqr/cancel', wrap(async (req, res) => {
+    const record = await mutatePayment(req, value => cancelMmqrPayment(value, req.body, paymentActor(req.session)));
+    res.json({ record });
+  }));
+  app.get('/payments/:invoiceId/audit', wrap(async (req, res) => {
+    requirePaymentStaff(req);
+    const rows = (await pool.query(
+      `SELECT data->'value'->'auditTrail' AS audit_trail
+       FROM payments WHERE data->'value'->>'id'=$1 ORDER BY created_at`,
+      [String(req.params.invoiceId || '')],
+    )).rows;
+    if (rows.length !== 1) throw fail(rows.length ? 409 : 404, 'Payment record not found or is not unique.');
+    res.json({ events: rows[0].audit_trail || [] });
+  }));
+
   app.post('/auth/logout', wrap(async (req, res) => {
     await pool.query('DELETE FROM app_sessions WHERE token_hash=$1', [req.session.token_hash]);
     res.json({ ok: true });
@@ -879,6 +1134,7 @@ function installApi(app, pool, options = {}) {
       // this sync. They are suspended once, atomically, before the commit.
       const ownersToSuspend = new Set();
       let inventoryChanged = false;
+      let paymentChanged = false;
       for (const item of [...changes, ...deletions.map(x => ({ ...x, deleting: true }))]) {
         if (typeof item.id !== 'string' || !item.id || item.id.length > 250 || !Number.isInteger(item.version) || item.version < 0) throw fail(400, 'Invalid record.');
         const existing = (await client.query(`SELECT * FROM ${req.params.table} WHERE id=$1 FOR UPDATE`, [item.id])).rows[0];
@@ -932,6 +1188,19 @@ function installApi(app, pool, options = {}) {
           const target = await client.query("SELECT id FROM app_accounts WHERE id=$1 AND role='petOwner'", [item.ownerId]);
           if (!target.rowCount) throw fail(400, 'Owner account not found.');
           ownerId = item.ownerId;
+        }
+        if (req.params.table === 'product_orders' && !existing && item.data.value.paymentMethod === 'MMQR') {
+          const order = item.data.value;
+          const payment = createProductOrderPayment(order, paymentActor(req.session));
+          const paymentId = payment.id;
+          await client.query(
+            'INSERT INTO payments(id,owner_id,data) VALUES($1,$2,$3)',
+            [`${ownerId}:${paymentId}`, ownerId, { key: paymentId, value: payment }],
+          );
+          order.paymentId = paymentId;
+          order.paymentStatus = payment.status;
+          order.mmqr = payment.mmqr;
+          paymentChanged = true;
         }
         if (req.params.table === 'user_directory') {
           const value = item.data.value;
@@ -1184,6 +1453,7 @@ function installApi(app, pool, options = {}) {
       if (changes.length || deletions.length) {
         broadcastChange(req.params.table);
         if (inventoryChanged) broadcastChange('inventory');
+        if (paymentChanged) broadcastChange('payments');
         if (postNotifications.length) broadcastChange('owner_notifications');
         // clinic_directory is a computed view over accounts + doctor profiles.
         // Refresh staff/owner doctor pickers as soon as availability changes.
@@ -1212,4 +1482,11 @@ module.exports = {
   sameAppointmentDoctor,
   appointmentScheduleError,
   reserveProductOrderInventory,
+  createProductOrderPayment,
+  createMmqrPayment,
+  settleMmqrPayment,
+  reconcileMmqrPayment,
+  cancelMmqrPayment,
+  verifyMmqrProof,
+  mmqrProofPayload,
 };

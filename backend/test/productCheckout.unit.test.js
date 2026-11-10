@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { reserveProductOrderInventory } = require('../src/api');
+const { reserveProductOrderInventory, createProductOrderPayment } = require('../src/api');
 
 test('checkout verifies price and reserves unexpired inventory batches', async () => {
   const row = {
@@ -49,4 +49,20 @@ test('checkout verifies price and reserves unexpired inventory batches', async (
   assert.equal(updates[0].value.batches[0].quantity, 0);
   assert.equal(updates[0].value.batches[1].quantity, 3);
   assert.equal(updates[0].value.movements[0].reference, 'ORD-1');
+});
+
+test('MMQR checkout creates a pending amount-bound auditable payment', () => {
+  const payment = createProductOrderPayment({
+    id: 'ORD-1',
+    ownerName: 'Pet Owner',
+    total: 10000,
+    paymentMethod: 'MMQR',
+  }, { actorId: 'owner-1', actorRole: 'petOwner' });
+
+  assert.equal(payment.id, 'PAY-ORD-1');
+  assert.equal(payment.orderId, 'ORD-1');
+  assert.equal(payment.amount, 10000);
+  assert.equal(payment.status, 'Pending');
+  assert.equal(payment.mmqr.amount, 10000);
+  assert.equal(payment.auditTrail[0].action, 'mmqr.created');
 });

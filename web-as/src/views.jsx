@@ -8,6 +8,10 @@ import {
   changePassword,
   getAccount,
   transitionQueue,
+  createMmqrPayment,
+  settleMmqrPayment,
+  reconcileMmqrPayment,
+  cancelMmqrPayment,
 } from './api.js';
 import InventoryForm from './InventoryForm.jsx';
 
@@ -296,18 +300,58 @@ export function QueueView({ refreshKey }) {
 
 export function PaymentsView({ refreshKey }) {
   const { records, loading, error, reload } = useTable('payments', refreshKey);
-  async function markPaid(record) {
-    const method = window.prompt('Payment method:', 'Cash');
-    if (!method) return;
-    try { await updateRecord('payments', record, { status: 'Paid', paymentMethod: method, paidAt: new Date().toISOString() }); reload(); }
+  async function startMmqr(record) {
+    try { await createMmqrPayment(val(record).id); reload(); }
+    catch (e) { alert(e.message); }
+  }
+  async function verifyProvider(record) {
+    const v = val(record);
+    const providerTransactionId = window.prompt('Provider transaction ID:')?.trim();
+    if (!providerTransactionId) return;
+    const settlementProof = window.prompt('Provider HMAC settlement proof:')?.trim();
+    if (!settlementProof) return;
+    try {
+      await settleMmqrPayment(v.id, {
+        reference: v.mmqr.reference,
+        amount: v.amount,
+        providerTransactionId,
+        settlementProof,
+      });
+      reload();
+    } catch (e) { alert(e.message); }
+  }
+  async function reconcile(record) {
+    const v = val(record);
+    const receiptReference = window.prompt('Verified receipt reference:')?.trim();
+    if (!receiptReference) return;
+    const note = window.prompt('Reconciliation note (at least 10 characters):')?.trim();
+    if (!note) return;
+    try {
+      await reconcileMmqrPayment(v.id, {
+        reference: v.mmqr.reference,
+        amount: v.amount,
+        receiptReference,
+        note,
+      });
+      reload();
+    } catch (e) { alert(e.message); }
+  }
+  async function cancel(record) {
+    const reason = window.prompt('Cancellation reason:')?.trim();
+    if (!reason) return;
+    try { await cancelMmqrPayment(val(record).id, reason); reload(); }
     catch (e) { alert(e.message); }
   }
   return (
     <div>
       <h1 className="view-title">Payments</h1>
       <StateWrap loading={loading} error={error} empty={records.length === 0}>
-        <div className="card"><table><thead><tr><th>Invoice</th><th>Owner</th><th>Pet</th><th>Amount</th><th>Status</th><th></th></tr></thead>
-          <tbody>{records.map(r => { const v = val(r); return <tr key={r.id}><td>{v.id}</td><td>{v.owner}</td><td>{v.pet}</td><td>{formatMmk(v.amount)}</td><td>{v.status}</td><td>{v.status !== 'Paid' && <button className="link-btn" onClick={() => markPaid(r)}>Confirm payment</button>}</td></tr>; })}</tbody>
+        <div className="card"><table><thead><tr><th>Invoice</th><th>Owner / Pet</th><th>Amount</th><th>Status</th><th>MMQR / audit</th><th>Actions</th></tr></thead>
+          <tbody>{records.map(r => { const v = val(r); const pending = v.status === 'Pending' && v.mmqr?.status === 'Pending'; return <tr key={r.id}>
+            <td>{v.id}</td><td>{v.owner}<div className="muted">{v.pet}</div></td><td>{formatMmk(v.amount)}</td><td>{v.status}</td>
+            <td>{v.mmqr ? <><strong>{v.mmqr.reference}</strong><div className="muted">{v.mmqr.status} · {(v.auditTrail || []).length} events</div><details><summary>Audit history</summary>{(v.auditTrail || []).slice().reverse().map(event => <div key={event.id} className="muted">{event.action}: {event.fromStatus} → {event.toStatus}<br />{event.at} · {event.actorRole}</div>)}</details></> : '—'}</td>
+            <td>{['Unpaid', 'Failed'].includes(v.status) && !pending && <button className="link-btn" onClick={() => startMmqr(r)}>Create MMQR</button>}{pending && <><button className="link-btn" onClick={() => verifyProvider(r)}>Verify provider</button> <button className="link-btn" onClick={() => reconcile(r)}>Reconcile receipt</button> <button className="link-btn" onClick={() => cancel(r)}>Cancel</button></>}</td>
+          </tr>; })}</tbody>
         </table></div>
       </StateWrap>
     </div>

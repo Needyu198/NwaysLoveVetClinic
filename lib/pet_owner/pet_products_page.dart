@@ -113,6 +113,10 @@ class ProductOrder {
     required this.ownerPhone,
     this.fulfillment = 'Clinic pickup',
     this.paymentMethod = 'Pay at clinic',
+    this.paymentId = '',
+    this.paymentStatus = '',
+    this.mmqr = const {},
+    this.paymentAuditTrail = const [],
     this.status = 'Reserved',
   });
 
@@ -130,6 +134,15 @@ class ProductOrder {
     ownerPhone: value['ownerPhone'] as String? ?? '',
     fulfillment: value['fulfillment'] as String? ?? 'Clinic pickup',
     paymentMethod: value['paymentMethod'] as String? ?? 'Pay at clinic',
+    paymentId: value['paymentId'] as String? ?? '',
+    paymentStatus: value['paymentStatus'] as String? ?? '',
+    mmqr: Map<String, dynamic>.from(
+      value['mmqr'] as Map? ?? const <String, dynamic>{},
+    ),
+    paymentAuditTrail: (value['paymentAuditTrail'] as List? ?? const [])
+        .whereType<Map>()
+        .map((event) => Map<String, dynamic>.from(event))
+        .toList(),
     status: value['status'] as String? ?? 'Reserved',
   );
 
@@ -142,6 +155,10 @@ class ProductOrder {
     'ownerPhone': ownerPhone,
     'fulfillment': fulfillment,
     'paymentMethod': paymentMethod,
+    if (paymentId.isNotEmpty) 'paymentId': paymentId,
+    if (paymentStatus.isNotEmpty) 'paymentStatus': paymentStatus,
+    if (mmqr.isNotEmpty) 'mmqr': mmqr,
+    if (paymentAuditTrail.isNotEmpty) 'paymentAuditTrail': paymentAuditTrail,
     'status': status,
   };
 
@@ -153,6 +170,10 @@ class ProductOrder {
   final String ownerPhone;
   final String fulfillment;
   final String paymentMethod;
+  final String paymentId;
+  final String paymentStatus;
+  final Map<String, dynamic> mmqr;
+  final List<Map<String, dynamic>> paymentAuditTrail;
   String status;
 }
 
@@ -832,6 +853,7 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
   bool _placing = false;
   String? _error;
   ProductOrder? _completed;
+  String _paymentMethod = 'Pay at clinic';
 
   Future<void> _placeOrder() async {
     final cart = ProductCartStore.instance;
@@ -872,12 +894,16 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
       total: cart.subtotal,
       ownerName: profile.fullName,
       ownerPhone: profile.phone,
+      paymentMethod: _paymentMethod,
     );
     ProductOrderStore.instance.add(order);
     try {
       if (DatabaseSync.instance.active) {
         await DatabaseSync.instance.flushOrThrow();
-        await DatabaseSync.instance.refreshTable('inventory');
+        await DatabaseSync.instance.refreshTables([
+          'inventory',
+          'product_orders',
+        ]);
       } else if (ClinicApi.instance.token != null) {
         for (final line in cart.lines) {
           if (line.product.inventoryId.isEmpty) continue;
@@ -893,7 +919,11 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
         }
       }
       cart.clear();
-      if (mounted) setState(() => _completed = order);
+      final completedOrder = ProductOrderStore.instance.orders.firstWhere(
+        (saved) => saved.id == order.id,
+        orElse: () => order,
+      );
+      if (mounted) setState(() => _completed = completedOrder);
     } catch (error) {
       ProductOrderStore.instance.remove(order);
       if (mounted) {
@@ -940,8 +970,31 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
                         profile.phone.isEmpty ? 'Not recorded' : profile.phone,
                       ),
                       ('Fulfillment', 'Clinic pickup'),
-                      ('Payment', 'Pay at clinic'),
+                      ('Payment', _paymentMethod),
                     ],
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Payment method',
+                    style: ProductStyles.sectionTitle,
+                  ),
+                  const SizedBox(height: 10),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
+                        value: 'Pay at clinic',
+                        label: Text('Pay at clinic'),
+                        icon: Icon(Icons.storefront_outlined),
+                      ),
+                      ButtonSegment(
+                        value: 'MMQR',
+                        label: Text('MMQR'),
+                        icon: Icon(Icons.qr_code_2_rounded),
+                      ),
+                    ],
+                    selected: {_paymentMethod},
+                    onSelectionChanged: (selection) =>
+                        setState(() => _paymentMethod = selection.single),
                   ),
                   const SizedBox(height: 18),
                   const Text(
@@ -960,8 +1013,10 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Items are reserved after confirmation. Payment is collected by clinic staff at pickup.',
+                  Text(
+                    _paymentMethod == 'MMQR'
+                        ? 'Items are reserved after confirmation. The server creates an amount-bound MMQR reference; the order is paid only after provider verification or audited staff reconciliation.'
+                        : 'Items are reserved after confirmation. Payment is collected by clinic staff at pickup.',
                     style: ProductStyles.caption,
                   ),
                   if (_error != null) ...[
@@ -1080,9 +1135,53 @@ class _OrderConfirmation extends StatelessWidget {
               ),
               ('Total', formatMmk(order.total)),
               ('Payment', order.paymentMethod),
+              if (order.paymentStatus.isNotEmpty)
+                ('Payment status', order.paymentStatus),
               ('Pickup', "Nway's Love Vet Clinic"),
             ],
           ),
+          if (order.paymentMethod == 'MMQR' && order.mmqr.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFDDE9E4)),
+              ),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.qr_code_2_rounded,
+                    size: 72,
+                    color: ProductStyles.green,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'MMQR payment pending',
+                    style: ProductStyles.sectionTitle,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Reference: ${order.mmqr['reference']}',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    order.mmqr['qrPayload'] as String? ?? '',
+                    textAlign: TextAlign.center,
+                    style: ProductStyles.caption,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Pending is not paid. Settlement must be provider-verified or explicitly reconciled by clinic staff.',
+                    textAlign: TextAlign.center,
+                    style: ProductStyles.caption,
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 18),
           FilledButton(
             key: const ValueKey('finish-product-order'),
@@ -1130,6 +1229,13 @@ class ProductOrdersPage extends StatelessWidget {
                         ('Status', order.status),
                         ('Total', formatMmk(order.total)),
                         ('Payment', order.paymentMethod),
+                        if (order.paymentStatus.isNotEmpty)
+                          ('Payment status', order.paymentStatus),
+                        if (order.paymentAuditTrail.isNotEmpty)
+                          (
+                            'Payment audit',
+                            '${order.paymentAuditTrail.length} verified events',
+                          ),
                       ],
                     );
                   },

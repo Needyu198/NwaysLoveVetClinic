@@ -95,6 +95,17 @@ async function ensureDatabaseSchema(database = pool, schema = dbSchema) {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
       await client.query(`CREATE INDEX IF NOT EXISTS ${table}_owner_idx ON ${table}(owner_id)`);
     }
+    // Settlement identifiers are globally single-use. The API also checks for
+    // a friendly error, while these indexes close the concurrent-request race.
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS payments_mmqr_reference_unique
+      ON payments ((data->'value'->'mmqr'->>'reference'))
+      WHERE NULLIF(data->'value'->'mmqr'->>'reference','') IS NOT NULL`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS payments_provider_transaction_unique
+      ON payments ((data->'value'->'settlement'->>'providerTransactionId'))
+      WHERE NULLIF(data->'value'->'settlement'->>'providerTransactionId','') IS NOT NULL`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS payments_receipt_reference_unique
+      ON payments ((data->'value'->'settlement'->>'receiptReference'))
+      WHERE NULLIF(data->'value'->'settlement'->>'receiptReference','') IS NOT NULL`);
     // Recover registered contact identifiers for accounts created before the
     // dedicated columns existed. This migration is repeatable and preserves
     // newer values when an older directory row has an empty field.

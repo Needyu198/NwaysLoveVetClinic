@@ -30,7 +30,9 @@ const resources = {
   health_post_drafts: { roles: ['doctor'], scope: 'private' },
   doctor_notifications: { roles: ['doctor'], scope: 'private' },
   walk_in_appointments: { roles: clinic, scope: 'clinic' },
-  payments: { roles: ['staff', 'systemAdmin'], scope: 'clinic' },
+  // Payment lifecycle writes go through the guarded /payments endpoints so a
+  // client cannot bypass amount/reference validation or the audit trail.
+  payments: { roles: ['staff', 'systemAdmin'], scope: 'clinic', writers: [] },
   inventory: { roles: owner, scope: 'clinic', writers: clinic },
   product_orders: { roles: ['petOwner', 'staff', 'systemAdmin'], scope: 'owner', writers: ['petOwner', 'staff', 'systemAdmin'], appendOnly: true },
   staff_profiles: { roles: ['staff'], scope: 'private' },

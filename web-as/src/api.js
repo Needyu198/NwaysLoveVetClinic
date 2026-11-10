@@ -111,6 +111,22 @@ export async function createRecord(table, value, { ownerId } = {}) {
   }]);
 }
 
+export async function createMmqrPayment(invoiceId) {
+  return request('POST', `/payments/${encodeURIComponent(invoiceId)}/mmqr`);
+}
+
+export async function settleMmqrPayment(invoiceId, settlement) {
+  return request('POST', `/payments/${encodeURIComponent(invoiceId)}/mmqr/settle`, settlement);
+}
+
+export async function reconcileMmqrPayment(invoiceId, reconciliation) {
+  return request('POST', `/payments/${encodeURIComponent(invoiceId)}/mmqr/reconcile`, reconciliation);
+}
+
+export async function cancelMmqrPayment(invoiceId, reason) {
+  return request('POST', `/payments/${encodeURIComponent(invoiceId)}/mmqr/cancel`, { reason });
+}
+
 // Queue lifecycle writes must go through the server-owned state machine. The
 // generic table sync route is intentionally read-only for queue entries.
 export async function checkInQueue(appointmentId, priority = 'normal') {

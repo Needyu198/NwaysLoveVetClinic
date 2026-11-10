@@ -42,6 +42,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('proceed-to-checkout')));
     await tester.pumpAndSettle();
     expect(find.text('Pay at clinic'), findsWidgets);
+    expect(find.text('MMQR'), findsOneWidget);
     expect(find.text('Clinic pickup'), findsWidgets);
 
     await tester.tap(find.byKey(const ValueKey('place-product-order')));

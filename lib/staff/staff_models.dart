@@ -764,6 +764,106 @@ class StaffAppointment {
       queueServiceGroupForName(service, walkIn: id.startsWith('WALK-'));
 }
 
+class PaymentAuditEvent {
+  const PaymentAuditEvent({
+    required this.id,
+    required this.at,
+    required this.actorId,
+    required this.actorRole,
+    required this.action,
+    required this.fromStatus,
+    required this.toStatus,
+    required this.details,
+  });
+
+  factory PaymentAuditEvent.fromDb(Map<String, dynamic> data) =>
+      PaymentAuditEvent(
+        id: data['id'] as String? ?? '',
+        at: DateTime.tryParse(data['at'] as String? ?? '') ?? DateTime(1970),
+        actorId: data['actorId'] as String? ?? 'unknown',
+        actorRole: data['actorRole'] as String? ?? 'unknown',
+        action: data['action'] as String? ?? 'payment.updated',
+        fromStatus: data['fromStatus'] as String? ?? '',
+        toStatus: data['toStatus'] as String? ?? '',
+        details: Map<String, dynamic>.from(
+          data['details'] as Map? ?? const <String, dynamic>{},
+        ),
+      );
+
+  Map<String, dynamic> toDb() => {
+    'id': id,
+    'at': at.toIso8601String(),
+    'actorId': actorId,
+    'actorRole': actorRole,
+    'action': action,
+    'fromStatus': fromStatus,
+    'toStatus': toStatus,
+    'details': details,
+  };
+
+  final String id;
+  final DateTime at;
+  final String actorId;
+  final String actorRole;
+  final String action;
+  final String fromStatus;
+  final String toStatus;
+  final Map<String, dynamic> details;
+}
+
+class MmqrPaymentDetails {
+  const MmqrPaymentDetails({
+    required this.reference,
+    required this.amount,
+    required this.currency,
+    required this.status,
+    required this.qrPayload,
+    required this.createdAt,
+    required this.expiresAt,
+    this.settledAt,
+    this.providerTransactionId = '',
+  });
+
+  factory MmqrPaymentDetails.fromDb(
+    Map<String, dynamic> data,
+  ) => MmqrPaymentDetails(
+    reference: data['reference'] as String? ?? '',
+    amount: (data['amount'] as num?)?.toInt() ?? 0,
+    currency: data['currency'] as String? ?? 'MMK',
+    status: data['status'] as String? ?? 'Pending',
+    qrPayload: data['qrPayload'] as String? ?? '',
+    createdAt:
+        DateTime.tryParse(data['createdAt'] as String? ?? '') ?? DateTime(1970),
+    expiresAt:
+        DateTime.tryParse(data['expiresAt'] as String? ?? '') ?? DateTime(1970),
+    settledAt: DateTime.tryParse(data['settledAt'] as String? ?? ''),
+    providerTransactionId: data['providerTransactionId'] as String? ?? '',
+  );
+
+  Map<String, dynamic> toDb() => {
+    'reference': reference,
+    'amount': amount,
+    'currency': currency,
+    'status': status,
+    'qrPayload': qrPayload,
+    'createdAt': createdAt.toIso8601String(),
+    'expiresAt': expiresAt.toIso8601String(),
+    if (settledAt != null) 'settledAt': settledAt!.toIso8601String(),
+    if (providerTransactionId.isNotEmpty)
+      'providerTransactionId': providerTransactionId,
+  };
+
+  final String reference;
+  final int amount;
+  final String currency;
+  final String status;
+  final String qrPayload;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final DateTime? settledAt;
+  final String providerTransactionId;
+}
+
 class StaffPayment {
   Map<String, dynamic> toDb() => {
     'id': id,
@@ -771,14 +871,36 @@ class StaffPayment {
     'pet': pet,
     'amount': amount,
     'status': status,
+    if (paymentMethod.isNotEmpty) 'paymentMethod': paymentMethod,
+    if (paidAt != null) 'paidAt': paidAt!.toIso8601String(),
+    if (mmqr != null) 'mmqr': mmqr!.toDb(),
+    'auditTrail': auditTrail.map((event) => event.toDb()).toList(),
+    if (settlement.isNotEmpty) 'settlement': settlement,
   };
   static StaffPayment fromDb(Map<String, dynamic> data) {
     final value = StaffPayment(
       id: data['id'] as String,
       owner: data['owner'] as String,
       pet: data['pet'] as String,
-      amount: data['amount'] as int,
+      amount: (data['amount'] as num).toInt(),
       status: data['status'] as String,
+      paymentMethod: data['paymentMethod'] as String? ?? '',
+      paidAt: DateTime.tryParse(data['paidAt'] as String? ?? ''),
+      mmqr: data['mmqr'] is Map
+          ? MmqrPaymentDetails.fromDb(
+              Map<String, dynamic>.from(data['mmqr'] as Map),
+            )
+          : null,
+      auditTrail: (data['auditTrail'] as List? ?? const [])
+          .whereType<Map>()
+          .map(
+            (event) =>
+                PaymentAuditEvent.fromDb(Map<String, dynamic>.from(event)),
+          )
+          .toList(),
+      settlement: Map<String, dynamic>.from(
+        data['settlement'] as Map? ?? const <String, dynamic>{},
+      ),
     );
     return value;
   }
@@ -789,12 +911,25 @@ class StaffPayment {
     required this.pet,
     required this.amount,
     required this.status,
-  });
+    this.paymentMethod = '',
+    this.paidAt,
+    this.mmqr,
+    List<PaymentAuditEvent>? auditTrail,
+    Map<String, dynamic>? settlement,
+  }) : auditTrail = auditTrail ?? [],
+       settlement = settlement ?? {};
   final String id;
   final String owner;
   final String pet;
   final int amount;
   String status;
+  final String paymentMethod;
+  final DateTime? paidAt;
+  final MmqrPaymentDetails? mmqr;
+  final List<PaymentAuditEvent> auditTrail;
+  final Map<String, dynamic> settlement;
+
+  bool get hasPendingMmqr => status == 'Pending' && mmqr?.status == 'Pending';
 }
 
 /// A single recorded stock movement (Stock In / Stock Out / adjustment) that
