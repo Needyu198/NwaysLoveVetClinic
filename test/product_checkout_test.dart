@@ -52,7 +52,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('product-payment-page')), findsOneWidget);
     expect(find.text('Pay by cash'), findsOneWidget);
-    expect(find.text('Pay by MMQR'), findsOneWidget);
+    expect(find.text('Pay by QR'), findsOneWidget);
 
     await tester.tap(
       find.byKey(const ValueKey('confirm-product-payment-method')),
@@ -90,7 +90,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Online payment method'), findsOneWidget);
-    expect(find.text('Pay by MMQR'), findsOneWidget);
+    expect(find.text('Pay by QR'), findsOneWidget);
     expect(find.text('Pay by cash'), findsNothing);
     await tester.tap(
       find.byKey(const ValueKey('confirm-product-payment-method')),

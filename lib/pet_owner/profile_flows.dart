@@ -1034,6 +1034,76 @@ class _AddPetPageState extends State<AddPetPage> {
     _ => const ['Unknown'],
   };
 
+  List<String> get _breeds => switch (_type) {
+    'Dog' => const [
+      'Afghan Hound',
+      'Akita',
+      'Alaskan Malamute',
+      'Australian Cattle Dog',
+      'Australian Shepherd',
+      'Basset Hound',
+      'Beagle',
+      'Belgian Malinois',
+      'Bernese Mountain Dog',
+      'Bichon Frise',
+      'Border Collie',
+      'Boston Terrier',
+      'Boxer',
+      'Bulldog',
+      'Bull Terrier',
+      'Cane Corso',
+      'Cavalier King Charles Spaniel',
+      'Chihuahua',
+      'Chow Chow',
+      'Cocker Spaniel',
+      'Dachshund',
+      'Doberman Pinscher',
+      'French Bulldog',
+      'German Shepherd',
+      'Golden Retriever',
+      'Great Dane',
+      'Labrador Retriever',
+      'Maltese',
+      'Miniature Schnauzer',
+      'Pomeranian',
+      'Poodle',
+      'Pug',
+      'Rottweiler',
+      'Samoyed',
+      'Shiba Inu',
+      'Shih Tzu',
+      'Siberian Husky',
+      'Yorkshire Terrier',
+      'Mixed breed',
+      'Unknown / Other',
+    ],
+    'Cat' => const [
+      'American Shorthair',
+      'Bengal',
+      'Birman',
+      'British Shorthair',
+      'Burmese',
+      'Devon Rex',
+      'Domestic Longhair',
+      'Domestic Shorthair',
+      'Exotic Shorthair',
+      'Himalayan',
+      'Maine Coon',
+      'Norwegian Forest Cat',
+      'Persian',
+      'Ragdoll',
+      'Russian Blue',
+      'Scottish Fold',
+      'Siamese',
+      'Sphynx',
+      'Turkish Angora',
+      'Mixed breed',
+      'Unknown / Other',
+    ],
+    'Other' => const ['Mixed breed', 'Unknown / Other'],
+    _ => const [],
+  };
+
   /// Uploaded pet photo as a base64 data URI (or null when none chosen).
   String? _photoSource;
 
@@ -1125,10 +1195,32 @@ class _AddPetPageState extends State<AddPetPage> {
                           value == null ? 'Select a pet type' : null,
                     ),
                     const SizedBox(height: 14),
-                    _field(
-                      _breed,
-                      _type == null ? 'Breed *' : '$_type breed *',
-                      required: true,
+                    DropdownButtonFormField<String>(
+                      key: ValueKey('add-pet-breed-$_type'),
+                      initialValue: _breeds.contains(_breed.text)
+                          ? _breed.text
+                          : null,
+                      decoration: InputDecoration(
+                        labelText: _type == null ? 'Breed *' : '$_type breed *',
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: _breeds
+                          .map(
+                            (breed) => DropdownMenuItem(
+                              value: breed,
+                              child: Text(breed),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: _type == null
+                          ? null
+                          : (breed) {
+                              if (breed != null) {
+                                setState(() => _breed.text = breed);
+                              }
+                            },
+                      validator: (breed) =>
+                          breed == null ? 'Select a breed' : null,
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(

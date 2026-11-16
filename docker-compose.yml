@@ -40,7 +40,14 @@ services:
       DB_NAME: ${DB_NAME:-NwayLoveVetClinicSever}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://127.0.0.1:5050}
       REPORTING_URL: http://reporting:5060
+      KBZPAY_QR_MODE: ${KBZPAY_QR_MODE:-personal}
+      MMQR_MERCHANT_QR: ${MMQR_MERCHANT_QR:-}
+      MMQR_PROVIDER_QR_ENDPOINT: ${MMQR_PROVIDER_QR_ENDPOINT:-}
+      MMQR_PROVIDER_API_KEY: ${MMQR_PROVIDER_API_KEY:-}
+      MMQR_MERCHANT_ID: ${MMQR_MERCHANT_ID:-}
+      MMQR_SETTLEMENT_SECRET: ${MMQR_SETTLEMENT_SECRET:-}
       # Optional FCM credentials (see docs/FCM_SETUP.md)
       FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT:-}
     ports:

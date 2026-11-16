@@ -818,6 +818,9 @@ class MmqrPaymentDetails {
     required this.currency,
     required this.status,
     required this.qrPayload,
+    this.qrImageDataUrl = '',
+    this.providerMode = '',
+    this.recipientLabel = '',
     required this.createdAt,
     required this.expiresAt,
     this.settledAt,
@@ -832,6 +835,9 @@ class MmqrPaymentDetails {
     currency: data['currency'] as String? ?? 'MMK',
     status: data['status'] as String? ?? 'Pending',
     qrPayload: data['qrPayload'] as String? ?? '',
+    qrImageDataUrl: data['qrImageDataUrl'] as String? ?? '',
+    providerMode: data['providerMode'] as String? ?? '',
+    recipientLabel: data['recipientLabel'] as String? ?? '',
     createdAt:
         DateTime.tryParse(data['createdAt'] as String? ?? '') ?? DateTime(1970),
     expiresAt:
@@ -846,6 +852,9 @@ class MmqrPaymentDetails {
     'currency': currency,
     'status': status,
     'qrPayload': qrPayload,
+    if (qrImageDataUrl.isNotEmpty) 'qrImageDataUrl': qrImageDataUrl,
+    if (providerMode.isNotEmpty) 'providerMode': providerMode,
+    if (recipientLabel.isNotEmpty) 'recipientLabel': recipientLabel,
     'createdAt': createdAt.toIso8601String(),
     'expiresAt': expiresAt.toIso8601String(),
     if (settledAt != null) 'settledAt': settledAt!.toIso8601String(),
@@ -858,6 +867,11 @@ class MmqrPaymentDetails {
   final String currency;
   final String status;
   final String qrPayload;
+  final String qrImageDataUrl;
+  final String providerMode;
+  final String recipientLabel;
+  bool get isPersonal => providerMode == 'kbzpay_personal';
+  bool get isDemo => isDemoPaymentQr(qrPayload, providerMode);
   final DateTime createdAt;
   final DateTime expiresAt;
   final DateTime? settledAt;

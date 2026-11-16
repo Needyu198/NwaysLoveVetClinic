@@ -8,7 +8,6 @@ const {
   cancelMmqrPayment,
   verifyMmqrProof,
   mmqrProofPayload,
-  renderMmqrQr,
   expireMmqrPayment,
   receiptPdfBuffer,
   verifyMmqrWebhook,
@@ -16,6 +15,12 @@ const {
   markMmqrDisplayed,
   prepareMmqrPayment,
 } = require('../src/api');
+
+const { invoiceMerchantQr } = require('../src/merchantQr');
+// Synthetic, non-payable merchant. The expected checksums were calculated
+// independently with binascii.crc_hqx over UTF-8 bytes.
+const sticker = '00020101021126440011MM.COM.MMQR011500000000000000002060000005204074253031045802MM5911TEST CLINIC6006YANGON62100306STORE164150002my0105နမူနာ6304DEE0';
+const invoiceQr = '00020101021226440011MM.COM.MMQR01150000000000000000206000000520407425303104540845000.005802MM5911TEST CLINIC6006YANGON62230109MMQR-QR-10306STORE164150002my0105နမူနာ63048D4D';
 
 const actor = { actorId: 'staff-1', actorRole: 'staff' };
 const invoice = () => ({
@@ -37,7 +42,7 @@ test('MMQR creation binds a unique reference to the exact invoice amount and aud
     { reference: payment.mmqr.reference, amount: payment.mmqr.amount, currency: payment.mmqr.currency },
     { reference: 'MMQR-TEST-100', amount: 45000, currency: 'MMK' },
   );
-  assert.match(payment.mmqr.qrPayload, /invoice=INV-100/);
+  assert.equal(payment.mmqr.qrPayload, undefined);
   assert.equal(payment.auditTrail[0].action, 'mmqr.created');
   assert.equal(invoice().status, 'Unpaid');
 });
@@ -111,38 +116,78 @@ test('provider proof is HMAC-verifiable and fails closed when missing or altered
   assert.throws(() => verifyMmqrProof(input, proof, ''), error => error.status === 503);
 });
 
-test('amount-bound MMQR payload renders as a QR image with a saved hash', async () => {
-  const pending = createMmqrPayment(invoice(), actor, { reference: 'MMQR-QR-1' });
-  const rendered = await renderMmqrQr(pending);
-  assert.match(rendered.mmqr.qrImageDataUrl, /^data:image\/png;base64,/);
-  assert.match(rendered.mmqr.payloadHash, /^[a-f0-9]{64}$/);
-  assert.equal(rendered.mmqr.amount, 45000);
-  assert.ok(rendered.mmqr.attemptId.startsWith('MMA-'));
+function configure(t, variables) {
+  for (const [key, value] of Object.entries(variables)) {
+    const old = process.env[key];
+    t.after(() => { if (old === undefined) delete process.env[key]; else process.env[key] = old; });
+    process.env[key] = value;
+  }
+}
+
+test('personal checkout preserves the uploaded receive QR across invoice amounts and requires staff reconciliation', async t => {
+  configure(t, { KBZPAY_QR_MODE: '', MMQR_PROVIDER_QR_ENDPOINT: 'https://unused.example' });
+  const neverCall = () => assert.fail('Personal transfers do not call an acquiring provider');
+  const issue = amount => prepareMmqrPayment(createMmqrPayment({ ...invoice(), amount }, actor), neverCall);
+  const first = await issue(1200);
+  const second = await issue(45000);
+  assert.equal(first.mmqr.providerMode, 'kbzpay_personal');
+  assert.equal(first.mmqr.payloadHash, 'f0a2ce9a2184a886fdea010def612ef1c1a1064578ff371c322294af0e860258');
+  assert.equal(first.mmqr.qrPayload, second.mmqr.qrPayload);
+  assert.equal(first.mmqr.qrImageDataUrl, second.mmqr.qrImageDataUrl);
+  assert.notEqual(first.mmqr.reference, second.mmqr.reference);
+  assert.equal(second.mmqr.amount, 45000);
+  assert.equal(second.mmqr.recipientLabel, 'Sitt Yan Htun (…2067)');
+  assert.equal(second.status, 'Pending');
+  const input = { reference: second.mmqr.reference, amount: 45000 };
+  assert.throws(() => settleMmqrPayment(second, input, actor), /reconcile/);
+  assert.equal(reconcileMmqrPayment(second, { ...input, receiptReference: 'TEST-TX', note: 'Matched received transfer' }, actor).status, 'Paid');
 });
 
-test('configured acquirer supplies the wallet-compatible QR payload', async () => {
-  const previous = {
-    endpoint: process.env.MMQR_PROVIDER_QR_ENDPOINT,
-    key: process.env.MMQR_PROVIDER_API_KEY,
-    merchant: process.env.MMQR_MERCHANT_ID,
-  };
-  process.env.MMQR_PROVIDER_QR_ENDPOINT = 'https://acquirer.example/qr';
-  process.env.MMQR_PROVIDER_API_KEY = 'secret';
-  process.env.MMQR_MERCHANT_ID = 'MERCHANT-1';
-  const pending = createMmqrPayment(invoice(), actor, { reference: 'MMQR-ACQ-1', attemptId: 'MMA-ACQ-1' });
-  let sent;
-  const prepared = await prepareMmqrPayment(pending, async (url, options) => {
-    sent = { url, options };
-    return { ok: true, async json() { return { qrPayload: '000201-provider-emv-payload', reference: 'MMQR-ACQ-1', providerAttemptId: 'P-1' }; } };
-  });
-  assert.equal(sent.options.headers['Idempotency-Key'], 'MMA-ACQ-1');
-  assert.equal(prepared.mmqr.providerMode, 'acquirer_api');
-  assert.equal(prepared.mmqr.qrPayload, '000201-provider-emv-payload');
-  assert.match(prepared.mmqr.qrImageDataUrl, /^data:image\/png;base64,/);
-  for (const [key, value] of Object.entries(previous)) {
-    const envKey = key === 'endpoint' ? 'MMQR_PROVIDER_QR_ENDPOINT' : key === 'key' ? 'MMQR_PROVIDER_API_KEY' : 'MMQR_MERCHANT_ID';
-    if (value == null) delete process.env[envKey]; else process.env[envKey] = value;
+test('checkout encodes the verified MMK total and bill number with the original merchant routing', async t => {
+  configure(t, { KBZPAY_QR_MODE: 'merchant', MMQR_PROVIDER_QR_ENDPOINT: '', MMQR_MERCHANT_QR: sticker });
+  const pending = createMmqrPayment(invoice(), actor, { reference: 'MMQR-QR-1' });
+  const rendered = await prepareMmqrPayment(pending);
+  assert.equal(rendered.status, 'Pending');
+  assert.equal(rendered.mmqr.qrPayload, invoiceQr);
+  assert.equal(rendered.mmqr.providerMode, 'merchant_mmqr');
+  assert.match(rendered.mmqr.qrImageDataUrl, /^data:image\/png;base64,/);
+  assert.equal(rendered.mmqr.payloadHash, crypto.createHash('sha256').update(invoiceQr).digest('hex'));
+  const other = invoiceMerchantQr(sticker, 1200, 'MMQR-QR-2');
+  assert.ok(other.includes('54071200.00'));
+  assert.ok(other.includes('0109MMQR-QR-2'));
+  assert.notEqual(other.slice(-4), invoiceQr.slice(-4));
+});
+
+test('missing configuration, damaged stickers and single-use QRs never generate a customer QR', async t => {
+  configure(t, { KBZPAY_QR_MODE: 'merchant', MMQR_PROVIDER_QR_ENDPOINT: '', MMQR_MERCHANT_QR: '' });
+  const pending = createMmqrPayment(invoice(), actor);
+  await assert.rejects(prepareMmqrPayment(pending), /not configured/);
+  for (const qr of [sticker.replace('TEST CLINIC', 'FAKE CLINIC'), invoiceQr, 'https://example.com/personal-qr']) {
+    assert.throws(() => invoiceMerchantQr(qr, 1, 'MMQR-1'), error => error.status === 503);
   }
+  assert.throws(() => invoiceMerchantQr(sticker, 10000000000, 'MMQR-1'), error => error.status === 400);
+});
+
+test('configured acquirer gets the exact invoice amount and its validated QR is rendered unchanged', async t => {
+  configure(t, { KBZPAY_QR_MODE: 'merchant', MMQR_PROVIDER_QR_ENDPOINT: 'https://acquirer.example/qr', MMQR_PROVIDER_API_KEY: 'fixture',
+    MMQR_MERCHANT_ID: 'MERCHANT-1', MMQR_MERCHANT_QR: sticker });
+  const pending = createMmqrPayment(invoice(), actor, { reference: 'MMQR-QR-1', attemptId: 'MMA-ACQ-1' });
+  const reply = (qrPayload, reference = pending.mmqr.reference) => async (url, options) => {
+    assert.equal(options.headers['Idempotency-Key'], 'MMA-ACQ-1');
+    assert.equal(JSON.parse(options.body).amount, 45000);
+    assert.equal(JSON.parse(options.body).currency, 'MMK');
+    return { ok: true, async json() { return { qrPayload, reference }; } };
+  };
+  const prepared = await prepareMmqrPayment(pending, reply(invoiceQr));
+  assert.equal(prepared.mmqr.providerMode, 'acquirer_api');
+  assert.equal(prepared.mmqr.qrPayload, invoiceQr);
+  assert.match(prepared.mmqr.qrImageDataUrl, /^data:image\/png;base64,/);
+  await assert.rejects(prepareMmqrPayment(pending, reply(invoiceQr, 'WRONG')), /reference/);
+  await assert.rejects(prepareMmqrPayment(pending, reply(sticker)), /invoice amount/);
+  await assert.rejects(prepareMmqrPayment(pending, reply(invoiceMerchantQr(sticker, 1, 'MMQR-QR-1'))), /invoice amount/);
+  await assert.rejects(prepareMmqrPayment(pending, reply('MMQR|merchant=test')), /wallet payment/);
+  const walletOrder = 'https://wallet.example/pay/per-order-token';
+  assert.equal((await prepareMmqrPayment(pending, reply(walletOrder))).mmqr.qrPayload, walletOrder);
 });
 
 test('displaying one QR attempt records one immutable display event', () => {

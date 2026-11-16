@@ -9,6 +9,7 @@ import {
   getAccount,
   transitionQueue,
   createMmqrPayment,
+  regenerateMmqrPayment,
   settleMmqrPayment,
   reconcileMmqrPayment,
   cancelMmqrPayment,
@@ -299,10 +300,35 @@ export function QueueView({ refreshKey }) {
 
 // ---- Payments ------------------------------------------------------------
 
+function InvoiceQr({ mmqr, amount, onReplace }) {
+  const [, refresh] = useState(0);
+  const expires = Date.parse(mmqr.expiresAt);
+  useEffect(() => {
+    const remaining = expires - Date.now();
+    if (remaining > 0) {
+      const timer = setTimeout(() => refresh(n => n + 1), remaining);
+      return () => clearTimeout(timer);
+    }
+  }, [expires]);
+  if (mmqr.providerMode === 'development_payload' || mmqr.qrPayload?.startsWith('MMQR|')) {
+    return <button className="link-btn" onClick={onReplace}>Replace demo QR</button>;
+  }
+  if (!(expires > Date.now())) return <span>Payment QR expired.</span>;
+  if (!mmqr.qrImageDataUrl?.startsWith('data:image/png;base64,')) return <span>Payment QR unavailable.</span>;
+  return <details>
+    <summary>Show payment QR</summary>
+    <img src={mmqr.qrImageDataUrl} alt="Invoice payment QR" width="240" height="240" />
+    <div>{mmqr.providerMode === 'kbzpay_personal'
+      ? `Scan with KBZPay, check ${mmqr.recipientLabel}, and enter ${formatMmk(amount)}. Keep the transfer receipt.`
+      : `Scan with KBZPay · ${formatMmk(amount)}`}</div>
+  </details>;
+}
+
 export function PaymentsView({ refreshKey }) {
   const { records, loading, error, reload } = useTable('payments', refreshKey);
-  async function startMmqr(record) {
-    try { await createMmqrPayment(val(record).id); reload(); }
+  async function startMmqr(record, replace = false) {
+    const create = replace ? regenerateMmqrPayment : createMmqrPayment;
+    try { await create(val(record).id); reload(); }
     catch (e) { alert(e.message); }
   }
   async function verifyProvider(record) {
@@ -363,8 +389,9 @@ export function PaymentsView({ refreshKey }) {
         <div className="card"><table><thead><tr><th>Invoice</th><th>Owner / Pet</th><th>Amount</th><th>Status</th><th>MMQR / audit</th><th>Actions</th></tr></thead>
           <tbody>{records.map(r => { const v = val(r); const pending = v.status === 'Pending' && v.mmqr?.status === 'Pending'; return <tr key={r.id}>
             <td>{v.id}</td><td>{v.owner}<div className="muted">{v.pet}</div></td><td>{formatMmk(v.amount)}</td><td>{v.status}</td>
-            <td>{v.mmqr ? <><strong>{v.mmqr.reference}</strong><div className="muted">{v.mmqr.status} · {(v.auditTrail || []).length} events</div><details><summary>Audit history</summary>{(v.auditTrail || []).slice().reverse().map(event => <div key={event.id} className="muted">{event.action}: {event.fromStatus} → {event.toStatus}<br />{event.at} · {event.actorRole}</div>)}</details>{v.receipt && <div><a href={v.receipt.verificationUrl} target="_blank" rel="noreferrer">Verify receipt</a> · <a href={v.receipt.pdfUrl} target="_blank" rel="noreferrer">Print PDF</a></div>}</> : v.receipt ? <><strong>{v.receipt.receiptNumber}</strong><div><a href={v.receipt.pdfUrl} target="_blank" rel="noreferrer">Print PDF</a></div></> : '—'}</td>
-            <td>{v.paymentMethod === 'Cash' && v.status === 'Unpaid' && <button className="link-btn" onClick={() => collectCash(r)}>Collect cash</button>}{v.paymentMethod !== 'Cash' && ['Unpaid', 'Failed'].includes(v.status) && !pending && <button className="link-btn" onClick={() => startMmqr(r)}>Create MMQR</button>}{pending && <><button className="link-btn" onClick={() => verifyProvider(r)}>Verify provider</button> <button className="link-btn" onClick={() => reconcile(r)}>Reconcile receipt</button> <button className="link-btn" onClick={() => cancel(r)}>Cancel</button></>}</td>
+            <td>{pending && <InvoiceQr mmqr={v.mmqr} amount={v.amount} onReplace={() => startMmqr(r, true)} />}
+              {v.mmqr ? <><strong>{v.mmqr.reference}</strong><div className="muted">{v.mmqr.status} · {(v.auditTrail || []).length} events</div><details><summary>Audit history</summary>{(v.auditTrail || []).slice().reverse().map(event => <div key={event.id} className="muted">{event.action}: {event.fromStatus} → {event.toStatus}<br />{event.at} · {event.actorRole}</div>)}</details>{v.receipt && <div><a href={v.receipt.verificationUrl} target="_blank" rel="noreferrer">Verify receipt</a> · <a href={v.receipt.pdfUrl} target="_blank" rel="noreferrer">Print PDF</a></div>}</> : v.receipt ? <><strong>{v.receipt.receiptNumber}</strong><div><a href={v.receipt.pdfUrl} target="_blank" rel="noreferrer">Print PDF</a></div></> : '—'}</td>
+            <td>{v.paymentMethod === 'Cash' && v.status === 'Unpaid' && <button className="link-btn" onClick={() => collectCash(r)}>Collect cash</button>}{v.paymentMethod !== 'Cash' && ['Unpaid', 'Failed'].includes(v.status) && !pending && <button className="link-btn" onClick={() => startMmqr(r)}>Create MMQR</button>}{pending && <>{v.mmqr.providerMode !== 'kbzpay_personal' && <button className="link-btn" onClick={() => verifyProvider(r)}>Verify provider</button>} <button className="link-btn" onClick={() => reconcile(r)}>Reconcile receipt</button> <button className="link-btn" onClick={() => cancel(r)}>Cancel</button></>}</td>
           </tr>; })}</tbody>
         </table></div>
       </StateWrap>

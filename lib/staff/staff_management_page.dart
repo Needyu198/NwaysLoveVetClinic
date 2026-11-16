@@ -53,6 +53,22 @@ class StaffManagementPage extends StatelessWidget {
                 onTap: () => _push(context, const StaffInventoryPage()),
               ),
               _ManagementCard(
+                key: const ValueKey('staff-pos-card'),
+                title: 'Point of Sale',
+                subtitle: 'Sell products and collect payments',
+                icon: Icons.point_of_sale_rounded,
+                color: const Color(0xFFD8F3ED),
+                onTap: () => _push(context, const StaffPosPage()),
+              ),
+              _ManagementCard(
+                key: const ValueKey('staff-billing-card'),
+                title: 'Billing & Payments',
+                subtitle: 'Collect cash and reconcile QR sales',
+                icon: Icons.receipt_long_rounded,
+                color: const Color(0xFFFFE8C7),
+                onTap: () => _push(context, const StaffPaymentsPage()),
+              ),
+              _ManagementCard(
                 title: 'Medical Records',
                 subtitle: 'View finalized clinical records',
                 icon: Icons.folder_shared_rounded,

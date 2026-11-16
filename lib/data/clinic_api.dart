@@ -17,7 +17,7 @@ class ClinicApi {
   ClinicApi._();
   static final instance = ClinicApi._();
   static const configuredUrl = String.fromEnvironment('API_BASE_URL');
-  // Hosted backend (Render). Used by mobile builds and production web.
+  // Hosted backend. Used by release mobile builds and production web.
   static const productionUrl = 'https://nwayslovevetclinic.onrender.com';
   String get baseUrl {
     // Explicit override always wins (e.g. --dart-define=API_BASE_URL=...).
@@ -32,8 +32,15 @@ class ClinicApi {
           host == 'localhost' || host == '127.0.0.1' || host == '0.0.0.0';
       return isLocal ? 'http://127.0.0.1:5050' : productionUrl;
     }
-    // Mobile debug and release builds use the hosted API. To develop against a
-    // local API, explicitly pass --dart-define=API_BASE_URL=http://<host>:5050.
+    // Android Studio's emulator reaches the host machine through 10.0.2.2.
+    // iOS Simulator and desktop apps can use the host loopback address.
+    if (kDebugMode && defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:5050';
+    }
+    if (kDebugMode && defaultTargetPlatform == TargetPlatform.iOS) {
+      return 'http://127.0.0.1:5050';
+    }
+    // Release mobile builds use the hosted API unless explicitly overridden.
     if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android) {
       return productionUrl;

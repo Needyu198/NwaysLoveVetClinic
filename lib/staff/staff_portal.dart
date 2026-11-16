@@ -2,10 +2,12 @@ import 'dart:convert';
 import 'dart:async';
 import '../data/database_sync.dart';
 import '../data/clinic_api.dart';
+import '../payments/payment_qr.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../doctor/doctor_portal.dart';
@@ -32,6 +34,7 @@ part 'staff_emergency_page.dart';
 part 'staff_home_visits_page.dart';
 part 'staff_payments_page.dart';
 part 'staff_inventory_page.dart';
+part 'staff_pos_page.dart';
 part 'staff_inventory_detail_page.dart';
 part 'staff_add_inventory_page.dart';
 part 'staff_medical_records_page.dart';

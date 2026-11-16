@@ -1,6 +1,8 @@
 const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const QRCode = require('qrcode');
+const { invoiceMerchantQr, checkProviderQr } = require('./merchantQr');
+const personalRecipient = require('./kbzpayRecipient.json');
 const PDFDocument = require('pdfkit');
 const { resources } = require('./resources');
 const { broadcastChange } = require('./realtime');
@@ -30,17 +32,37 @@ async function renderMmqrQr(payment) {
   value.mmqr.payloadHash = hash(value.mmqr.qrPayload);
   value.mmqr.qrImageDataUrl = await QRCode.toDataURL(value.mmqr.qrPayload, {
     errorCorrectionLevel: 'M',
-    margin: 2,
-    width: 360,
+    margin: 4,
+    width: 480,
   });
   return value;
 }
 async function prepareMmqrPayment(payment, request = fetch) {
+  const mode = process.env.KBZPAY_QR_MODE?.trim() || 'personal';
+  if (mode === 'personal') {
+    return renderMmqrQr({
+      ...payment,
+      mmqr: {
+        ...payment.mmqr,
+        providerMode: 'kbzpay_personal',
+        merchantId: '',
+        merchantName: personalRecipient.displayName,
+        recipientLabel: personalRecipient.displayName + ' (…' + personalRecipient.accountEnding + ')',
+        qrPayload: personalRecipient.qrPayload,
+      },
+    });
+  }
+  if (mode !== 'merchant') throw fail(503, 'The clinic payment QR mode is invalid.');
   const endpoint = String(process.env.MMQR_PROVIDER_QR_ENDPOINT || '').trim();
-  if (!endpoint) return renderMmqrQr({
-    ...payment,
-    mmqr: { ...payment.mmqr, providerMode: 'development_payload' },
-  });
+  if (!endpoint) {
+    const payload = invoiceMerchantQr(
+      process.env.MMQR_MERCHANT_QR?.trim(), payment.mmqr.amount, payment.mmqr.reference,
+    );
+    return renderMmqrQr({
+      ...payment,
+      mmqr: { ...payment.mmqr, qrPayload: payload, providerMode: 'merchant_mmqr' },
+    });
+  }
   if (!process.env.MMQR_PROVIDER_API_KEY || !process.env.MMQR_MERCHANT_ID) {
     throw fail(503, 'MMQR provider credentials are incomplete.');
   }
@@ -65,6 +87,7 @@ async function prepareMmqrPayment(payment, request = fetch) {
   if (!response.ok || typeof result.qrPayload !== 'string' || !result.qrPayload) {
     throw fail(503, 'The MMQR acquiring provider could not create a payment QR.');
   }
+  checkProviderQr(result.qrPayload, payment.mmqr.amount);
   if (result.reference && result.reference !== payment.mmqr.reference) {
     throw fail(503, 'The MMQR provider returned a mismatched payment reference.');
   }
@@ -110,9 +133,6 @@ function createMmqrPayment(payment, actor, options = {}) {
     status: 'Pending',
     createdAt: now.toISOString(),
     expiresAt: expiresAt.toISOString(),
-    // This payload is handed to the configured MMQR acquiring integration.
-    // It is not treated as evidence of settlement.
-    qrPayload: `MMQR|merchant=${encodeURIComponent(String(process.env.MMQR_MERCHANT_ID || 'UNCONFIGURED'))}|invoice=${encodeURIComponent(String(value.id || ''))}|amount=${amount}|currency=${MMQR_CURRENCY}|reference=${reference}|expires=${encodeURIComponent(expiresAt.toISOString())}`,
   };
   value.auditTrail = [...(Array.isArray(value.auditTrail) ? value.auditTrail : []), paymentAuditEvent(
     actor, 'mmqr.created', previous, 'Pending', { attemptId, reference, amount, currency: MMQR_CURRENCY }, now,
@@ -208,6 +228,9 @@ async function expirePendingMmqrPayments(database) {
   return count;
 }
 function settleMmqrPayment(payment, input, actor, options = {}) {
+  if (payment.mmqr?.providerMode === 'kbzpay_personal') {
+    throw fail(409, 'Verify the KBZPay transfer receipt and reconcile this personal payment.');
+  }
   const value = paymentCopy(payment);
   const now = options.now || new Date();
   validatePendingMmqr(value, input, now);
@@ -572,7 +595,7 @@ const appointmentScheduleError = ({ profile, date, time, durationMinutes }) => {
   }
   return null;
 };
-async function reserveProductOrderInventory(client, order, orderId) {
+async function reserveProductOrderInventory(client, order, orderId, actor = {}) {
   const requestedPaymentMethod = ['MMQR', 'Cash'].includes(order.paymentMethod)
     ? order.paymentMethod
     : 'Pay at clinic';
@@ -605,6 +628,7 @@ async function reserveProductOrderInventory(client, order, orderId) {
     if (!row || row.data?.value?.archived) throw fail(409, 'A product is no longer available.');
     const value = structuredClone(row.data.value);
     const batches = Array.isArray(value.batches) ? value.batches : [];
+    const usedBatches = [];
     if (batches.length) {
       const eligible = batches
         .filter(batch => Number(batch.quantity) > 0 && new Date(batch.expiresOn) >= now)
@@ -617,6 +641,7 @@ async function reserveProductOrderInventory(client, order, orderId) {
         const used = Math.min(remaining, Number(batch.quantity));
         batch.quantity = Number(batch.quantity) - used;
         remaining -= used;
+        usedBatches.push(`${batch.batchNumber || 'Batch'}:${used}`);
       }
     } else {
       const expired = value.expiresOn && new Date(value.expiresOn) < now;
@@ -632,13 +657,15 @@ async function reserveProductOrderInventory(client, order, orderId) {
       quantity,
       previousBalance: previous,
       newBalance: value.quantity,
-      reason: `Reserved for ${orderId}`,
-      staff: 'Online checkout',
+      reason: `${String(order.source || '').toUpperCase() === 'POS' ? 'POS sale' : 'Reserved for'} ${orderId}`,
+      staff: String(order.source || '').toUpperCase() === 'POS'
+        ? `${actor.role || 'staff'}:${actor.account_id || 'unknown'}`
+        : 'Online checkout',
       at: now.toISOString(),
       reference: orderId,
-      batchNumber: '',
+      batchNumber: usedBatches.join(', '),
     }];
-    value.lastAudit = `Stock Out -${quantity} (online order ${orderId})`;
+    value.lastAudit = `Stock Out -${quantity} (${String(order.source || '').toUpperCase() === 'POS' ? 'POS sale' : 'online order'} ${orderId})`;
     const data = { ...row.data, value };
     await client.query(
       'UPDATE inventory SET data=$2,version=version+1,updated_at=NOW() WHERE id=$1',
@@ -650,8 +677,9 @@ async function reserveProductOrderInventory(client, order, orderId) {
   }
   order.items = verifiedItems;
   order.total = total;
-  order.status = 'Reserved';
-  order.fulfillment = 'Clinic pickup';
+  const isPosSale = String(order.source || '').toUpperCase() === 'POS';
+  order.status = isPosSale ? 'Pending Payment' : 'Reserved';
+  order.fulfillment = isPosSale ? 'Counter sale' : 'Clinic pickup';
   order.paymentMethod = requestedPaymentMethod;
   order.paymentTiming = requestedPaymentTiming;
 }
@@ -1021,6 +1049,14 @@ function installApi(app, pool, options = {}) {
         if (orderRow) {
           const orderData = structuredClone(orderRow.data);
           orderData.value.paymentStatus = nextValue.status;
+          if (String(orderData.value.source || '').toUpperCase() === 'POS') {
+            orderData.value.status = nextValue.status === 'Paid'
+              ? 'Completed'
+              : 'Pending Payment';
+            if (nextValue.status === 'Paid') {
+              orderData.value.fulfillment = 'Handed to customer';
+            }
+          }
           orderData.value.mmqr = nextValue.mmqr || orderData.value.mmqr;
           if (nextValue.receipt) orderData.value.receipt = nextValue.receipt;
           orderData.value.paymentAuditTrail = (nextValue.auditTrail || []).map(event => ({
@@ -1176,7 +1212,10 @@ function installApi(app, pool, options = {}) {
     const record = await mutatePayment(req, async value => {
       const now = new Date();
       const expired = value.status === 'Pending'
-        ? expireMmqrPayment(value, paymentActor(req.session), { now })
+        ? expireMmqrPayment(value, paymentActor(req.session), {
+          now,
+          force: value.mmqr?.providerMode === 'development_payload' || value.mmqr?.qrPayload?.startsWith('MMQR|'),
+        })
         : value;
       return prepareMmqrPayment(createMmqrPayment(expired, paymentActor(req.session), { now }));
     }, { allowOwner: true });
@@ -1734,7 +1773,12 @@ function installApi(app, pool, options = {}) {
           );
         }
         if (req.params.table === 'product_orders' && !existing) {
-          await reserveProductOrderInventory(client, item.data.value, item.data.value.id || item.id);
+          await reserveProductOrderInventory(
+            client,
+            item.data.value,
+            item.data.value.id || item.id,
+            req.session,
+          );
           inventoryChanged = true;
         }
         let ownerId = existing?.owner_id || req.session.account_id;

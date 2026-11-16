@@ -294,10 +294,25 @@ class _StaffPaymentsPageState extends State<StaffPaymentsPage> {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 4),
-                  SelectableText(
-                    mmqr.qrPayload,
-                    style: const TextStyle(color: _muted, fontSize: 12),
-                  ),
+                  if (payment.hasPendingMmqr && !mmqr.isDemo)
+                    PaymentQr(
+                      amount: payment.amount,
+                      useTemporaryImage:
+                          mmqr.isPersonal &&
+                          payment.amount == temporaryPersonalPaymentQrAmount,
+                      personalRecipient: mmqr.isPersonal
+                          ? mmqr.recipientLabel
+                          : null,
+                      imageDataUrl: mmqr.qrImageDataUrl,
+                      expiresAt: mmqr.expiresAt,
+                    ),
+                  if (payment.hasPendingMmqr && mmqr.isDemo)
+                    OutlinedButton(
+                      onPressed: busy
+                          ? null
+                          : () => _call(payment, '/regenerate'),
+                      child: const Text('Replace demo QR'),
+                    ),
                   const SizedBox(height: 4),
                   Text(
                     'MMQR status: ${mmqr.status} • Audit events: ${payment.auditTrail.length}',
@@ -329,11 +344,12 @@ class _StaffPaymentsPageState extends State<StaffPaymentsPage> {
                           label: const Text('Create MMQR'),
                         ),
                       if (payment.hasPendingMmqr) ...[
-                        FilledButton.icon(
-                          onPressed: () => _providerSettlement(payment),
-                          icon: const Icon(Icons.verified_rounded),
-                          label: const Text('Verify provider settlement'),
-                        ),
+                        if (mmqr?.isPersonal != true)
+                          FilledButton.icon(
+                            onPressed: () => _providerSettlement(payment),
+                            icon: const Icon(Icons.verified_rounded),
+                            label: const Text('Verify provider settlement'),
+                          ),
                         OutlinedButton(
                           onPressed: () => _reconcile(payment),
                           child: const Text('Reconcile receipt'),

@@ -74,6 +74,18 @@ class _StaffInventoryPageState extends State<StaffInventoryPage> {
                 ],
               ),
             ),
+            if (widget.canAdjustStock)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+                child: _InventoryActionPill(
+                  icon: Icons.point_of_sale_rounded,
+                  onTap: () => _push(context, const StaffPosPage()),
+                  child: const Text(
+                    'Open Point of Sale',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
             _InventoryCategoryStrip(
               selected: _category,
               onChanged: (category) => setState(() => _category = category),

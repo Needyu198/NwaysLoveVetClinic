@@ -35,6 +35,22 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
 
   bool get _isEdit => widget.existing != null;
 
+  Future<void> _scanBarcode() async {
+    FocusScope.of(context).unfocus();
+    final barcode = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const _ProductBarcodeScannerPage()),
+    );
+    if (barcode == null || !mounted) return;
+    if (StaffOperationsStore.instance.isDuplicateBarcode(
+      barcode,
+      except: widget.existing,
+    )) {
+      _notice(context, 'This barcode is already assigned to another item.');
+      return;
+    }
+    setState(() => _barcode.text = barcode);
+  }
+
   @override
   void dispose() {
     _name.dispose();
@@ -231,14 +247,20 @@ class _StaffAddInventoryPageState extends State<StaffAddInventoryPage> {
                   controller: _barcode,
                   label: 'Barcode / GTIN',
                   iconAsset: _InventoryFieldIcons.itemName,
-                  keyboardType: TextInputType.number,
                   fieldKey: const ValueKey('inventory-barcode'),
+                  suffixIcon: IconButton(
+                    tooltip: 'Scan barcode with camera',
+                    onPressed: _scanBarcode,
+                    icon: const Icon(Icons.qr_code_scanner_rounded),
+                  ),
                   validator: (value) {
                     final barcode = (value ?? '').trim();
                     if (barcode.isEmpty) return null;
-                    return RegExp(r'^\d{8,14}$').hasMatch(barcode)
+                    return RegExp(
+                      r'^[A-Za-z0-9._/+%-]{1,64}$',
+                    ).hasMatch(barcode)
                         ? null
-                        : 'Use 8 to 14 digits';
+                        : 'Use up to 64 letters, digits, or barcode symbols';
                   },
                 ),
                 _AddField(
@@ -312,6 +334,7 @@ class _AddField extends StatelessWidget {
     this.validator,
     this.maxLines = 1,
     this.fieldKey,
+    this.suffixIcon,
   });
 
   final TextEditingController controller;
@@ -321,6 +344,7 @@ class _AddField extends StatelessWidget {
   final String? Function(String?)? validator;
   final int maxLines;
   final Key? fieldKey;
+  final Widget? suffixIcon;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -331,7 +355,10 @@ class _AddField extends StatelessWidget {
       keyboardType: keyboardType,
       validator: validator,
       maxLines: maxLines,
-      decoration: _inventoryInput(label, iconAsset),
+      decoration: _inventoryInput(
+        label,
+        iconAsset,
+      ).copyWith(suffixIcon: suffixIcon),
     ),
   );
 }

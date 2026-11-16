@@ -42,6 +42,7 @@ dependencies:
   cloud_firestore: ^6.0.2
   firebase_storage: ^13.0.2
   image_picker: ^1.1.2
+  mobile_scanner: ^7.5.0
   url_launcher: ^6.3.1
 
 dev_dependencies:
@@ -74,6 +75,8 @@ flutter:
     - assets/photos/logoandphoto/
     - assets/photos/logo/
     - assets/photos/icon/
+    - assets/payments/kbzpay_logo.png
+    - assets/payments/kbzpay_temporary_qr_50000.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -16,7 +16,9 @@ void main() {
         'amount': 45000,
         'currency': 'MMK',
         'status': 'Pending',
-        'qrPayload': 'MMQR|invoice=INV-100',
+        'qrPayload': 'wallet-issued-qr',
+        'qrImageDataUrl': 'data:image/png;base64,fixture',
+        'providerMode': 'acquirer_api',
         'createdAt': '2026-11-10T02:00:00.000Z',
         'expiresAt': '2026-11-10T02:15:00.000Z',
       },
@@ -35,9 +37,21 @@ void main() {
     });
 
     expect(payment.hasPendingMmqr, isTrue);
+    expect(payment.mmqr?.isDemo, isFalse);
+    expect(
+      payment.toDb()['mmqr']['qrImageDataUrl'],
+      'data:image/png;base64,fixture',
+    );
     expect(payment.mmqr?.reference, 'MMQR-TEST-100');
     expect(payment.auditTrail.single.action, 'mmqr.created');
     expect(payment.toDb()['auditTrail'], hasLength(1));
+  });
+
+  test('legacy demo QR remains recognizable on existing invoices', () {
+    final details = MmqrPaymentDetails.fromDb({
+      'qrPayload': 'MMQR|invoice=INV-100',
+    });
+    expect(details.isDemo, isTrue);
   });
 
   test('product order keeps its generated MMQR checkout reference', () {

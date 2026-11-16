@@ -115,6 +115,10 @@ export async function createMmqrPayment(invoiceId) {
   return request('POST', `/payments/${encodeURIComponent(invoiceId)}/mmqr`);
 }
 
+export async function regenerateMmqrPayment(invoiceId) {
+  return request('POST', `/payments/${encodeURIComponent(invoiceId)}/mmqr/regenerate`);
+}
+
 export async function settleMmqrPayment(invoiceId, settlement) {
   return request('POST', `/payments/${encodeURIComponent(invoiceId)}/mmqr/settle`, settlement);
 }

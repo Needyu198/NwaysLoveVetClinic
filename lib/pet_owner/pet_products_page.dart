@@ -8,6 +8,7 @@ import '../staff/staff_portal.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../payments/payment_qr.dart';
 import 'pet_owner_clinic_page.dart';
 import 'pet_owner_home_page.dart';
 import 'pet_owner_nav_bar.dart';
@@ -122,6 +123,7 @@ class ProductOrder {
     this.paymentAuditTrail = const [],
     this.receipt = const {},
     this.status = 'Reserved',
+    this.source = '',
   });
 
   factory ProductOrder.fromDb(Map<String, dynamic> value) => ProductOrder(
@@ -152,6 +154,7 @@ class ProductOrder {
       value['receipt'] as Map? ?? const <String, dynamic>{},
     ),
     status: value['status'] as String? ?? 'Reserved',
+    source: value['source'] as String? ?? '',
   );
 
   Map<String, dynamic> toDb() => {
@@ -170,6 +173,7 @@ class ProductOrder {
     if (paymentAuditTrail.isNotEmpty) 'paymentAuditTrail': paymentAuditTrail,
     if (receipt.isNotEmpty) 'receipt': receipt,
     'status': status,
+    if (source.isNotEmpty) 'source': source,
   };
 
   final String id;
@@ -187,6 +191,7 @@ class ProductOrder {
   final List<Map<String, dynamic>> paymentAuditTrail;
   final Map<String, dynamic> receipt;
   String status;
+  final String source;
 }
 
 class ProductOrderStore extends ChangeNotifier {
@@ -951,7 +956,9 @@ class _ProductCheckoutPageState extends State<ProductCheckoutPage> {
       ProductOrderStore.instance.remove(order);
       if (mounted) {
         setState(
-          () => _error = 'The order could not be reserved. Please retry.',
+          () => _error = error is ClinicApiException
+              ? error.message
+              : 'The order could not be reserved. Please retry.',
         );
       }
     } finally {
@@ -1106,7 +1113,6 @@ class _ProductPaymentPageState extends State<ProductPaymentPage> {
 
   @override
   Widget build(BuildContext context) {
-    final online = widget.paymentTiming == 'Pay online';
     final total = ProductCartStore.instance.subtotal;
     return Scaffold(
       key: const ValueKey('product-payment-page'),
@@ -1131,47 +1137,45 @@ class _ProductPaymentPageState extends State<ProductPaymentPage> {
                   const SizedBox(height: 24),
                   _CheckoutCard(
                     rows: [
-                      ('Payment timing', widget.paymentTiming),
+                      (
+                        'Payment timing',
+                        _method == 'Cash'
+                            ? 'Pay at clinic'
+                            : widget.paymentTiming,
+                      ),
                       ('Order total', formatMmk(total)),
                     ],
                   ),
                   const SizedBox(height: 22),
                   Text(
-                    online ? 'Online payment method' : 'Pay at clinic with',
+                    'Choose payment method',
                     style: ProductStyles.sectionTitle,
                   ),
                   const SizedBox(height: 10),
-                  if (online)
-                    _PaymentMethodCard(
-                      key: const ValueKey('payment-method-mmqr'),
-                      selected: true,
-                      icon: Icons.qr_code_2_rounded,
-                      title: 'Pay by MMQR',
-                      subtitle:
-                          'A unique QR reference will be created for this exact order total.',
-                      onTap: () {},
-                    )
-                  else ...[
-                    _PaymentMethodCard(
-                      key: const ValueKey('payment-method-cash'),
-                      selected: _method == 'Cash',
-                      icon: Icons.payments_outlined,
-                      title: 'Pay by cash',
-                      subtitle:
-                          'Pay at pickup. Staff records cash tendered, change and receipt number.',
-                      onTap: () => setState(() => _method = 'Cash'),
+                  _PaymentMethodCard(
+                    key: const ValueKey('payment-method-mmqr'),
+                    selected: _method == 'MMQR',
+                    icon: Icons.qr_code_2_rounded,
+                    brandLogo: Image.asset(
+                      'assets/payments/kbzpay_logo.png',
+                      fit: BoxFit.cover,
+                      semanticLabel: 'KBZPay',
                     ),
-                    const SizedBox(height: 10),
-                    _PaymentMethodCard(
-                      key: const ValueKey('payment-method-mmqr'),
-                      selected: _method == 'MMQR',
-                      icon: Icons.qr_code_2_rounded,
-                      title: 'Pay by MMQR',
-                      subtitle:
-                          'Scan at the clinic; settlement remains pending until verified.',
-                      onTap: () => setState(() => _method = 'MMQR'),
-                    ),
-                  ],
+                    title: 'Pay by QR',
+                    subtitle:
+                        'Scan the order QR with KBZPay and keep the transfer receipt.',
+                    onTap: () => setState(() => _method = 'MMQR'),
+                  ),
+                  const SizedBox(height: 10),
+                  _PaymentMethodCard(
+                    key: const ValueKey('payment-method-cash'),
+                    selected: _method == 'Cash',
+                    icon: Icons.payments_outlined,
+                    title: 'COD',
+                    subtitle:
+                        'Pay in cash when you collect the order at the clinic.',
+                    onTap: () => setState(() => _method = 'Cash'),
+                  ),
                   const SizedBox(height: 18),
                   Container(
                     padding: const EdgeInsets.all(14),
@@ -1210,7 +1214,9 @@ class _ProductPaymentPageState extends State<ProductPaymentPage> {
                   onPressed: () => Navigator.pop(
                     context,
                     ProductPaymentSelection(
-                      paymentTiming: widget.paymentTiming,
+                      paymentTiming: _method == 'Cash'
+                          ? 'Pay at clinic'
+                          : widget.paymentTiming,
                       paymentMethod: _method,
                     ),
                   ),
@@ -1222,7 +1228,7 @@ class _ProductPaymentPageState extends State<ProductPaymentPage> {
                   label: Text(
                     _method == 'MMQR'
                         ? 'Reserve Order & Create MMQR'
-                        : 'Reserve Order for Cash Payment',
+                        : 'Reserve Order with COD',
                   ),
                 ),
               ),
@@ -1265,12 +1271,14 @@ class _PaymentMethodCard extends StatelessWidget {
     super.key,
     required this.selected,
     required this.icon,
+    this.brandLogo,
     required this.title,
     required this.subtitle,
     required this.onTap,
   });
   final bool selected;
   final IconData icon;
+  final Widget? brandLogo;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -1291,9 +1299,17 @@ class _PaymentMethodCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            backgroundColor: const Color(0xFFEAF8F2),
-            child: Icon(icon, color: ProductStyles.green),
+          SizedBox.square(
+            dimension: 48,
+            child: brandLogo == null
+                ? CircleAvatar(
+                    backgroundColor: const Color(0xFFEAF8F2),
+                    child: Icon(icon, color: ProductStyles.green),
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: brandLogo,
+                  ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1455,7 +1471,11 @@ class _MmqrPaymentPanelState extends State<_MmqrPaymentPanel> {
     _clock = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
-    if (ClinicApi.instance.token != null && widget.order.paymentId.isNotEmpty) {
+    if (ClinicApi.instance.token != null &&
+        widget.order.paymentId.isNotEmpty &&
+        !_isDemo &&
+        _status == 'Pending' &&
+        _remaining > Duration.zero) {
       unawaited(_request('POST', '/mmqr/displayed'));
     }
   }
@@ -1514,26 +1534,10 @@ class _MmqrPaymentPanelState extends State<_MmqrPaymentPanel> {
       _request('POST', '/mmqr/cancel', {'reason': 'Cancelled by customer'});
   Future<void> _regenerate() => _request('POST', '/mmqr/regenerate');
 
-  Widget _qrImage() {
-    final dataUrl = _mmqr['qrImageDataUrl'] as String? ?? '';
-    if (!dataUrl.startsWith('data:image/')) {
-      return const Icon(
-        Icons.qr_code_2_rounded,
-        size: 160,
-        color: ProductStyles.green,
-      );
-    }
-    try {
-      return Image.memory(
-        base64Decode(dataUrl.substring(dataUrl.indexOf(',') + 1)),
-        width: 220,
-        height: 220,
-        gaplessPlayback: true,
-      );
-    } catch (_) {
-      return const Icon(Icons.broken_image_outlined, size: 80);
-    }
-  }
+  bool get _isDemo => isDemoPaymentQr(
+    _mmqr['qrPayload'] as String? ?? '',
+    _mmqr['providerMode'] as String? ?? '',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -1552,7 +1556,34 @@ class _MmqrPaymentPanelState extends State<_MmqrPaymentPanel> {
           ),
           child: Column(
             children: [
-              _qrImage(),
+              if (pending &&
+                  _isDemo &&
+                  remaining > Duration.zero &&
+                  (_mmqr['amount'] as num?)?.toInt() !=
+                      temporaryPersonalPaymentQrAmount)
+                const Text(
+                  'The temporary KBZPay QR is set to 50,000 MMK. It cannot be used for a different order total.',
+                  textAlign: TextAlign.center,
+                ),
+              if (pending &&
+                  remaining > Duration.zero &&
+                  (!_isDemo ||
+                      (_mmqr['amount'] as num?)?.toInt() ==
+                          temporaryPersonalPaymentQrAmount))
+                PaymentQr(
+                  amount:
+                      (_mmqr['amount'] as num?)?.toInt() ?? widget.order.total,
+                  useTemporaryImage:
+                      (_isDemo || _mmqr['providerMode'] == 'kbzpay_personal') &&
+                      (_mmqr['amount'] as num?)?.toInt() ==
+                          temporaryPersonalPaymentQrAmount,
+                  personalRecipient: _mmqr['providerMode'] == 'kbzpay_personal'
+                      ? _mmqr['recipientLabel'] as String? ??
+                            'the clinic recipient'
+                      : null,
+                  imageDataUrl: _mmqr['qrImageDataUrl'] as String? ?? '',
+                  expiresAt: DateTime.parse(_mmqr['expiresAt'] as String),
+                ),
               const SizedBox(height: 8),
               Text(
                 pending
@@ -1602,7 +1633,8 @@ class _MmqrPaymentPanelState extends State<_MmqrPaymentPanel> {
                         onPressed: _cancel,
                         child: const Text('Cancel QR'),
                       ),
-                    if (!pending || remaining <= Duration.zero)
+                    if (_status != 'Paid' &&
+                        (!pending || _isDemo || remaining <= Duration.zero))
                       FilledButton.icon(
                         onPressed: _regenerate,
                         icon: const Icon(Icons.qr_code_2_rounded),
@@ -1747,6 +1779,18 @@ class ProductOrdersPage extends StatelessWidget {
                               ),
                           ],
                         ),
+                        if (order.paymentMethod == 'MMQR' &&
+                            order.paymentId.isNotEmpty &&
+                            order.paymentStatus != 'Paid')
+                          OutlinedButton(
+                            onPressed: () => Navigator.of(context).push<void>(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    _OrderConfirmation(order: order),
+                              ),
+                            ),
+                            child: const Text('View payment QR'),
+                          ),
                         if (order.receipt.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           _ReceiptCard(
