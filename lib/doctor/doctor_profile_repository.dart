@@ -136,7 +136,6 @@ class DoctorProfileData {
     this.acceptingAppointments = true,
     this.notificationsEnabled = true,
     this.appointmentReminders = true,
-    this.emergencyAlerts = true,
     this.marketingEmails = false,
     this.twoFactorEnabled = false,
     this.qualifications = const ['DVM - University of Veterinary Science'],
@@ -161,7 +160,6 @@ class DoctorProfileData {
   final bool acceptingAppointments;
   final bool notificationsEnabled;
   final bool appointmentReminders;
-  final bool emergencyAlerts;
   final bool marketingEmails;
   final bool twoFactorEnabled;
 
@@ -195,7 +193,6 @@ class DoctorProfileData {
     bool? acceptingAppointments,
     bool? notificationsEnabled,
     bool? appointmentReminders,
-    bool? emergencyAlerts,
     bool? marketingEmails,
     bool? twoFactorEnabled,
     List<String>? qualifications,
@@ -219,7 +216,6 @@ class DoctorProfileData {
     acceptingAppointments: acceptingAppointments ?? this.acceptingAppointments,
     notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
     appointmentReminders: appointmentReminders ?? this.appointmentReminders,
-    emergencyAlerts: emergencyAlerts ?? this.emergencyAlerts,
     marketingEmails: marketingEmails ?? this.marketingEmails,
     twoFactorEnabled: twoFactorEnabled ?? this.twoFactorEnabled,
     qualifications: qualifications ?? this.qualifications,
@@ -266,7 +262,6 @@ class DoctorProfileData {
     'acceptingAppointments': acceptingAppointments,
     'notificationsEnabled': notificationsEnabled,
     'appointmentReminders': appointmentReminders,
-    'emergencyAlerts': emergencyAlerts,
     'marketingEmails': marketingEmails,
     'twoFactorEnabled': twoFactorEnabled,
     'qualifications': qualifications,
@@ -299,8 +294,6 @@ class DoctorProfileData {
           map['notificationsEnabled'] as bool? ?? fallback.notificationsEnabled,
       appointmentReminders:
           map['appointmentReminders'] as bool? ?? fallback.appointmentReminders,
-      emergencyAlerts:
-          map['emergencyAlerts'] as bool? ?? fallback.emergencyAlerts,
       marketingEmails:
           map['marketingEmails'] as bool? ?? fallback.marketingEmails,
       twoFactorEnabled:

@@ -289,7 +289,7 @@ class _StaffReportsPageState extends State<StaffReportsPage> {
               'Urgent',
               '$urgent',
               urgent,
-              Icons.emergency_rounded,
+              Icons.priority_high_rounded,
               _red,
             ),
           ],

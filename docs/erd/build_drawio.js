@@ -51,7 +51,6 @@ const pages = [
       ['queue_entries', 1060, 150, fields(['PK','id','text'],['FK','owner_id','text'],['FK','appointment_id','text'],['','queue_number','integer'],['','status','varchar'],['','data','jsonb'])],
       ['appointment_reminders', 1400, 150, fields(['PK/FK','appointment_id','text'],['PK','scheduled_for','timestamp'],['FK','owner_id','text'],['','sent_at','timestamp'])],
       ['walk_in_appointments', 720, 500, fields(['PK','id','text'],['FK','owner_id','text'],['FK','pet_id','text'],['FK','doctor_id','text'],['','status','varchar'],['','data','jsonb'])],
-      ['emergency_requests', 1060, 500, fields(['PK','id','text'],['FK','owner_id','text'],['FK','pet_id','text'],['','symptoms','text'],['','status','varchar'])],
       ['home_visits', 720, 850, fields(['PK','id','text'],['FK','owner_id','text'],['FK','pet_id','text'],['','address','text'],['','status','varchar'])],
       ['pet_care_bookings', 1060, 850, fields(['PK','id','text'],['FK','owner_id','text'],['FK','pet_id','text'],['','service','varchar'],['','status','varchar'])],
       ['reminders', 1400, 850, fields(['PK','id','text'],['FK','owner_id','text'],['FK','pet_id','text'],['','scheduled_for','timestamp'],['','data','jsonb'])],
@@ -59,8 +58,8 @@ const pages = [
     relationships: [
       ['app_accounts','pets','1','0..N'],['app_accounts','saved_addresses','1','0..N'],['app_accounts','notification_settings','1','0..1'],['app_accounts','owner_notifications','1','0..N'],
       ['pets','appointments','1','0..N'],['appointments','queue_entries','1','0..1'],['appointments','appointment_reminders','1','0..N'],
-      ['pets','walk_in_appointments','1','0..N'],['pets','emergency_requests','1','0..N'],['pets','home_visits','1','0..N'],['pets','pet_care_bookings','1','0..N'],['pets','reminders','1','0..N'],
-      ['app_accounts','appointments','1','0..N','secondary'],['app_accounts','walk_in_appointments','1','0..N','secondary'],['app_accounts','emergency_requests','1','0..N','secondary'],
+      ['pets','walk_in_appointments','1','0..N'],['pets','home_visits','1','0..N'],['pets','pet_care_bookings','1','0..N'],['pets','reminders','1','0..N'],
+      ['app_accounts','appointments','1','0..N','secondary'],['app_accounts','walk_in_appointments','1','0..N','secondary'],
       ['app_accounts','home_visits','1','0..N','secondary'],['app_accounts','pet_care_bookings','1','0..N','secondary'],['app_accounts','reminders','1','0..N','secondary'],
       ['app_accounts','appointment_reminders','1','0..N','secondary'],
     ],

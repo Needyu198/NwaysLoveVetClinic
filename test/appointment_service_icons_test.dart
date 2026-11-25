@@ -22,13 +22,6 @@ void main() {
       doctors: ['Doctor'],
     ),
     BookingService(
-      name: 'Emergency',
-      description: 'Urgent assessment.',
-      icon: Icons.emergency_rounded,
-      homeVisit: false,
-      doctors: ['Doctor'],
-    ),
-    BookingService(
       name: 'Home Visit',
       description: 'Veterinarian home visit.',
       icon: Icons.home_work_rounded,

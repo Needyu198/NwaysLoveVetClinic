@@ -74,7 +74,6 @@ export function AdminDashboardView({ refreshKey }) {
   const audit = useTable('audit_logs', refreshKey);
   const appointments = useTable('appointments', refreshKey);
   const queue = useTable('queue_entries', refreshKey);
-  const emergencies = useTable('emergency_requests', refreshKey);
   const inventory = useTable('inventory', refreshKey);
 
   const uv = users.records.map(val);
@@ -92,8 +91,6 @@ export function AdminDashboardView({ refreshKey }) {
       && date.getDate() === today.getDate();
   }).length;
   const activeQueue = queue.records.map(val).filter(v => v.status !== 'completed').length;
-  const activeEmergencies = emergencies.records.map(val)
-    .filter(v => !['completed', 'declined'].includes(v.status)).length;
   const lowStock = inventory.records.map(val)
     .filter(v => !v.archived && Number(v.quantity) <= Number(v.reorderLevel || 0)).length;
   const expired = inventory.records.map(val).filter(v => {
@@ -110,7 +107,6 @@ export function AdminDashboardView({ refreshKey }) {
     { label: 'Pending verifications', value: pendingVerifs, icon: '✅', tone: 'purple' },
     { label: 'Today appointments', value: todayAppointments, icon: '📅', tone: '' },
     { label: 'In queue', value: activeQueue, icon: '👥', tone: 'orange' },
-    { label: 'Active emergencies', value: activeEmergencies, icon: '🚨', tone: 'purple' },
     { label: 'Low stock', value: lowStock, icon: '⚠️', tone: 'orange' },
     { label: 'Expired items', value: expired, icon: '📦', tone: 'purple' },
     { label: 'Audit entries', value: audit.records.length, icon: '📜', tone: '' },

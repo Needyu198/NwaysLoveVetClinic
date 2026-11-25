@@ -121,13 +121,11 @@ class DoctorProfileStore extends ChangeNotifier {
   Future<bool> updateNotificationSettings({
     bool? notificationsEnabled,
     bool? appointmentReminders,
-    bool? emergencyAlerts,
     bool? marketingEmails,
   }) => _apply(
     _data.copyWith(
       notificationsEnabled: notificationsEnabled,
       appointmentReminders: appointmentReminders,
-      emergencyAlerts: emergencyAlerts,
       marketingEmails: marketingEmails,
     ),
   );
@@ -2045,17 +2043,6 @@ class DoctorNotificationsSettingsPage extends StatelessWidget {
                         onChanged: enabled
                             ? (value) => store.updateNotificationSettings(
                                 appointmentReminders: value,
-                              )
-                            : null,
-                      ),
-                      _SettingSwitchTile(
-                        icon: Icons.emergency_outlined,
-                        title: 'Emergency alerts',
-                        subtitle: 'Immediate alerts for new emergency cases.',
-                        value: enabled && profile.emergencyAlerts,
-                        onChanged: enabled
-                            ? (value) => store.updateNotificationSettings(
-                                emergencyAlerts: value,
                               )
                             : null,
                       ),

@@ -601,7 +601,7 @@ Future<void> _announceQueueDelay(
         maxLength: 500,
         decoration: const InputDecoration(
           labelText: 'Reason',
-          hintText: 'Emergency case is being prioritized',
+          hintText: 'Urgent case is being prioritized',
         ),
       ),
       actions: [

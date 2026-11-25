@@ -284,7 +284,6 @@ class StaffPatientDetailPage extends StatelessWidget {
               animation: Listenable.merge([
                 StaffOperationsStore.instance,
                 HomeVisitStore.instance,
-                EmergencyRequestStore.instance,
                 ReminderStore.instance,
                 ProfilePetStore.instance,
               ]),

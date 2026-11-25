@@ -16,7 +16,6 @@ class DoctorDashboardPage extends StatelessWidget {
       animation: Listenable.merge([
         DoctorAppointmentStore.instance,
         AppointmentStore.instance,
-        EmergencyRequestStore.instance,
         DoctorPostStore.instance,
         DoctorProfileStore.instance,
       ]),
@@ -39,15 +38,6 @@ class DoctorDashboardPage extends StatelessWidget {
             'In Consultation',
           }.contains(record.status);
         }).toList();
-        final emergencyCases = EmergencyRequestStore.instance.requests.where((
-          request,
-        ) {
-          return !const {
-            EmergencyStatus.completed,
-            EmergencyStatus.declined,
-          }.contains(request.status);
-        }).toList();
-
         return ListView(
           key: const ValueKey('doctor-dashboard'),
           padding: EdgeInsets.zero,
@@ -56,15 +46,9 @@ class DoctorDashboardPage extends StatelessWidget {
               bottom: false,
               child: _DoctorDashboardSummary(
                 doctorName: _dashboardDoctorName(),
-                emergencyCount: emergencyCases.length,
                 waitingCount: waiting,
                 completedCount: completed,
                 totalCount: today.length,
-                onOpenEmergency: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const DoctorEmergencyCasesPage(),
-                  ),
-                ),
                 onOpenWaiting: () => onOpenAppointments('Waiting'),
                 onOpenCompleted: () => onOpenAppointments('Completed'),
                 onOpenToday: () => onOpenAppointments('Today'),
@@ -94,13 +78,7 @@ class DoctorDashboardPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  if (emergencyCases.isNotEmpty) ...[
-                    for (final emergency in emergencyCases.take(2)) ...[
-                      _EmergencyQueueCard(request: emergency),
-                      const SizedBox(height: 12),
-                    ],
-                  ],
-                  if (upNext.isEmpty && emergencyCases.isEmpty)
+                  if (upNext.isEmpty)
                     const _EmptyDoctorState(
                       icon: Icons.event_available_rounded,
                       title: 'No patients waiting',
@@ -112,10 +90,7 @@ class DoctorDashboardPage extends StatelessWidget {
                       index < upNext.length && index < 2;
                       index++
                     ) ...[
-                      _UpNextCard(
-                        record: upNext[index],
-                        canStart: index == 0 && emergencyCases.isEmpty,
-                      ),
+                      _UpNextCard(record: upNext[index], canStart: index == 0),
                       const SizedBox(height: 12),
                     ],
                   ],
@@ -216,22 +191,18 @@ class DoctorDashboardPage extends StatelessWidget {
 class _DoctorDashboardSummary extends StatelessWidget {
   const _DoctorDashboardSummary({
     required this.doctorName,
-    required this.emergencyCount,
     required this.waitingCount,
     required this.completedCount,
     required this.totalCount,
-    required this.onOpenEmergency,
     required this.onOpenWaiting,
     required this.onOpenCompleted,
     required this.onOpenToday,
   });
 
   final String doctorName;
-  final int emergencyCount;
   final int waitingCount;
   final int completedCount;
   final int totalCount;
-  final VoidCallback onOpenEmergency;
   final VoidCallback onOpenWaiting;
   final VoidCallback onOpenCompleted;
   final VoidCallback onOpenToday;
@@ -294,19 +265,6 @@ class _DoctorDashboardSummary extends StatelessWidget {
                   child: Column(
                     children: [
                       Expanded(
-                        flex: 2,
-                        child: _DashboardStatCard(
-                          key: const ValueKey('doctor-emergency-stat'),
-                          label: 'Emergency Cases',
-                          value: '$emergencyCount',
-                          color: DoctorStyles.emergencyRed,
-                          onTap: onOpenEmergency,
-                          horizontal: true,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        flex: 3,
                         child: Row(
                           children: [
                             Expanded(

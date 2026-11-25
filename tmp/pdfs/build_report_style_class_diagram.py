@@ -203,7 +203,6 @@ def overview():
         ("Appointment", 1130, 850, ["String id PK", "String petId FK", "String doctorId FK", "DateTime date", "String status"]),
         ("QueueEntry", 2170, 850, ["String id PK", "String appointmentId FK", "int queueNumber", "String serviceGroup", "String status"]),
         ("HomeVisit", 3210, 850, ["String id PK", "String petId FK", "String doctorId FK", "String address", "String status"]),
-        ("EmergencyRequest", 4250, 850, ["String id PK", "String petId FK", "String symptoms", "EmergencyStatus status", "DateTime createdAt"]),
         ("PetCareBooking", 90, 1680, ["String id PK", "String petId FK", "String service", "DateTime date", "String status"]),
         ("MedicalRecord", 1130, 1680, ["String id PK", "String petId FK", "String doctorId FK", "String diagnosis", "String treatment"]),
         ("Payment", 2170, 1680, ["String id PK", "String ownerId FK", "String serviceRecordId FK", "double amount", "String status"]),
@@ -226,7 +225,6 @@ def overview():
     d.relation("Pet", "Appointment", "books", "1", "*", label_offset=(0, -25))
     d.relation("Appointment", "QueueEntry", "creates", "1", "0..1", label_offset=(0, -25))
     d.relation("Appointment", "HomeVisit", "may become", "1", "0..1", label_offset=(0, 30))
-    d.relation("Pet", "EmergencyRequest", "has emergency", "1", "*", "bottom", "top", label_offset=(0, -25))
     d.relation("Pet", "PetCareBooking", "receives care", "1", "*", "bottom", "top")
     d.relation("Appointment", "MedicalRecord", "produces", "1", "0..*", "bottom", "top")
     d.relation("MedicalRecord", "Payment", "is billed by", "1", "0..1")
@@ -246,7 +244,6 @@ def detail_one():
         ("AppSession", 120, 480, ["String tokenHash PK", "String accountId FK", "AccountRole role", "DateTime expiresAt", "DateTime createdAt"]),
         ("DeviceToken", 840, 480, ["String token PK", "String accountId FK", "String platform", "DateTime updatedAt"]),
         ("SavedAddress", 1560, 480, ["String id PK", "String ownerId FK", "String label", "String address", "bool isDefault"]),
-        ("NotificationPreferences", 2280, 480, ["String id PK", "String ownerId FK", "bool appointmentAlerts", "bool emergencyAlerts", "bool queueAlerts"]),
         ("ClinicPerson", 3000, 480, ["String id PK", "String name", "String role", "String specialty", "String photoAsset"]),
         ("QueueDailyCounter", 3720, 480, ["DateTime clinicDate PK", "int lastNumber"]),
     ]
@@ -297,7 +294,6 @@ def detail_three():
         ("Appointment", 220, 1430, ["String id PK", "String petId FK", "String doctorId FK", "String service", "DateTime date", "String status"]),
         ("QueueEntry", 1250, 1430, ["String id PK", "String appointmentId FK", "int queueNumber", "String serviceGroup", "String status"]),
         ("HomeVisit", 2280, 1430, ["String id PK", "String petId FK", "String doctorId FK", "String address", "DateTime scheduledFor", "String status"]),
-        ("EmergencyRequest", 3310, 1430, ["String id PK", "String petId FK", "String symptoms", "String location", "EmergencyStatus status", "DateTime createdAt"]),
     ]
     for name, x, y, attrs in top + lower:
         d.add(name, x, y, attrs, 790)
@@ -309,7 +305,6 @@ def detail_three():
     d.relation("DoctorProfile", "Appointment", "conducts", "1", "*", "bottom", "top", target_fraction=0.5)
     d.relation("Appointment", "QueueEntry", "creates", "1", "0..1", label_offset=(0, -30))
     d.relation("Pet", "HomeVisit", "receives", "1", "*", "bottom", "top")
-    d.relation("Pet", "EmergencyRequest", "has", "1", "*", "bottom", "top")
     d.save(OUT / "nways-class-diagram-detail-3.png")
 
 

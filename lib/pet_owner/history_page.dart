@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../doctor/doctor_portal.dart';
 import 'appointment_booking_page.dart';
-import 'emergency_service_page.dart';
 import 'home_visit_booking_page.dart';
 import 'pet_care_booking_page.dart';
 import 'pet_owner_page_header.dart';
@@ -19,14 +18,7 @@ class HistoryPage extends StatefulWidget {
   State<HistoryPage> createState() => _HistoryPageState();
 }
 
-enum HistoryCategory {
-  appointments,
-  medical,
-  petCare,
-  homeVisits,
-  emergency,
-  queue,
-}
+enum HistoryCategory { appointments, medical, petCare, homeVisits, queue }
 
 class HistoryRecord {
   const HistoryRecord({
@@ -187,7 +179,6 @@ class _HistoryPageState extends State<HistoryPage> {
                   QueueStore.instance,
                   PetCareBookingStore.instance,
                   HomeVisitStore.instance,
-                  EmergencyRequestStore.instance,
                   DoctorMedicalRecordStore.instance,
                   ProfilePetStore.instance,
                   HistoryReviewStore.instance,
@@ -526,36 +517,6 @@ class _HistoryPageState extends State<HistoryPage> {
       );
     }
 
-    for (final request in EmergencyRequestStore.instance.requests) {
-      if (request.status != EmergencyStatus.completed) continue;
-      records.add(
-        HistoryRecord(
-          id: request.id,
-          petName: request.pet.name,
-          category: HistoryCategory.emergency,
-          title: 'Emergency Service',
-          subtitle: request.priority,
-          date: request.createdAt,
-          time: _historyTime(request.createdAt),
-          status: 'Completed',
-          completed: true,
-          source: request,
-          details: {
-            'Request ID': '#${request.id}',
-            'Date': _historyDate(request.createdAt),
-            'Symptoms': request.symptoms.join(', '),
-            'Description': request.description,
-            'Priority': request.priority,
-            'Findings': request.findings,
-            'Diagnosis': request.diagnosis,
-            'Treatment': request.treatmentResult,
-            'Recommendations': request.recommendations,
-            'Status': 'Completed',
-          },
-        ),
-      );
-    }
-
     for (final medical in DoctorMedicalRecordStore.instance.records) {
       if (!medical.finalized) continue;
       records.add(
@@ -659,13 +620,11 @@ class HistoryDetailsPage extends StatelessWidget {
         record.completed &&
         (record.category == HistoryCategory.medical ||
             record.category == HistoryCategory.queue ||
-            record.category == HistoryCategory.homeVisits ||
-            record.category == HistoryCategory.emergency);
+            record.category == HistoryCategory.homeVisits);
     final canBookFollowUp =
         record.completed &&
         (record.category == HistoryCategory.medical ||
-            record.category == HistoryCategory.queue ||
-            record.category == HistoryCategory.emergency);
+            record.category == HistoryCategory.queue);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF8),
@@ -1056,7 +1015,6 @@ String _categoryLabel(HistoryCategory category) => switch (category) {
   HistoryCategory.medical => 'Medical Services',
   HistoryCategory.petCare => 'Pet Care Services',
   HistoryCategory.homeVisits => 'Home Visits',
-  HistoryCategory.emergency => 'Emergency Services',
   HistoryCategory.queue => 'Queue',
 };
 

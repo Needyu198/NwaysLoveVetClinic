@@ -5,7 +5,6 @@ class DoctorStyles {
 
   static const page = Color(0xFFF5F8F6);
   static const mint = Color(0xFFA1FDD8);
-  static const emergencyRed = Color(0xFFEF2734);
   static const softMint = Color(0xFFE8FAF2);
   static const green = Color(0xFF15835F);
   static const ink = Color(0xFF17201D);
@@ -142,41 +141,6 @@ String _greeting() {
   if (hour < 17) return 'Good Afternoon';
   return 'Good Evening';
 }
-
-String _emergencyLabel(EmergencyStatus status) => switch (status) {
-  EmergencyStatus.submitted => 'Submitted',
-  EmergencyStatus.underReview => 'Under Review',
-  EmergencyStatus.accepted => 'Accepted',
-  EmergencyStatus.declined => 'Declined',
-  EmergencyStatus.checkedIn => 'Checked In',
-  EmergencyStatus.assessment => 'Assessment',
-  EmergencyStatus.waiting => 'Waiting',
-  EmergencyStatus.consultation => 'Consultation',
-  EmergencyStatus.treatmentProposed => 'Treatment Proposed',
-  EmergencyStatus.treatmentInProgress => 'Treatment In Progress',
-  EmergencyStatus.completed => 'Completed',
-};
-
-EmergencyStatus? _nextEmergencyStatus(EmergencyStatus status) =>
-    switch (status) {
-      EmergencyStatus.accepted => EmergencyStatus.assessment,
-      EmergencyStatus.checkedIn ||
-      EmergencyStatus.waiting => EmergencyStatus.assessment,
-      EmergencyStatus.assessment => EmergencyStatus.consultation,
-      EmergencyStatus.consultation => EmergencyStatus.treatmentProposed,
-      EmergencyStatus.treatmentProposed => EmergencyStatus.treatmentInProgress,
-      EmergencyStatus.treatmentInProgress => EmergencyStatus.completed,
-      _ => null,
-    };
-
-String _emergencyAction(EmergencyStatus status) => switch (status) {
-  EmergencyStatus.assessment => 'Start Assessment',
-  EmergencyStatus.consultation => 'Start Emergency Consultation',
-  EmergencyStatus.treatmentProposed => 'Record Proposed Treatment',
-  EmergencyStatus.treatmentInProgress => 'Start Emergency Treatment',
-  EmergencyStatus.completed => 'Complete Emergency Case',
-  _ => 'Update Emergency Case',
-};
 
 HomeVisitStatus? _nextHomeVisitStatus(HomeVisitStatus status) =>
     switch (status) {

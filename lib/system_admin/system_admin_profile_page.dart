@@ -856,13 +856,6 @@ class AdminNotificationSettingsPage extends StatelessWidget {
                     onChanged: (v) => p.updateNotifications(approvals: v),
                   ),
                   _AdminNotifSwitch(
-                    icon: Icons.emergency_rounded,
-                    title: 'Emergency alerts',
-                    subtitle: 'Urgent cases across the clinic.',
-                    value: p.emergencyAlerts,
-                    onChanged: (v) => p.updateNotifications(emergency: v),
-                  ),
-                  _AdminNotifSwitch(
                     icon: Icons.settings_suggest_rounded,
                     title: 'System alerts',
                     subtitle: 'Low stock, expiry and license warnings.',

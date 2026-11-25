@@ -6,8 +6,6 @@ import 'package:flutter/services.dart';
 import 'clinic_phone.dart';
 import 'pet_owner_page_header.dart';
 
-const _contactRed = Color(0xFFC62828);
-
 class ContactClinicPage extends StatelessWidget {
   const ContactClinicPage({super.key});
 
@@ -541,7 +539,6 @@ enum ContactCategory {
   appointment('Appointment'),
   medicalService('Medical Service'),
   petCare('Pet Care'),
-  emergency('Emergency'),
   other('Other');
 
   const ContactCategory(this.label);

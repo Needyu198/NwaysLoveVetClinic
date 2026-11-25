@@ -10,7 +10,6 @@ class StaffDashboardPage extends StatelessWidget {
       animation: Listenable.merge([
         StaffOperationsStore.instance,
         AppointmentStore.instance,
-        EmergencyRequestStore.instance,
         HomeVisitStore.instance,
         StaffProfileStore.instance,
         ClinicDirectory.instance,
@@ -24,15 +23,6 @@ class StaffDashboardPage extends StatelessWidget {
                   a.status != 'Cancelled',
             )
             .toList();
-        final emergencies =
-            today.where((a) => a.priority == 'Urgent').length +
-            EmergencyRequestStore.instance.requests
-                .where(
-                  (r) =>
-                      r.status != EmergencyStatus.completed &&
-                      r.status != EmergencyStatus.declined,
-                )
-                .length;
         final queueCount = StaffOperationsStore.instance.appointments
             .where(
               (a) =>
@@ -100,17 +90,6 @@ class StaffDashboardPage extends StatelessWidget {
                                         ),
                                       ),
                                       const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _DashboardMetric(
-                                          value: '*$emergencies',
-                                          label: 'Emergency',
-                                          color: Color(0xFFFF0000),
-                                          onTap: () => _push(
-                                            context,
-                                            const StaffEmergencyPage(),
-                                          ),
-                                        ),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -352,13 +331,11 @@ class _DashboardMetric extends StatelessWidget {
     required this.value,
     required this.label,
     required this.onTap,
-    this.color = const Color(0xFFB0FCE0),
     this.large = false,
     this.horizontal = false,
   });
   final String value, label;
   final VoidCallback onTap;
-  final Color color;
   final bool large, horizontal;
   @override
   Widget build(BuildContext context) {
@@ -382,7 +359,7 @@ class _DashboardMetric extends StatelessWidget {
       ),
     );
     return Material(
-      color: color,
+      color: const Color(0xFFB0FCE0),
       borderRadius: BorderRadius.circular(24),
       child: InkWell(
         onTap: onTap,
@@ -419,7 +396,7 @@ class _DashboardAppointment extends StatelessWidget {
 
   (String, Color) get _statusStyle {
     if (item.priority == 'Urgent') {
-      return ('Emergency', const Color(0xFFE11D1D));
+      return ('Urgent', const Color(0xFFE11D1D));
     }
     return switch (item.status) {
       'In Consultation' => ('Consulting', const Color(0xFF2358A5)),
@@ -476,7 +453,7 @@ class _DashboardAppointment extends StatelessWidget {
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(
-                                  Icons.emergency_rounded,
+                                  Icons.priority_high_rounded,
                                   size: 15,
                                   color: _red,
                                 ),

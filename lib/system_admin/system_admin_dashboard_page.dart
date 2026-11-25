@@ -14,7 +14,6 @@ class _AdminDashboardTab extends StatelessWidget {
       animation: Listenable.merge([
         AppointmentStore.instance,
         QueueStore.instance,
-        EmergencyRequestStore.instance,
         UserAccountStore.instance,
         DoctorVerificationStore.instance,
         StaffOperationsStore.instance,
@@ -31,15 +30,6 @@ class _AdminDashboardTab extends StatelessWidget {
             )
             .length;
         final queueCount = QueueStore.instance.active.length;
-        final emergencies = EmergencyRequestStore.instance.requests
-            .where(
-              (r) => !const {
-                EmergencyStatus.completed,
-                EmergencyStatus.declined,
-              }.contains(r.status),
-            )
-            .length;
-
         final pendingDoctors = DoctorVerificationStore.instance.pendingCount;
 
         final lowStock = StaffOperationsStore.instance.inventory
@@ -129,23 +119,14 @@ class _AdminDashboardTab extends StatelessWidget {
                   const SizedBox(height: 26),
                   const Text('Alerts', style: _adminHeroStyle),
                   const SizedBox(height: 14),
-                  if (emergencies == 0 && lowStock == 0 && expired == 0)
+                  if (lowStock == 0 && expired == 0)
                     const _AdminAlertTile(
                       icon: Icons.check_circle_rounded,
                       color: _adminGreen,
                       title: 'All clear',
-                      message: 'No active emergencies or stock alerts.',
+                      message: 'No stock alerts.',
                     )
                   else ...[
-                    if (emergencies > 0) ...[
-                      _AdminAlertTile(
-                        icon: Icons.emergency_rounded,
-                        color: const Color(0xFFB3261E),
-                        title: 'Active emergencies',
-                        message: '$emergencies case(s) need attention.',
-                      ),
-                      const SizedBox(height: 10),
-                    ],
                     if (lowStock > 0) ...[
                       _AdminAlertTile(
                         icon: Icons.trending_down_rounded,

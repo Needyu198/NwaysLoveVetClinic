@@ -91,7 +91,6 @@ ALLOWED_TABLES = {
     "inventory",
     "medical_records",
     "home_visits",
-    "emergency_requests",
 }
 
 

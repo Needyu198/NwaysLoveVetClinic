@@ -1346,7 +1346,6 @@ class BookingService {
   String? get iconAsset => switch (name) {
     'General Checkup' => 'assets/photos/icon/reminder_checkup.png',
     'Vaccination' => 'assets/photos/icon/reminder_vaccine.png',
-    'Emergency' => 'assets/photos/icon/clinic_emergency.png',
     'Home Visit' => 'assets/photos/icon/clinic_home_visit.png',
     'Grooming' => 'assets/photos/icon/pet_care_grooming.png',
     'Bathing' => 'assets/photos/icon/pet_care_bathing.png',
@@ -2444,14 +2443,6 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       durationMinutes: 30,
     ),
     BookingService(
-      name: 'Emergency',
-      description: 'Urgent assessment for sudden illness or injury.',
-      icon: Icons.emergency_rounded,
-      homeVisit: false,
-      doctors: ['Dr. Aye Chan', 'Dr. Min Khant'],
-      durationMinutes: 60,
-    ),
-    BookingService(
       name: 'Home Visit',
       description: 'A veterinarian visits your confirmed address.',
       icon: Icons.home_work_rounded,
@@ -3302,7 +3293,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
   String _doctorSpecialty(String doctor) {
     return switch (doctor) {
       'Dr. Hnin Thiri' => 'Vaccination and preventive care',
-      'Dr. Min Khant' => 'Emergency and mobile veterinary care',
+      'Dr. Min Khant' => 'Mobile veterinary care',
       'Dr. Su Mon' => 'Vaccination and consultation',
       _ => 'General veterinary medicine',
     };

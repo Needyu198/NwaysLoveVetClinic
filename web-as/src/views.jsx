@@ -735,7 +735,7 @@ export function MessagesView({ refreshKey }) {
   );
 }
 
-// ---- Patients, emergencies and home visits ------------------------------
+// ---- Patients and home visits ------------------------------------------
 
 export function PatientsView({ refreshKey, query = '' }) {
   const { records, loading, error } = useTable('pets', refreshKey);
@@ -747,27 +747,6 @@ export function PatientsView({ refreshKey, query = '' }) {
   return <StateWrap loading={loading} error={error} empty={rows.length === 0}>
     <div className="card"><table><thead><tr><th>Pet</th><th>Species</th><th>Breed</th><th>Sex</th><th>Birth date</th><th>Owner ID</th></tr></thead>
       <tbody>{rows.map(r => { const v = val(r); return <tr key={r.id}><td style={{fontWeight:700}}>{v.name}</td><td>{v.type}</td><td>{v.breed}</td><td>{v.sex}</td><td>{v.dateOfBirth ? new Date(v.dateOfBirth).toLocaleDateString() : '—'}</td><td className="muted small">{r.owner_id}</td></tr>; })}</tbody>
-    </table></div>
-  </StateWrap>;
-}
-
-export function EmergenciesView({ refreshKey }) {
-  const { records, loading, error, reload } = useTable('emergency_requests', refreshKey);
-  const nextAction = status => ({ submitted: ['Start review', 'underReview'], underReview: ['Assign & accept', 'accepted'], accepted: ['Mark arrived', 'checkedIn'] }[status]);
-  async function advance(record) {
-    const action = nextAction(val(record).status);
-    if (!action) return;
-    const patch = action[1] === 'underReview'
-      ? { status: action[1], priority: 'High', clinicResponse: 'The clinic is reviewing this emergency request.' }
-      : action[1] === 'accepted'
-        ? { status: action[1], clinicResponse: 'A veterinarian has been assigned. Please travel to the clinic now.' }
-        : { status: action[1], clinicResponse: 'The pet has arrived and is checked in.' };
-    try { await updateRecord('emergency_requests', record, patch); reload(); }
-    catch (e) { alert(e.message); }
-  }
-  return <StateWrap loading={loading} error={error} empty={records.length === 0}>
-    <div className="card"><table><thead><tr><th>Pet</th><th>Symptoms</th><th>Contact</th><th>Priority</th><th>Status</th><th></th></tr></thead>
-      <tbody>{records.map(r => { const v = val(r); const action = nextAction(v.status); return <tr key={r.id}><td><strong>{v.pet?.name}</strong><div className="muted small">{v.pet?.breed}</div></td><td>{(v.symptoms || []).join(', ')}</td><td><a href={`tel:${String(v.phone || '').replace(/[^0-9+]/g, '')}`}>{v.phone}</a></td><td>{v.priority}</td><td>{v.status}</td><td>{action && <button className="link-btn" onClick={() => advance(r)}>{action[0]}</button>}</td></tr>; })}</tbody>
     </table></div>
   </StateWrap>;
 }

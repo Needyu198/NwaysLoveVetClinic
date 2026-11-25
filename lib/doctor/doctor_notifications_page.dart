@@ -24,7 +24,6 @@ class DoctorNotificationsPage extends StatelessWidget {
               animation: Listenable.merge([
                 DoctorNotificationStore.instance,
                 AppointmentStore.instance,
-                EmergencyRequestStore.instance,
                 HomeVisitStore.instance,
                 ContactClinicStore.instance,
               ]),
@@ -51,13 +50,6 @@ class DoctorNotificationsPage extends StatelessWidget {
                     (
                       'Rescheduled appointment',
                       'A schedule change is waiting for review.',
-                    ),
-                  if (EmergencyRequestStore.instance.requests.any(
-                    (request) => request.status == EmergencyStatus.submitted,
-                  ))
-                    (
-                      'New emergency request',
-                      'Review and prioritize the emergency.',
                     ),
                   if (HomeVisitStore.instance.visits.any(
                     (visit) => visit.status == HomeVisitStatus.confirmed,

@@ -20,7 +20,6 @@ void main() {
       'Medical Services',
       'History',
       'First Aid Info',
-      'Emergency Services',
     ]) {
       final finder = find.byKey(ValueKey('clinic-$category-icon'));
       expect(finder, findsOneWidget);

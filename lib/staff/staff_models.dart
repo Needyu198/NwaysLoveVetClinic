@@ -429,7 +429,7 @@ class StaffOperationsStore extends ChangeNotifier {
         pet: 'Luna',
         owner: 'May Zin',
         phone: '09 450 920 111',
-        service: 'Emergency Care',
+        service: 'Urgent Care',
         doctor: 'Dr. Myat Noe',
         date: now,
         time: '10:30 AM',
@@ -1237,7 +1237,6 @@ class StaffProfileStore extends ChangeNotifier {
           'onShift': onShift,
           'photoPath': photoPath,
           'appointmentAlerts': appointmentAlerts,
-          'emergencyAlerts': emergencyAlerts,
           'queueAlerts': queueAlerts,
         },
       },
@@ -1250,7 +1249,6 @@ class StaffProfileStore extends ChangeNotifier {
         onShift = value['onShift'] as bool? ?? false;
         photoPath = value['photoPath'] as String?;
         appointmentAlerts = value['appointmentAlerts'] as bool? ?? true;
-        emergencyAlerts = value['emergencyAlerts'] as bool? ?? true;
         queueAlerts = value['queueAlerts'] as bool? ?? true;
       },
     );
@@ -1275,7 +1273,6 @@ class StaffProfileStore extends ChangeNotifier {
 
   // Notification preferences.
   bool appointmentAlerts = true;
-  bool emergencyAlerts = true;
   bool queueAlerts = true;
 
   /// First name used for the dashboard greeting ("Good Morning, Mya").
@@ -1303,9 +1300,8 @@ class StaffProfileStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateNotifications({bool? appointment, bool? emergency, bool? queue}) {
+  void updateNotifications({bool? appointment, bool? queue}) {
     if (appointment != null) appointmentAlerts = appointment;
-    if (emergency != null) emergencyAlerts = emergency;
     if (queue != null) queueAlerts = queue;
     notifyListeners();
   }
@@ -1319,7 +1315,6 @@ class StaffProfileStore extends ChangeNotifier {
     onShift = true;
     photoPath = null;
     appointmentAlerts = true;
-    emergencyAlerts = true;
     queueAlerts = true;
     notifyListeners();
   }

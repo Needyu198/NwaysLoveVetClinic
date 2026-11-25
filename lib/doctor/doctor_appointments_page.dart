@@ -38,7 +38,6 @@ class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
       animation: Listenable.merge([
         DoctorAppointmentStore.instance,
         AppointmentStore.instance,
-        EmergencyRequestStore.instance,
       ]),
       builder: (context, _) {
         final all = DoctorAppointmentStore.instance.appointments;
@@ -65,14 +64,6 @@ class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
             .toList();
         final waiting = records
             .where((record) => record.status != 'In Consultation')
-            .toList();
-        final emergencies = EmergencyRequestStore.instance.requests
-            .where(
-              (request) => !const {
-                EmergencyStatus.completed,
-                EmergencyStatus.declined,
-              }.contains(request.status),
-            )
             .toList();
 
         return ColoredBox(
@@ -197,7 +188,7 @@ class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
                 ),
                 const SizedBox(height: 8),
                 Expanded(
-                  child: records.isEmpty && emergencies.isEmpty
+                  child: records.isEmpty
                       ? const _EmptyDoctorState(
                           icon: Icons.event_busy_outlined,
                           title: 'No appointments',
@@ -211,7 +202,7 @@ class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
                               DoctorAppointmentCard(record: record),
                               const SizedBox(height: 9),
                             ],
-                            if (waiting.isNotEmpty || emergencies.isNotEmpty)
+                            if (waiting.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
                                   20,
@@ -229,12 +220,6 @@ class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
                                   ),
                                 ),
                               ),
-                            for (final emergency in emergencies) ...[
-                              _DoctorEmergencyAppointmentCard(
-                                request: emergency,
-                              ),
-                              const SizedBox(height: 10),
-                            ],
                             for (final record in waiting) ...[
                               DoctorAppointmentCard(record: record),
                               const SizedBox(height: 10),
@@ -412,87 +397,6 @@ class _AppointmentAction extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DoctorEmergencyAppointmentCard extends StatelessWidget {
-  const _DoctorEmergencyAppointmentCard({required this.request});
-
-  final EmergencyRequest request;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: const Color(0xFFFF1017),
-    borderRadius: BorderRadius.circular(30),
-    elevation: 4,
-    shadowColor: const Color(0x44000000),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const DoctorEmergencyCasesPage(),
-        ),
-      ),
-      child: SizedBox(
-        height: 80,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-          child: Row(
-            children: [
-              ClipOval(
-                child: SizedBox(
-                  width: 54,
-                  height: 54,
-                  child: ProfilePetAvatar(
-                    petName: request.pet.name,
-                    ownerId: databaseOwnerOf(request),
-                    radius: 27,
-                    fallbackBackground: Colors.white,
-                    fallbackForeground: const Color(0xFFFF1017),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      request.pet.name,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 25,
-                        fontWeight: FontWeight.w900,
-                        height: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      'Pet Owner : ${request.contactPerson}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.black, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                width: 117,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: const Text('Emergency'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }
 
 class DoctorAppointmentDetailsPage extends StatelessWidget {

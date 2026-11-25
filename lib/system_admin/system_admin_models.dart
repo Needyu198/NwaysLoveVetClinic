@@ -689,7 +689,6 @@ class AdminProfileStore extends ChangeNotifier {
           'photoPath': photoPath,
           'twoFactorEnabled': twoFactorEnabled,
           'approvalAlerts': approvalAlerts,
-          'emergencyAlerts': emergencyAlerts,
           'systemAlerts': systemAlerts,
           'reportAlerts': reportAlerts,
         },
@@ -702,7 +701,6 @@ class AdminProfileStore extends ChangeNotifier {
         photoPath = value['photoPath'] as String?;
         twoFactorEnabled = value['twoFactorEnabled'] as bool? ?? false;
         approvalAlerts = value['approvalAlerts'] as bool? ?? true;
-        emergencyAlerts = value['emergencyAlerts'] as bool? ?? true;
         systemAlerts = value['systemAlerts'] as bool? ?? true;
         reportAlerts = value['reportAlerts'] as bool? ?? false;
       },
@@ -729,7 +727,6 @@ class AdminProfileStore extends ChangeNotifier {
 
   // Notification preferences.
   bool approvalAlerts = true;
-  bool emergencyAlerts = true;
   bool systemAlerts = true;
   bool reportAlerts = false;
 
@@ -800,14 +797,8 @@ class AdminProfileStore extends ChangeNotifier {
     return true;
   }
 
-  void updateNotifications({
-    bool? approvals,
-    bool? emergency,
-    bool? system,
-    bool? report,
-  }) {
+  void updateNotifications({bool? approvals, bool? system, bool? report}) {
     if (approvals != null) approvalAlerts = approvals;
-    if (emergency != null) emergencyAlerts = emergency;
     if (system != null) systemAlerts = system;
     if (report != null) reportAlerts = report;
     notifyListeners();

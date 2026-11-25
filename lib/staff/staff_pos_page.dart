@@ -300,12 +300,13 @@ class _StaffPosPageState extends State<StaffPosPage> {
     } on ClinicApiException catch (error) {
       if (mounted) _showInfo(context, 'Sale not completed', error.message);
     } on Object catch (error) {
-      if (mounted)
+      if (mounted) {
         _showInfo(
           context,
           'Sale not completed',
           'Could not confirm the sale with the clinic server. $error',
         );
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -360,13 +361,9 @@ class _StaffPosPageState extends State<StaffPosPage> {
     ).push(cashDialog);
     await cashDialog.completed;
     tenderController.dispose();
+    if (!mounted) return;
     if (tendered == null) {
-      if (mounted) {
-        _notice(
-          context,
-          'Sale ${order['id']} is saved with payment still due.',
-        );
-      }
+      _notice(context, 'Sale ${order['id']} is saved with payment still due.');
       return;
     }
     if (tendered < amount) {
@@ -522,7 +519,7 @@ class _StaffPosPageState extends State<StaffPosPage> {
                       child: Text('Current sale', style: _sectionStyle),
                     ),
                     Text(
-                      '${_itemCount} items',
+                      '$_itemCount items',
                       style: const TextStyle(color: _muted),
                     ),
                   ],
@@ -941,9 +938,9 @@ class _StaffPosPageState extends State<StaffPosPage> {
 }
 
 class _PosCartLine {
-  _PosCartLine(this.item, {this.quantity = 1});
+  _PosCartLine(this.item);
   final InventoryItem item;
-  int quantity;
+  int quantity = 1;
 }
 
 class _ProductBarcodeScannerPage extends StatefulWidget {
@@ -967,7 +964,7 @@ class _ProductBarcodeScannerPageState
       BarcodeFormat.code39,
       BarcodeFormat.code93,
       BarcodeFormat.codabar,
-      BarcodeFormat.itf,
+      BarcodeFormat.itf14,
     ],
   );
   bool _returningResult = false;

@@ -18,8 +18,7 @@ enum MedicalRecordCategory {
   consultation('Consultation'),
   vaccination('Vaccination'),
   treatment('Treatment'),
-  prescription('Prescription'),
-  emergency('Emergency');
+  prescription('Prescription');
 
   const MedicalRecordCategory(this.label);
   final String label;
@@ -75,7 +74,6 @@ List<ProfileMedicalEntry> _medicalEntries() {
 /// treatment, or a general consultation).
 MedicalRecordCategory _categoryForMedicalRecord(DoctorMedicalRecord record) {
   final service = record.service.toLowerCase();
-  if (service.contains('emergency')) return MedicalRecordCategory.emergency;
   if (record.vaccination.trim().isNotEmpty || service.contains('vaccin')) {
     return MedicalRecordCategory.vaccination;
   }
@@ -126,7 +124,6 @@ ProfileMedicalEntry _entryFromMedicalRecord(DoctorMedicalRecord record) {
       MedicalRecordCategory.vaccination => 'Vaccination Certificate',
       MedicalRecordCategory.prescription ||
       MedicalRecordCategory.treatment => 'Prescription',
-      MedicalRecordCategory.emergency => 'Emergency Treatment Report',
       _ => 'Consultation Report',
     },
     followUp: hasFollowUp ? record.followUp.trim() : null,
@@ -244,22 +241,6 @@ List<ProfileMedicalEntry> _demoMedicalEntries() {
           'Duration': 'Complete the prescribed course',
         },
         documentTitle: 'Prescription Document',
-      ),
-      ProfileMedicalEntry(
-        id: 'EMR-${pet.name}-1',
-        petName: pet.name,
-        category: MedicalRecordCategory.emergency,
-        title: 'Emergency Consultation',
-        date: now.subtract(const Duration(days: 120)),
-        veterinarian: 'Dr. Aye Chan',
-        status: 'Completed',
-        details: const {
-          'Symptoms': 'Sudden weakness and vomiting',
-          'Diagnosis': 'Acute stomach irritation',
-          'Treatment': 'Emergency assessment and supportive care',
-          'Recommendations': 'Monitor appetite and hydration closely.',
-        },
-        documentTitle: 'Emergency Treatment Report',
       ),
     ]);
   }
@@ -1113,7 +1094,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                 ),
                 const ListTile(
                   leading: Icon(Icons.lock_rounded, color: _profileGreen),
-                  title: Text('Emergency and account-security alerts'),
+                  title: Text('Account-security alerts'),
                   subtitle: Text('Always enabled and cannot be disabled.'),
                 ),
                 const SizedBox(height: 16),

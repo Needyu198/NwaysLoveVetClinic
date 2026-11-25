@@ -128,7 +128,6 @@ class _DashboardStatCard extends StatelessWidget {
     required this.value,
     required this.color,
     required this.onTap,
-    this.horizontal = false,
     this.large = false,
     super.key,
   });
@@ -136,7 +135,6 @@ class _DashboardStatCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-  final bool horizontal;
   final bool large;
   final VoidCallback onTap;
 
@@ -150,63 +148,34 @@ class _DashboardStatCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(22),
       child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: horizontal ? 14 : 6,
-          vertical: 8,
-        ),
-        child: horizontal
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 31,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Flexible(
-                    child: Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 15,
-                        height: 1.1,
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    value,
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: large ? 48 : 29,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
-                  ),
-                  SizedBox(height: large ? 15 : 7),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: large ? 16 : 14,
-                        height: 1.15,
-                      ),
-                    ),
-                  ),
-                ],
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: large ? 48 : 29,
+                fontWeight: FontWeight.w900,
+                height: 1,
               ),
+            ),
+            SizedBox(height: large ? 15 : 7),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: large ? 16 : 14,
+                  height: 1.15,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -316,82 +285,6 @@ class _UpNextCard extends StatelessWidget {
       ],
     ),
   );
-}
-
-class _EmergencyQueueCard extends StatelessWidget {
-  const _EmergencyQueueCard({required this.request, this.showDetails = false});
-
-  final EmergencyRequest request;
-  final bool showDetails;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: const Color(0xFFFFE8E9),
-    borderRadius: BorderRadius.circular(20),
-    child: InkWell(
-      onTap: showDetails ? () => _showEmergencyDetails(context) : null,
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.all(15),
-        child: Row(
-          children: [
-            const CircleAvatar(
-              backgroundColor: Color(0xFFE92832),
-              foregroundColor: Colors.white,
-              child: Icon(Icons.emergency_rounded),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${request.pet.name} • Emergency',
-                    style: DoctorStyles.cardTitle,
-                  ),
-                  Text(
-                    request.symptoms.join(', '),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: DoctorStyles.body,
-                  ),
-                  Text(
-                    '${request.priority} • ${_emergencyLabel(request.status)}',
-                    style: const TextStyle(
-                      color: Color(0xFFB3261E),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (showDetails) const Icon(Icons.chevron_right_rounded),
-          ],
-        ),
-      ),
-    ),
-  );
-
-  void _showEmergencyDetails(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('${request.pet.name} Emergency'),
-        content: Text(
-          'Symptoms: ${request.symptoms.join(', ')}\n\n'
-          'Description: ${request.description}\n\n'
-          'Contact: ${request.contactPerson} • ${request.phone}\n\n'
-          'Status: ${_emergencyLabel(request.status)}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _StatusBadge extends StatelessWidget {

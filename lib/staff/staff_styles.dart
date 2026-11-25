@@ -115,19 +115,6 @@ String _fullDate(DateTime value) {
 
 String _shortDate(DateTime value) =>
     '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}';
-String _emergencyLabel(EmergencyStatus value) => switch (value) {
-  EmergencyStatus.submitted => 'Submitted',
-  EmergencyStatus.underReview => 'Reviewing',
-  EmergencyStatus.accepted => 'Accepted',
-  EmergencyStatus.declined => 'Referred',
-  EmergencyStatus.checkedIn => 'Arrived',
-  EmergencyStatus.assessment => 'Assessing',
-  EmergencyStatus.waiting => 'Waiting',
-  EmergencyStatus.consultation => 'Consultation',
-  EmergencyStatus.treatmentProposed => 'Treatment proposed',
-  EmergencyStatus.treatmentInProgress => 'In treatment',
-  EmergencyStatus.completed => 'Completed',
-};
 String _homeLabel(HomeVisitStatus value) => switch (value) {
   HomeVisitStatus.confirmed => 'Confirmed',
   HomeVisitStatus.onTheWay => 'On the way',

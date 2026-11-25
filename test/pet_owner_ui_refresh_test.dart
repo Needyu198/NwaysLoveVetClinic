@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:senior_project/data/clinic_api.dart';
 import 'package:senior_project/data/clinic_directory.dart';
-import 'package:senior_project/pet_owner/emergency_service_page.dart';
 import 'package:senior_project/pet_owner/pet_owner_clinic_page.dart';
 import 'package:senior_project/pet_owner/pet_care_booking_page.dart';
 import 'package:senior_project/pet_owner/pet_products_page.dart';
@@ -44,53 +43,6 @@ void main() {
     );
     expect(find.byKey(const ValueKey('pet-products-logo')), findsOneWidget);
     expect(find.byKey(const ValueKey('pet-products-search')), findsOneWidget);
-  });
-
-  testWidgets('Emergency Select Pet shows owner-updated photo and logo', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(440, 956);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    ClinicApi.instance.token = 'test-session';
-    ProfilePetStore.instance.add(
-      ProfilePet(
-        name: 'Photo Emergency Pet',
-        type: 'Cat',
-        breed: 'Siamese',
-        sex: 'Female',
-        dateOfBirth: DateTime(2023, 1, 1),
-        weightKg: 4,
-        color: 'Cream',
-        identifyingFeatures: '',
-        allergies: 'None',
-        conditions: 'None',
-        medicines: 'None',
-        vaccination: 'Current',
-        hasCustomPhoto: true,
-        photoUrl:
-            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
-      ),
-    );
-
-    await tester.pumpWidget(const MaterialApp(home: EmergencyServicePage()));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('emergency-service-logo')),
-      findsOneWidget,
-    );
-    await tester.tap(find.text('Continue Emergency Request'));
-    await tester.pumpAndSettle();
-
-    final photo = find.byKey(
-      const ValueKey('emergency-pet-photo-Photo Emergency Pet'),
-    );
-    expect(photo, findsOneWidget);
-    expect(
-      find.descendant(of: photo, matching: find.byType(Image)),
-      findsOneWidget,
-    );
   });
 
   testWidgets('Clinic Information has compact friendly header and actions', (

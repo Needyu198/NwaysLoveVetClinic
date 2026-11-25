@@ -35,7 +35,7 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
     'Pet Care',
     'Consulting',
     'In Queue',
-    'Emergency',
+    'Urgent',
   ];
 
   static String _normalizeFilter(String? value) =>
@@ -53,7 +53,7 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
             'Called',
             'Waiting',
           }.contains(a.status),
-    'Emergency' => a.priority == 'Urgent',
+    'Urgent' => a.priority == 'Urgent',
     _ => true,
   };
 
@@ -69,7 +69,7 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
             'Called',
             'Waiting',
           }.contains(a.status),
-    'Emergency' => a.priority == 'Urgent',
+    'Urgent' => a.priority == 'Urgent',
     _ => true,
   };
 
@@ -573,7 +573,7 @@ class _AppointmentTile extends StatelessWidget {
   final VoidCallback onTap;
 
   String get _statusLabel {
-    if (item.priority == 'Urgent') return 'Emergency';
+    if (item.priority == 'Urgent') return 'Urgent';
     return switch (item.status) {
       'In Consultation' => 'Consulting',
       'Completed' => 'Completed',
@@ -585,10 +585,10 @@ class _AppointmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final emergency = item.priority == 'Urgent';
-    final consulting = !emergency && item.status == 'In Consultation';
-    final cardColor = emergency ? const Color(0xFFFF1919) : _mint;
-    final onCard = emergency ? Colors.white : Colors.black;
+    final urgent = item.priority == 'Urgent';
+    final consulting = !urgent && item.status == 'In Consultation';
+    final cardColor = urgent ? const Color(0xFFFF1919) : _mint;
+    final onCard = urgent ? Colors.white : Colors.black;
     return Material(
       color: cardColor,
       borderRadius: BorderRadius.circular(34),
@@ -646,7 +646,7 @@ class _AppointmentTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: emergency ? Colors.white70 : _muted,
+                        color: urgent ? Colors.white70 : _muted,
                         fontSize: 13,
                       ),
                     ),
@@ -709,7 +709,7 @@ class _AppointmentTile extends StatelessWidget {
                       Text(
                         'Details',
                         style: TextStyle(
-                          color: emergency ? Colors.white70 : _muted,
+                          color: urgent ? Colors.white70 : _muted,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -717,7 +717,7 @@ class _AppointmentTile extends StatelessWidget {
                       Icon(
                         Icons.chevron_right_rounded,
                         size: 16,
-                        color: emergency ? Colors.white70 : _muted,
+                        color: urgent ? Colors.white70 : _muted,
                       ),
                     ],
                   ),
@@ -748,7 +748,7 @@ class _StatusBanner extends StatelessWidget {
       children: [
         Icon(
           priority == 'Urgent'
-              ? Icons.emergency_rounded
+              ? Icons.priority_high_rounded
               : Icons.event_available_rounded,
           color: priority == 'Urgent' ? _red : _green,
         ),

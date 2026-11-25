@@ -58,7 +58,7 @@ class _StaffWalkInPageState extends State<StaffWalkInPage> {
     _notice(
       context,
       urgent
-          ? 'Emergency walk-in registered and prioritized in the queue.'
+          ? 'Urgent walk-in registered and prioritized in the queue.'
           : 'Walk-in registered and added to the queue.',
     );
   }
@@ -154,12 +154,12 @@ class _StaffWalkInPageState extends State<StaffWalkInPage> {
                       ),
                       const SizedBox(width: 18),
                       Tooltip(
-                        message: 'Register as emergency',
+                        message: 'Register as urgent',
                         child: SizedBox(
                           width: 64,
                           height: 62,
                           child: FilledButton(
-                            key: const ValueKey('register-walk-in-emergency'),
+                            key: const ValueKey('register-walk-in-urgent'),
                             onPressed: selectedDoctor == null
                                 ? null
                                 : () => _register(urgent: true),

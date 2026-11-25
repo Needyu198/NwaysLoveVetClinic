@@ -14,7 +14,6 @@ import 'package:senior_project/main.dart';
 import 'package:senior_project/staff/staff_portal.dart';
 import 'package:senior_project/pet_owner/appointment_booking_page.dart';
 import 'package:senior_project/pet_owner/contact_clinic_page.dart';
-import 'package:senior_project/pet_owner/emergency_service_page.dart';
 import 'package:senior_project/pet_owner/first_aid_information_page.dart';
 import 'package:senior_project/pet_owner/home_visit_booking_page.dart';
 import 'package:senior_project/pet_owner/history_page.dart';
@@ -281,77 +280,6 @@ void main() {
     expect(find.text('Log in'), findsOneWidget);
   });
 
-  testWidgets('doctor dashboard drives queue consultation and quick actions', (
-    WidgetTester tester,
-  ) async {
-    DoctorAppointmentStore.instance.clearDemoSchedule();
-    EmergencyRequestStore.instance.clear();
-    await signInAsDoctor(tester);
-
-    expect(find.text('Emergency Cases'), findsOneWidget);
-    expect(find.text('Waiting'), findsOneWidget);
-    expect(find.text('Completed'), findsOneWidget);
-    expect(find.text('Today Total Appointments'), findsOneWidget);
-    expect(find.text('Up Next'), findsOneWidget);
-    expect(find.text('View All Appointments'), findsOneWidget);
-
-    final next = DoctorAppointmentStore.instance.appointments.first;
-    final startButton = find.byKey(ValueKey('start-consulting-${next.id}'));
-    await tester.scrollUntilVisible(
-      startButton,
-      250,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.drag(
-      find.byKey(const ValueKey('doctor-dashboard')),
-      const Offset(0, -220),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(startButton);
-    await tester.pumpAndSettle();
-    expect(find.text('Consultation'), findsOneWidget);
-    expect(next.status, 'In Consultation');
-    expect(find.byKey(const ValueKey('consultation-notes')), findsOneWidget);
-    await tester.enterText(
-      find.byKey(const ValueKey('consultation-diagnosis')),
-      'Mild digestive upset',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('consultation-treatment')),
-      'Supportive care and dietary monitoring',
-    );
-    await tester.drag(find.byType(ListView).last, const Offset(0, -1500));
-    await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).last, const Offset(0, -900));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('complete-doctor-consultation')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('confirm-complete-consultation')),
-    );
-    await tester.pumpAndSettle();
-    expect(next.status, 'Completed');
-    expect(
-      DoctorMedicalRecordStore.instance.records.any(
-        (record) => record.appointmentId == next.id && record.finalized,
-      ),
-      isTrue,
-    );
-    expect(find.text('Doctor Dashboard'), findsOneWidget);
-
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('doctor-write-post')),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.byKey(const ValueKey('doctor-write-post')));
-    await tester.pumpAndSettle();
-    expect(find.text('Create Post'), findsOneWidget);
-    expect(find.byKey(const ValueKey('doctor-post-title')), findsOneWidget);
-  });
-
   testWidgets('doctor saves, publishes, and expands a feed post', (
     WidgetTester tester,
   ) async {
@@ -491,77 +419,6 @@ void main() {
     expect(find.text('Consultation'), findsOneWidget);
   });
 
-  testWidgets('doctor appointments use the ongoing card workflow', (
-    WidgetTester tester,
-  ) async {
-    DoctorAppointmentStore.instance.clearDemoSchedule();
-    EmergencyRequestStore.instance.clear();
-    await signInAsDoctor(tester);
-
-    await tester.tap(find.byKey(const ValueKey('doctor-appointments-tab')));
-    await tester.pumpAndSettle();
-    expect(find.text('Appointments'), findsWidgets);
-    expect(find.text('Queue'), findsOneWidget);
-    expect(find.text('Records'), findsOneWidget);
-    expect(find.text('Visits'), findsOneWidget);
-    expect(find.text('Waiting'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('doctor-appointments-back')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('doctor-dashboard')), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('doctor-appointments-tab')));
-    await tester.pumpAndSettle();
-    final confirmed = DoctorAppointmentStore.instance.appointments.firstWhere(
-      (record) => record.status == 'Confirmed',
-    );
-    await tester.tap(
-      find.byKey(ValueKey('doctor-appointment-action-${confirmed.id}')),
-    );
-    await tester.pumpAndSettle();
-    expect(confirmed.status, 'In Consultation');
-    expect(find.text('Consultation'), findsOneWidget);
-  });
-
-  testWidgets('doctor appointment filter chips narrow the list', (
-    WidgetTester tester,
-  ) async {
-    DoctorAppointmentStore.instance.clearDemoSchedule();
-    EmergencyRequestStore.instance.clear();
-    await signInAsDoctor(tester);
-    await tester.tap(find.byKey(const ValueKey('doctor-appointments-tab')));
-    await tester.pumpAndSettle();
-
-    // The first filters are visible without scrolling.
-    expect(find.byKey(const ValueKey('doctor-filter-All')), findsOneWidget);
-
-    final filterScrollable = find.descendant(
-      of: find.byKey(const ValueKey('doctor-appointment-filters')),
-      matching: find.byType(Scrollable),
-    );
-
-    // The demo schedule has a Pending appointment (Mimi) and Confirmed ones.
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('doctor-filter-Pending')),
-      120,
-      scrollable: filterScrollable,
-    );
-    await tester.tap(find.byKey(const ValueKey('doctor-filter-Pending')));
-    await tester.pumpAndSettle();
-    expect(find.text('Mimi'), findsOneWidget);
-    expect(find.text('Bruno'), findsNothing);
-
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('doctor-filter-Confirmed')),
-      120,
-      scrollable: filterScrollable,
-    );
-    await tester.tap(find.byKey(const ValueKey('doctor-filter-Confirmed')));
-    await tester.pumpAndSettle();
-    expect(find.text('Bruno'), findsWidgets);
-    expect(find.text('Mimi'), findsNothing);
-  });
-
   test('doctor appointment state round-trips through the map', () {
     const state = DoctorAppointmentState(
       status: 'Completed',
@@ -576,49 +433,6 @@ void main() {
     expect(restored.diagnosis, 'Mild upset');
     expect(restored.treatment, 'Rest');
     expect(restored.followUp, 'One week');
-  });
-
-  testWidgets('doctor dashboard prioritizes active emergency cases', (
-    WidgetTester tester,
-  ) async {
-    DoctorAppointmentStore.instance.clearDemoSchedule();
-    EmergencyRequestStore.instance.clear();
-    EmergencyRequestStore.instance.add(
-      EmergencyRequest(
-        id: 'DOCTOR-EMERGENCY-1',
-        createdAt: DateTime.now(),
-        pet: const EmergencyPet(
-          name: 'Lucky',
-          breed: 'Mixed Breed',
-          age: '3 years',
-          medicalHistory: 'No known allergies',
-          color: Colors.red,
-        ),
-        symptoms: const ['Difficulty breathing'],
-        description: 'Sudden breathing difficulty',
-        contactPerson: 'Pet Owner',
-        phone: '09-123456789',
-      ),
-    );
-    await signInAsDoctor(tester);
-
-    expect(find.text('Lucky • Emergency'), findsOneWidget);
-    expect(find.text('Difficulty breathing'), findsOneWidget);
-    expect(find.byKey(const ValueKey('doctor-emergency-stat')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('doctor-emergency-stat')));
-    await tester.pumpAndSettle();
-    expect(find.text('Emergency Cases'), findsOneWidget);
-    expect(find.text('Lucky • Emergency'), findsOneWidget);
-    await tester.tap(find.text('Lucky • Emergency'));
-    await tester.pumpAndSettle();
-    expect(find.text('Emergency Case'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('doctor-accept-emergency')));
-    await tester.pumpAndSettle();
-    expect(
-      EmergencyRequestStore.instance.requests.first.status,
-      EmergencyStatus.accepted,
-    );
-    EmergencyRequestStore.instance.clear();
   });
 
   testWidgets('doctor updates Home Visit travel and profile settings', (
@@ -1061,7 +875,6 @@ void main() {
     expect(find.text('Health Posts'), findsOneWidget);
     expect(find.text('Inventory'), findsOneWidget);
     expect(find.text('Medical Records'), findsOneWidget);
-    expect(find.text('Emergency Cases'), findsOneWidget);
     expect(find.text('Home Visits'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('staff-inventory-card')));
@@ -1169,22 +982,22 @@ void main() {
       findsOneWidget,
     );
 
-    // The seeded urgent case (Luna) shows only under the Emergency filter.
+    // The seeded urgent case (Luna) shows only under the Urgent filter.
     final filterList = find.descendant(
       of: find.byKey(const ValueKey('staff-appointment-filters')),
       matching: find.byType(Scrollable),
     );
     await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('staff-appointment-filter-Emergency')),
+      find.byKey(const ValueKey('staff-appointment-filter-Urgent')),
       120,
       scrollable: filterList,
     );
     await tester.pumpAndSettle();
     await tester.ensureVisible(
-      find.byKey(const ValueKey('staff-appointment-filter-Emergency')),
+      find.byKey(const ValueKey('staff-appointment-filter-Urgent')),
     );
     await tester.tap(
-      find.byKey(const ValueKey('staff-appointment-filter-Emergency')),
+      find.byKey(const ValueKey('staff-appointment-filter-Urgent')),
       warnIfMissed: false,
     );
     await tester.pumpAndSettle();
@@ -1482,61 +1295,6 @@ void main() {
     expect(find.byKey(const ValueKey('staff-set-reminder')), findsOneWidget);
     ReminderStore.instance.reset();
     OwnerNotificationStore.instance.clear();
-  });
-
-  testWidgets('staff emergency page filters and advances a case', (
-    WidgetTester tester,
-  ) async {
-    tester.view.physicalSize = const Size(440, 956);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    EmergencyRequestStore.instance.clear();
-    final request = EmergencyRequest(
-      id: 'STAFF-EMG-1',
-      createdAt: DateTime.now(),
-      pet: const EmergencyPet(
-        name: 'Rocky',
-        breed: 'Beagle',
-        age: '2 years',
-        medicalHistory: 'None',
-        color: Colors.red,
-      ),
-      symptoms: const ['Vomiting'],
-      description: 'Sudden vomiting',
-      contactPerson: 'Owner',
-      phone: '09-123',
-    );
-    EmergencyRequestStore.instance.add(request);
-
-    await tester.pumpWidget(const MaterialApp(home: StaffEmergencyPage()));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Emergency Cases'), findsOneWidget);
-    expect(find.byKey(const ValueKey('staff-emergency-list')), findsOneWidget);
-    expect(find.text('Rocky'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('staff-emergency-pet-photo-Rocky')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('staff-emergency-call-STAFF-EMG-1')),
-      findsOneWidget,
-    );
-
-    // Start review, then assign & accept.
-    await tester.tap(
-      find.byKey(const ValueKey('emergency-review-STAFF-EMG-1')),
-    );
-    await tester.pumpAndSettle();
-    expect(request.status, EmergencyStatus.underReview);
-    await tester.tap(
-      find.byKey(const ValueKey('emergency-accept-STAFF-EMG-1')),
-    );
-    await tester.pumpAndSettle();
-    expect(request.status, EmergencyStatus.accepted);
-    EmergencyRequestStore.instance.clear();
   });
 
   testWidgets('staff live queue shows filters and calls a waiting patient', (
@@ -2050,7 +1808,7 @@ void main() {
     expect(find.text('Unsaved Name'), findsNothing);
   });
 
-  testWidgets('profile quick actions open location and emergency safeguards', (
+  testWidgets('profile quick actions open clinic location', (
     WidgetTester tester,
   ) async {
     await signIn(tester);
@@ -2070,16 +1828,6 @@ void main() {
     await tester.pumpAndSettle();
     Navigator.of(tester.element(find.text('Clinic Location'))).pop();
     await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('profile-emergency-action')));
-    await tester.pumpAndSettle();
-    expect(find.text('Emergency Notice'), findsOneWidget);
-    expect(find.text('Call Clinic Now'), findsOneWidget);
-    expect(find.textContaining('should not be delayed'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('emergency-call-clinic-now')));
-    await tester.pumpAndSettle();
-    expect(find.text('Call Clinic Now?'), findsOneWidget);
-    expect(find.text('Confirm Call'), findsOneWidget);
   });
 
   testWidgets('profile adds a pet and opens the created pet profile', (
@@ -3327,188 +3075,6 @@ void main() {
     );
   });
 
-  testWidgets('submits and tracks a staff-managed emergency request', (
-    WidgetTester tester,
-  ) async {
-    EmergencyRequestStore.instance.clear();
-    await signIn(tester);
-
-    await tester.tap(find.byTooltip('Clinic'));
-    await tester.pumpAndSettle();
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1700));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('clinic-emergency-services-category')),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Emergency Notice'), findsOneWidget);
-    expect(find.text('Clinic Hours'), findsOneWidget);
-    expect(find.text('Emergency Contact'), findsOneWidget);
-    await tester.tap(find.text('Continue Emergency Request'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('emergency-pet-Max')));
-    await tester.pump();
-    await tester.tap(find.text('Select Emergency Symptoms'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('emergency-symptom-Breathing Difficulty')),
-    );
-    await tester.pump();
-    await tester.tap(find.text('Describe the Emergency'));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(
-      find.byKey(const ValueKey('emergency-description')),
-      'Max is breathing rapidly and appears weak.',
-    );
-    tester.testTextInput.hide();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Confirm Contact Details'));
-    await tester.pumpAndSettle();
-    expect(find.text('Contact Details'), findsOneWidget);
-    await tester.tap(find.text('Review Emergency Request'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Emergency Summary'), findsOneWidget);
-    expect(find.text('Breathing Difficulty'), findsOneWidget);
-    await tester.tap(find.text('Submit Emergency Request'));
-    await tester.pumpAndSettle();
-    expect(find.text('Emergency request submitted'), findsOneWidget);
-    expect(find.textContaining('Request ID: #ER'), findsOneWidget);
-    expect(
-      find.textContaining('Bring your pet to the clinic immediately.'),
-      findsOneWidget,
-    );
-    expect(
-      find.text('Clinic staff have been notified immediately.'),
-      findsOneWidget,
-    );
-
-    await tester.tap(find.text('Open Emergency Status'));
-    await tester.pumpAndSettle();
-    expect(find.text('Submitted'), findsOneWidget);
-    expect(
-      find.textContaining('Pet owners cannot change them manually.'),
-      findsOneWidget,
-    );
-
-    final request = EmergencyRequestStore.instance.requests.single;
-    EmergencyRequestStore.instance.staffUpdate(
-      request,
-      EmergencyStatus.underReview,
-      priority: 'Critical',
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Under Staff Review'), findsOneWidget);
-    expect(find.textContaining('Critical'), findsWidgets);
-
-    EmergencyRequestStore.instance.staffUpdate(
-      request,
-      EmergencyStatus.accepted,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Accepted by Clinic'), findsOneWidget);
-    expect(find.textContaining('clinic can accept'), findsOneWidget);
-
-    EmergencyRequestStore.instance.staffUpdate(
-      request,
-      EmergencyStatus.checkedIn,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Checked In'), findsOneWidget);
-    EmergencyRequestStore.instance.staffUpdate(
-      request,
-      EmergencyStatus.assessment,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Emergency Assessment'), findsOneWidget);
-    EmergencyRequestStore.instance.staffUpdate(
-      request,
-      EmergencyStatus.waiting,
-      priority: 'Critical',
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Emergency Queue'), findsOneWidget);
-    EmergencyRequestStore.instance.staffUpdate(
-      request,
-      EmergencyStatus.consultation,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Emergency Consultation'), findsOneWidget);
-
-    EmergencyRequestStore.instance.staffUpdate(
-      request,
-      EmergencyStatus.treatmentProposed,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Treatment Approval Required'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -800));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('approve-emergency-treatment')),
-    );
-    await tester.tap(find.byKey(const ValueKey('approve-emergency-treatment')));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Owner treatment consent has been recorded.'),
-      findsOneWidget,
-    );
-
-    EmergencyRequestStore.instance.staffUpdate(
-      request,
-      EmergencyStatus.treatmentInProgress,
-    );
-    await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, 900));
-    await tester.pumpAndSettle();
-    expect(find.text('Emergency Treatment'), findsOneWidget);
-    EmergencyRequestStore.instance.staffUpdate(
-      request,
-      EmergencyStatus.completed,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Completed'), findsOneWidget);
-
-    await tester.drag(find.byType(ListView), const Offset(0, -1000));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Open Medical Record'));
-    await tester.tap(find.text('Open Medical Record'));
-    await tester.pumpAndSettle();
-    expect(find.text('Emergency Medical Record'), findsOneWidget);
-    expect(find.text('Diagnosis'), findsOneWidget);
-    expect(find.text('Treatment'), findsOneWidget);
-    expect(find.text('Recommendations'), findsOneWidget);
-    Navigator.of(tester.element(find.text('Emergency Medical Record'))).pop();
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('Book Follow-up'));
-    await tester.tap(find.text('Book Follow-up'));
-    await tester.pumpAndSettle();
-    expect(find.text('Choose Pet'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
-    await tester.pumpAndSettle();
-    expect(find.text('Select Service'), findsOneWidget);
-    Navigator.of(tester.element(find.text('Select Service'))).pop();
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('Open Emergency History'));
-    await tester.tap(find.text('Open Emergency History'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('history-pet-Max')));
-    await tester.pumpAndSettle();
-    await tester.drag(
-      find.byType(SingleChildScrollView),
-      const Offset(-900, 0),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('history-category-emergency')));
-    await tester.pumpAndSettle();
-    expect(find.text('Emergency Service'), findsOneWidget);
-    expect(find.text('Completed'), findsOneWidget);
-  });
-
   testWidgets('Medical Services is a browse-only clinic catalog', (
     WidgetTester tester,
   ) async {
@@ -3618,10 +3184,6 @@ void main() {
     expect(find.textContaining('Popba Thiri Township'), findsOneWidget);
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('first-aid-emergency-service')));
-    await tester.pumpAndSettle();
-    expect(find.text('Emergency Service'), findsOneWidget);
   });
 
   testWidgets(
@@ -3711,13 +3273,6 @@ void main() {
 
       Navigator.of(tester.element(find.text('Chat with Clinic'))).pop();
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('contact-emergency-service')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('contact-emergency-service')));
-      await tester.pumpAndSettle();
-      expect(find.text('Emergency Notice'), findsOneWidget);
     },
   );
 

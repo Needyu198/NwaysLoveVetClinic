@@ -855,13 +855,6 @@ class StaffNotificationSettingsPage extends StatelessWidget {
                     onChanged: (v) => p.updateNotifications(appointment: v),
                   ),
                   _NotifSwitch(
-                    icon: Icons.emergency_outlined,
-                    title: 'Emergency alerts',
-                    subtitle: 'Urgent cases that need immediate action.',
-                    value: p.emergencyAlerts,
-                    onChanged: (v) => p.updateNotifications(emergency: v),
-                  ),
-                  _NotifSwitch(
                     icon: Icons.groups_rounded,
                     title: 'Queue alerts',
                     subtitle: 'Live queue and walk-in updates.',
