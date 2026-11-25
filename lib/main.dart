@@ -1,6 +1,7 @@
 import 'data/database_stores.dart';
 import 'data/database_status.dart';
 import 'data/firebase_service.dart';
+import 'data/clinic_api.dart';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -66,8 +67,9 @@ class NwayLoveVetClinicApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      builder: (context, child) =>
-          DatabaseStatus(child: child ?? const SizedBox()),
+      builder: (context, child) => DatabaseStatus(
+        child: _ClinicChatOverlay(child: child ?? const SizedBox()),
+      ),
       title: "Nway's Love Vet Clinic",
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -137,6 +139,81 @@ class NwayLoveVetClinicApp extends StatelessWidget {
         PetAddReminderPage.routeName: (context) => const PetAddReminderPage(),
         PetReminderPage.routeName: (context) => const PetReminderPage(),
       },
+    );
+  }
+}
+
+class _ClinicChatOverlay extends StatefulWidget {
+  const _ClinicChatOverlay({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ClinicChatOverlay> createState() => _ClinicChatOverlayState();
+}
+
+class _ClinicChatOverlayState extends State<_ClinicChatOverlay> {
+  double _right = 18;
+  double _bottom = 104;
+
+  @override
+  Widget build(BuildContext context) {
+    final api = ClinicApi.instance;
+    final showChat =
+        api.token != null && (api.role == 'petOwner' || api.role == 'staff');
+
+    return LayoutBuilder(
+      builder: (context, constraints) => Stack(
+        fit: StackFit.expand,
+        children: [
+          widget.child,
+          if (showChat)
+            Positioned(
+              right: _right.clamp(8, constraints.maxWidth - 68),
+              bottom: _bottom.clamp(8, constraints.maxHeight - 68),
+              child: GestureDetector(
+                key: const ValueKey('movable-clinic-chat-button'),
+                onPanUpdate: (details) {
+                  setState(() {
+                    _right = (_right - details.delta.dx).clamp(
+                      8,
+                      constraints.maxWidth - 68,
+                    );
+                    _bottom = (_bottom + details.delta.dy).clamp(
+                      8,
+                      constraints.maxHeight - 68,
+                    );
+                  });
+                },
+                child: Material(
+                  color: const Color(0xFFB8F1DB),
+                  elevation: 8,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ClinicAiChatPage(),
+                      ),
+                    ),
+                    child: const SizedBox(
+                      width: 60,
+                      height: 60,
+                      child: Tooltip(
+                        message: 'Clinic Assistant',
+                        child: Icon(
+                          Icons.forum_outlined,
+                          color: Color(0xFF164A39),
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
