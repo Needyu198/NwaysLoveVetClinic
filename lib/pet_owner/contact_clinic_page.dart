@@ -49,6 +49,14 @@ class ContactClinicPage extends StatelessWidget {
                 children: [
                   const _ClinicInformationCard(),
                   const SizedBox(height: 22),
+                  _ClinicAiChatCard(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ClinicAiChatPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
                   const Text(
                     'How would you like to contact us?',
                     style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
@@ -133,6 +141,237 @@ class ContactClinicPage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ClinicAiChatCard extends StatelessWidget {
+  const _ClinicAiChatCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xFFE5FFF5),
+    borderRadius: BorderRadius.circular(20),
+    child: InkWell(
+      key: const ValueKey('clinic-ai-chat-entry'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFB8F1DB),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.auto_awesome_rounded,
+                color: Color(0xFF167A58),
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ask the Clinic Assistant',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Get help with services, hours, and booking',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF52625C)),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class ClinicAiChatPage extends StatefulWidget {
+  const ClinicAiChatPage({super.key});
+
+  @override
+  State<ClinicAiChatPage> createState() => _ClinicAiChatPageState();
+}
+
+class _ClinicAiChatPageState extends State<ClinicAiChatPage> {
+  final _controller = TextEditingController();
+  final _scrollController = ScrollController();
+  final List<(String, bool)> _messages = [
+    (
+      "Hello! I'm the Nway's Love Vet Clinic assistant. I can help with clinic services, hours, and booking. What would you like to know?",
+      false,
+    ),
+  ];
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _send([String? prompt]) {
+    final message = (prompt ?? _controller.text).trim();
+    if (message.isEmpty) return;
+    setState(() {
+      _messages.add((message, true));
+      _messages.add((
+        "Thanks for your question. The clinic assistant will be connected when the AI service is configured. For medical advice or urgent concerns, please contact the clinic directly.",
+        false,
+      ));
+      _controller.clear();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: const Color(0xFFF7FAF9),
+    body: SafeArea(
+      child: Column(
+        children: [
+          const PetOwnerPageHeader(title: 'Clinic Assistant'),
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF4D6),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Text(
+              'For clinic information only. This assistant does not diagnose or prescribe. For emergencies, call the clinic or use Emergency Service.',
+              style: TextStyle(fontSize: 12.5, height: 1.35),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+              children: [
+                if (_messages.length == 1) ...[
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 14),
+                    child: Text(
+                      'You can ask about',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF52625C),
+                      ),
+                    ),
+                  ),
+                  _suggestion('What services do you offer?'),
+                  _suggestion('How do I book an appointment?'),
+                  _suggestion('What are the clinic hours?'),
+                  const SizedBox(height: 18),
+                ],
+                for (final (text, isUser) in _messages)
+                  Align(
+                    alignment: isUser
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.sizeOf(context).width * .82,
+                      ),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isUser ? const Color(0xFFB8F1DB) : Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x10000000),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(text, style: const TextStyle(height: 1.35)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('clinic-ai-chat-input'),
+                      controller: _controller,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _send(),
+                      decoration: InputDecoration(
+                        hintText: 'Ask a question…',
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(28),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    key: const ValueKey('clinic-ai-chat-send'),
+                    onPressed: _send,
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF9BE6C8),
+                      foregroundColor: const Color(0xFF123D2E),
+                    ),
+                    icon: const Icon(Icons.send_rounded),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _suggestion(String text) => Align(
+    alignment: Alignment.centerLeft,
+    child: Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ActionChip(
+        label: Text(text),
+        onPressed: () => _send(text),
+        backgroundColor: Colors.white,
+        side: const BorderSide(color: Color(0xFFDCE8E4)),
+      ),
+    ),
+  );
 }
 
 class ClinicConversationPage extends StatefulWidget {
