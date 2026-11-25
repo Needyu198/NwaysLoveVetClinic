@@ -159,8 +159,15 @@ class _ClinicChatOverlayState extends State<_ClinicChatOverlay> {
   @override
   Widget build(BuildContext context) {
     final api = ClinicApi.instance;
-    final showChat =
+    final route = Uri.decodeComponent(Uri.base.fragment).toLowerCase();
+    final signedInRole =
         api.token != null && (api.role == 'petOwner' || api.role == 'staff');
+    // Web deep links can restore an owner/staff page before the in-memory API
+    // session has been rehydrated. The assistant currently contains no
+    // account-specific data, so allow the shortcut on those app routes too.
+    final ownerOrStaffRoute =
+        route.startsWith('/pet-owner') || route.startsWith('/staff');
+    final showChat = signedInRole || ownerOrStaffRoute;
 
     return LayoutBuilder(
       builder: (context, constraints) => Stack(
@@ -201,10 +208,33 @@ class _ClinicChatOverlayState extends State<_ClinicChatOverlay> {
                       height: 60,
                       child: Tooltip(
                         message: 'Clinic Assistant',
-                        child: Icon(
-                          Icons.forum_outlined,
-                          color: Color(0xFF164A39),
-                          size: 28,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(
+                              Icons.pets_rounded,
+                              color: Color(0xFF164A39),
+                              size: 31,
+                            ),
+                            Positioned(
+                              right: 7,
+                              bottom: 7,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Color(0xFFFFFEFB),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Padding(
+                                  padding: EdgeInsets.all(2),
+                                  child: Icon(
+                                    Icons.chat_bubble_rounded,
+                                    color: Color(0xFF164A39),
+                                    size: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
