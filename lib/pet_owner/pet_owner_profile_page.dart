@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'appointment_booking_page.dart';
-import 'emergency_service_page.dart';
 import 'pet_owner_clinic_page.dart';
 import 'pet_owner_home_page.dart';
 import 'pet_image.dart';
@@ -378,18 +377,6 @@ class _QuickActions extends StatelessWidget {
       const SizedBox(height: 12),
       Row(
         children: [
-          Expanded(
-            child: _QuickActionCard(
-              key: const ValueKey('profile-emergency-action'),
-              icon: Icons.phone_in_talk_rounded,
-              label: 'Emergency',
-              color: const Color(0xFFFF000F),
-              onTap: () => Navigator.of(
-                context,
-              ).pushNamed(EmergencyServicePage.routeName),
-            ),
-          ),
-          const SizedBox(width: 16),
           Expanded(
             child: _QuickActionCard(
               key: const ValueKey('profile-location-action'),

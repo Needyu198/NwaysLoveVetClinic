@@ -78,14 +78,6 @@ class StaffManagementPage extends StatelessWidget {
                 onTap: () => _push(context, const StaffMedicalRecordsPage()),
               ),
               _ManagementCard(
-                title: 'Emergency Cases',
-                subtitle: 'Review and coordinate urgent care',
-                icon: Icons.emergency_rounded,
-                imageAsset: 'assets/photos/icon/clinic_emergency.png',
-                color: const Color(0xFFFFC7C9),
-                onTap: () => _push(context, const StaffEmergencyPage()),
-              ),
-              _ManagementCard(
                 title: 'Home Visits',
                 subtitle: 'Verify and coordinate visits',
                 icon: Icons.home_work_rounded,

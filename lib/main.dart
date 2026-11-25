@@ -14,7 +14,6 @@ import 'login/staff_auth_api.dart';
 import 'staff/staff_portal.dart';
 import 'pet_owner/appointment_booking_page.dart';
 import 'pet_owner/contact_clinic_page.dart';
-import 'pet_owner/emergency_service_page.dart';
 import 'pet_owner/first_aid_information_page.dart';
 import 'pet_owner/home_visit_booking_page.dart';
 import 'pet_owner/history_page.dart';
@@ -122,10 +121,6 @@ class NwayLoveVetClinicApp extends StatelessWidget {
         MyAppointmentsPage.routeName: (context) => const MyAppointmentsPage(),
         MyQueuePage.routeName: (context) => const MyQueuePage(),
         QueueHistoryPage.routeName: (context) => const QueueHistoryPage(),
-        EmergencyServicePage.routeName: (context) =>
-            const EmergencyServicePage(),
-        MyEmergencyRequestsPage.routeName: (context) =>
-            const MyEmergencyRequestsPage(),
         FirstAidInformationPage.routeName: (context) =>
             const FirstAidInformationPage(),
         HistoryPage.routeName: (context) => const HistoryPage(),

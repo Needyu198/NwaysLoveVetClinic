@@ -125,18 +125,6 @@ class _StaffMessagesPageState extends State<StaffMessagesPage> {
                                     ),
                                     child: const Text('Forward'),
                                   ),
-                                  if (message.category ==
-                                      ContactCategory.emergency)
-                                    TextButton(
-                                      onPressed: () => _push(
-                                        context,
-                                        const StaffEmergencyPage(),
-                                      ),
-                                      child: const Text(
-                                        'Escalate',
-                                        style: TextStyle(color: _red),
-                                      ),
-                                    ),
                                 ],
                               ),
                             ),

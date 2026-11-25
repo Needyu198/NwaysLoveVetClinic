@@ -18,6 +18,8 @@ async function ensureDatabaseSchema(database = pool, schema = dbSchema) {
     // database role begins with an empty search_path (Render error 3F000).
     await client.query(`CREATE SCHEMA IF NOT EXISTS ${selectedSchema}`);
     await client.query(`SET LOCAL search_path TO ${selectedSchema}`);
+    // SP2 removed the emergency-request workflow; remove its dedicated data.
+    await client.query('DROP TABLE IF EXISTS emergency_requests');
     await client.query(`CREATE TABLE IF NOT EXISTS pet_owners (
       id SERIAL PRIMARY KEY, username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL, full_name TEXT,

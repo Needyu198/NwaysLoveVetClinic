@@ -12,6 +12,7 @@ import 'pet_owner_nav_bar.dart';
 import 'pet_owner_profile_page.dart';
 import 'pet_profile_page.dart';
 import 'pet_products_page.dart';
+import 'contact_clinic_page.dart';
 
 class PetOwnerHomePage extends StatelessWidget {
   const PetOwnerHomePage({super.key});
@@ -160,11 +161,35 @@ class _HomeContentState extends State<_HomeContent> {
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 124),
           sliver: SliverList.list(
             children: [
-              _SectionTitle(
-                title: 'Reminders',
-                subtitle: 'Care tasks',
-                onSeeAll: () =>
-                    Navigator.of(context).pushNamed(PetReminderPage.routeName),
+              Row(
+                children: [
+                  Expanded(
+                    child: _SectionTitle(
+                      title: 'Reminders',
+                      subtitle: 'Care tasks',
+                      onSeeAll: () => Navigator.of(context)
+                          .pushNamed(PetReminderPage.routeName),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Material(
+                    color: const Color(0xFFB8F1DB),
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      key: const ValueKey('home-clinic-ai-chat'),
+                      tooltip: 'Chat with Clinic Assistant',
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ClinicAiChatPage(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.forum_outlined, size: 27),
+                      color: const Color(0xFF164A39),
+                      iconSize: 28,
+                      padding: const EdgeInsets.all(20),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 14),
               if (reminders.isEmpty)

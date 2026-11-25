@@ -2,7 +2,6 @@ import 'clinic_directory.dart';
 import '../doctor/doctor_portal.dart';
 import '../pet_owner/appointment_booking_page.dart';
 import '../pet_owner/contact_clinic_page.dart';
-import '../pet_owner/emergency_service_page.dart';
 import '../pet_owner/first_aid_information_page.dart';
 import '../pet_owner/history_page.dart';
 import '../pet_owner/home_visit_booking_page.dart';
@@ -27,7 +26,6 @@ void registerDatabaseStores() {
   QueueStore.instance.connectDatabase();
   HomeVisitStore.instance.connectDatabase();
   PetCareBookingStore.instance.connectDatabase();
-  EmergencyRequestStore.instance.connectDatabase();
   ReminderStore.instance.connectDatabase();
   OwnerNotificationStore.instance.connectDatabase();
   ContactClinicStore.instance.connectDatabase();

@@ -12,7 +12,6 @@ const resources = {
   queue_entries: { roles: owner, scope: 'owner', writers: [] },
   home_visits: { roles: owner, scope: 'owner' },
   pet_care_bookings: { roles: owner, scope: 'owner' },
-  emergency_requests: { roles: owner, scope: 'owner' },
   reminders: { roles: owner, scope: 'owner' },
   owner_notifications: { roles: owner, scope: 'owner' },
   clinic_messages: { roles: owner, scope: 'owner' },

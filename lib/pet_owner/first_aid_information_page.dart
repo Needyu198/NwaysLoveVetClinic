@@ -2,7 +2,6 @@ import '../data/database_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'emergency_service_page.dart';
 import 'clinic_phone.dart';
 import 'contact_clinic_page.dart';
 import 'pet_owner_page_header.dart';
@@ -280,17 +279,17 @@ class _FirstAidGuidePageState extends State<FirstAidGuidePage> {
                   ],
                   const SizedBox(height: 16),
                   FilledButton.icon(
-                    key: const ValueKey('first-aid-emergency-service'),
+                    key: const ValueKey('first-aid-contact-clinic'),
                     style: FilledButton.styleFrom(
                       backgroundColor: _firstAidRed,
                       foregroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(52),
                     ),
-                    onPressed: () => Navigator.of(
-                      context,
-                    ).pushNamed(EmergencyServicePage.routeName),
-                    icon: const Icon(Icons.emergency_rounded),
-                    label: const Text('Open Emergency Service'),
+                    onPressed: () => Navigator.of(context).pushNamed(
+                      ContactClinicPage.routeName,
+                    ),
+                    icon: const Icon(Icons.call_rounded),
+                    label: const Text('Contact Clinic'),
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -844,14 +843,15 @@ class _EmergencyNotice extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
-            onPressed: () =>
-                Navigator.of(context).pushNamed(EmergencyServicePage.routeName),
+            onPressed: () => Navigator.of(
+              context,
+            ).pushNamed(ContactClinicPage.routeName),
             style: FilledButton.styleFrom(
               backgroundColor: _firstAidRed,
               foregroundColor: Colors.white,
             ),
-            icon: const Icon(Icons.emergency_rounded),
-            label: const Text('Emergency Service'),
+            icon: const Icon(Icons.call_rounded),
+            label: const Text('Contact Clinic'),
           ),
         ],
       ),

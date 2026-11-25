@@ -64,12 +64,6 @@ class PetOwnerClinicPage extends StatelessWidget {
 
   static const _secondaryServices = [
     _ClinicService(
-      'Emergency Services',
-      Icons.emergency_outlined,
-      'Find urgent care information and emergency contact options.',
-      imageAsset: 'assets/photos/icon/clinic_emergency.png',
-    ),
-    _ClinicService(
       'History',
       Icons.history_rounded,
       'Review previous visits, prescriptions, and vaccination records.',
@@ -747,8 +741,6 @@ class _ServiceItem extends StatelessWidget {
             ? const ValueKey('clinic-medical-services-category')
             : service.title == 'History'
             ? const ValueKey('clinic-history-category')
-            : service.title == 'Emergency Services'
-            ? const ValueKey('clinic-emergency-services-category')
             : service.title == 'First Aid Info'
             ? const ValueKey('clinic-first-aid-category')
             : service.title == 'Contact Clinic'
@@ -777,10 +769,6 @@ class _ServiceItem extends StatelessWidget {
           }
           if (service.title == 'History') {
             Navigator.of(context).pushNamed(HistoryPage.routeName);
-            return;
-          }
-          if (service.title == 'Emergency Services') {
-            Navigator.of(context).pushNamed(EmergencyServicePage.routeName);
             return;
           }
           if (service.title == 'First Aid Info') {

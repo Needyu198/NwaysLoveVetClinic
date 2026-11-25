@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import '../data/clinic_api.dart';
 import '../data/database_sync.dart';
 import '../doctor/doctor_portal.dart';
-import 'emergency_service_page.dart';
 import 'pet_image.dart';
 import 'pet_owner_home_page.dart';
 import 'pet_reminder_page.dart';
@@ -216,8 +215,6 @@ class _PetProfilePageState extends State<PetProfilePage> {
                     },
                   ),
                   const SizedBox(height: 26),
-                  const _EmergencyButton(),
-                  const SizedBox(height: 34),
                 ],
               ),
             ),

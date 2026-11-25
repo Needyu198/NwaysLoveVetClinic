@@ -3,7 +3,6 @@ import '../data/clinic_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'emergency_service_page.dart';
 import 'clinic_phone.dart';
 import 'pet_owner_page_header.dart';
 
@@ -87,52 +86,6 @@ class ContactClinicPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 22),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFECEC),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFFFCACA)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.emergency_rounded, color: _contactRed),
-                            SizedBox(width: 9),
-                            Expanded(
-                              child: Text(
-                                'Is your pet seriously ill or injured?',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Call the clinic or submit an Emergency Service request immediately.',
-                          style: TextStyle(height: 1.35),
-                        ),
-                        const SizedBox(height: 12),
-                        FilledButton.icon(
-                          key: const ValueKey('contact-emergency-service'),
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pushNamed(EmergencyServicePage.routeName),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: _contactRed,
-                            foregroundColor: Colors.white,
-                          ),
-                          icon: const Icon(Icons.open_in_new_rounded),
-                          label: const Text('Emergency Service'),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -226,7 +179,7 @@ class _ClinicAiChatPageState extends State<ClinicAiChatPage> {
     setState(() {
       _messages.add((message, true));
       _messages.add((
-        "Thanks for your question. The clinic assistant will be connected when the AI service is configured. For medical advice or urgent concerns, please contact the clinic directly.",
+        "Thanks for your question. The clinic assistant will be connected when the AI service is configured. For medical advice, please contact the clinic directly.",
         false,
       ));
       _controller.clear();
@@ -258,7 +211,7 @@ class _ClinicAiChatPageState extends State<ClinicAiChatPage> {
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Text(
-              'For clinic information only. This assistant does not diagnose or prescribe. For emergencies, call the clinic or use Emergency Service.',
+              'For clinic information only. This assistant does not diagnose or prescribe. For medical advice, please contact the clinic.',
               style: TextStyle(fontSize: 12.5, height: 1.35),
             ),
           ),
