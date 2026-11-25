@@ -808,54 +808,6 @@ class _MedicalCard extends StatelessWidget {
   }
 }
 
-class _EmergencyButton extends StatelessWidget {
-  const _EmergencyButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 94,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x33FF1E17),
-            blurRadius: 18,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: FilledButton(
-        key: const ValueKey('pet-profile-emergency-button'),
-        onPressed: () =>
-            Navigator.of(context).pushNamed(EmergencyServicePage.routeName),
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFFFF1E17),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.emergency_rounded, size: 38),
-            SizedBox(width: 12),
-            Text(
-              'Emergency',
-              style: TextStyle(
-                fontSize: 27,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _SectionPanel extends StatelessWidget {
   const _SectionPanel({required this.child});
 
